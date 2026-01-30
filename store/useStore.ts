@@ -22,6 +22,11 @@ interface AppState {
   activeTab: number
   setActiveTab: (tab: number) => void
 
+  // Chart mode
+  chartMode: boolean
+  setChartMode: (enabled: boolean) => void
+  toggleChartMode: () => void
+
   // Alerts
   alerts: Alert[]
   addAlert: (alert: Alert) => void
@@ -104,6 +109,11 @@ export const useStore = create<AppState>()(
       setSelectedWatchlistId: (selectedWatchlistId) => set({ selectedWatchlistId }),
       activeTab: 0,
       setActiveTab: (activeTab) => set({ activeTab }),
+
+      // Chart mode
+      chartMode: false,
+      setChartMode: (chartMode) => set({ chartMode }),
+      toggleChartMode: () => set((state) => ({ chartMode: !state.chartMode })),
 
       // Alerts
       alerts: [],

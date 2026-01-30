@@ -7,6 +7,7 @@ import { AlertsPage } from '@/components/AlertsPage'
 import { ScannerPage } from '@/components/ScannerPage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
+import { ChartPanel } from '@/components/ChartPanel'
 import { clsx } from 'clsx'
 
 const TABS = [
@@ -18,7 +19,7 @@ const TABS = [
 ]
 
 export default function Home() {
-  const { activeTab, setActiveTab, setActivePane } = useStore()
+  const { activeTab, setActiveTab, setActivePane, chartMode, toggleChartMode, selectedSymbol } = useStore()
 
   // Clear pane focus when clicking on header/tabs
   const handleHeaderClick = () => {
@@ -53,6 +54,29 @@ export default function Home() {
             </button>
           ))}
         </nav>
+
+        {/* Chart Toggle */}
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleChartMode()
+          }}
+          className={clsx(
+            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all',
+            chartMode
+              ? 'bg-blue-600 text-white'
+              : 'glass-btn text-gray-400 hover:text-white'
+          )}
+          title={chartMode ? 'Hide chart' : 'Show chart'}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+          </svg>
+          <span>Chart</span>
+          {chartMode && selectedSymbol && (
+            <span className="text-xs opacity-75">({selectedSymbol})</span>
+          )}
+        </button>
       </header>
 
       {/* Main Content */}
@@ -66,6 +90,9 @@ export default function Home() {
 
       {/* Alert Bar - at bottom */}
       <AlertBar />
+
+      {/* Floating Chart Panel */}
+      <ChartPanel />
 
       {/* Keyboard shortcuts hint */}
       <footer
