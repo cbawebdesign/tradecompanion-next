@@ -54,11 +54,13 @@ export function useSignalR() {
     const allSymbols = [...watchlistSymbols, ...flaggedArray]
     const uniqueSymbols = Array.from(new Set(allSymbols))
 
-    // Subscribe one at a time (that's how SubL1 works on the server)
+    // Subscribe one at a time with delay to avoid rate limiting (429)
     for (const symbol of uniqueSymbols) {
       try {
         await connection.invoke('SubL1', symbol)
         console.log('Subscribed to:', symbol)
+        // Small delay between subscriptions to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100))
       } catch (err) {
         console.error('Failed to subscribe to', symbol, err)
       }
