@@ -4,6 +4,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useCrossWindowSync } from '@/hooks/useCrossWindowSync'
 import { useQuoteReceiver } from '@/hooks/useQuoteBroadcast'
+import { useStore } from '@/store/useStore'
+
+// Apply theme on mount and when it changes
+function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const theme = useStore((s) => s.config.theme)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme || 'blue')
+  }, [theme])
+
+  return <>{children}</>
+}
 
 // Lightweight provider for pop-out windows
 // Receives quotes from main window via BroadcastChannel
@@ -37,9 +49,11 @@ export function PopoutProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <PopoutSyncProvider>
-        {children}
-      </PopoutSyncProvider>
+      <ThemeProvider>
+        <PopoutSyncProvider>
+          {children}
+        </PopoutSyncProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }

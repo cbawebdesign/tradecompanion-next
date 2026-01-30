@@ -13,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-gray-900 text-gray-100 min-h-screen">
+    <html lang="en" className="dark" data-theme="blue">
+      <body className="min-h-screen" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
         <Providers>
           {children}
         </Providers>

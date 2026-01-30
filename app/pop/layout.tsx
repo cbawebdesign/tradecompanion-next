@@ -8,8 +8,8 @@ import '../globals.css'
 // Does NOT run polling hooks (to avoid duplicate alerts)
 export default function PopLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-gray-900 text-gray-100 h-screen overflow-hidden">
+    <html lang="en" className="dark" data-theme="blue">
+      <body className="h-screen overflow-hidden" style={{ background: 'var(--bg-base)', color: 'var(--text-primary)' }}>
         <PopoutProviders>
           {children}
         </PopoutProviders>

@@ -99,14 +99,14 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     <div
       ref={containerRef}
       className={clsx(
-        'flex flex-col h-full border-2 transition-colors',
-        isActive ? 'border-blue-500' : 'border-transparent'
+        'glass-panel rounded-lg flex flex-col h-full transition-all duration-200',
+        isActive ? 'pane-active' : 'pane-inactive'
       )}
     >
       {/* Header */}
-      <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
+      <div className="px-3 py-2 glass-header rounded-t-lg flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-gray-300">Alerts</h3>
+          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Alerts</h3>
           {/* Wrench icon to toggle config */}
           <button
             onClick={() => setShowConfig(!showConfig)}
@@ -134,15 +134,15 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
 
       {/* Alert Config Section - Collapsible */}
       {showConfig && (
-        <div className="border-b border-gray-700 max-h-[45%] overflow-auto">
+        <div className="max-h-[45%] overflow-auto" style={{ borderBottom: '1px solid var(--border-glass)' }}>
           <AlertConfig />
         </div>
       )}
 
       {/* Flagged Symbols Header */}
-      <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex-shrink-0">
-        <h3 className="text-sm font-semibold text-gray-300">Flagged Symbols</h3>
-        <p className="text-xs text-gray-500">{flaggedList.length} flagged</p>
+      <div className="px-3 py-2 flex-shrink-0" style={{ background: 'var(--bg-glass-light)', borderBottom: '1px solid var(--border-glass)' }}>
+        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Flagged Symbols</h3>
+        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{flaggedList.length} flagged</p>
       </div>
 
       {/* Main Content - LEFT/RIGHT Split */}
@@ -222,7 +222,10 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
 
         {/* Vertical Resize Handle */}
         <div
-          className="w-1 bg-gray-700 hover:bg-blue-500 cursor-col-resize flex-shrink-0"
+          className="w-1 cursor-col-resize flex-shrink-0 transition-colors"
+          style={{ background: 'var(--border-glass)' }}
+          onMouseEnter={(e) => (e.target as HTMLElement).style.background = 'var(--accent-primary)'}
+          onMouseLeave={(e) => (e.target as HTMLElement).style.background = 'var(--border-glass)'}
           onMouseDown={(e) => {
             e.preventDefault()
             const startX = e.clientX
@@ -249,9 +252,9 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
         />
 
         {/* RIGHT PANE - Alerts for Selected Symbol */}
-        <div className="flex flex-col bg-gray-800/50 overflow-hidden" style={{ width: `${100 - splitPercent}%` }}>
-          <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex-shrink-0">
-            <h3 className="text-sm font-semibold text-gray-400">
+        <div className="flex flex-col overflow-hidden" style={{ width: `${100 - splitPercent}%`, background: 'var(--bg-glass-light)' }}>
+          <div className="px-3 py-2 glass-header flex-shrink-0">
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
               Alerts for {selectedSymbol || '—'}
               {selectedSymbol && <span className="text-xs text-gray-500 ml-2">({symbolAlerts.length})</span>}
             </h3>

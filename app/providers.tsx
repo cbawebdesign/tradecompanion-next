@@ -9,6 +9,18 @@ import { usePrevCloses } from '@/hooks/usePrevCloses'
 import { usePriceAlerts } from '@/hooks/usePriceAlerts'
 import { useCrossWindowSync } from '@/hooks/useCrossWindowSync'
 import { useQuoteBroadcaster } from '@/hooks/useQuoteBroadcast'
+import { useStore } from '@/store/useStore'
+
+// Apply theme on mount and when it changes
+function ThemeProvider({ children }: { children: React.ReactNode }) {
+  const theme = useStore((s) => s.config.theme)
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme || 'blue')
+  }, [theme])
+
+  return <>{children}</>
+}
 
 function SignalRProvider({ children }: { children: React.ReactNode }) {
   useSignalR()
@@ -44,9 +56,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <SignalRProvider>
-        {children}
-      </SignalRProvider>
+      <ThemeProvider>
+        <SignalRProvider>
+          {children}
+        </SignalRProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   )
 }

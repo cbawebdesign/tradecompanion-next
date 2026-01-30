@@ -180,10 +180,10 @@ export function ScannerPage({ isPopout = false }: ScannerPageProps) {
     return (
       <div
         key={bucket}
-        className="flex-1 min-w-[180px] mx-1 bg-gray-900 rounded-md overflow-hidden"
+        className="flex-1 min-w-[180px] mx-1 glass-card rounded-lg overflow-hidden"
       >
         {/* Bucket header */}
-        <div className="px-2 py-1.5 bg-gray-800 border-b border-gray-700 text-center font-bold text-sm">
+        <div className="px-2 py-1.5 glass-header text-center font-bold text-sm">
           {BUCKET_LABELS[bucket]}
         </div>
 
@@ -240,16 +240,17 @@ export function ScannerPage({ isPopout = false }: ScannerPageProps) {
       <div
         key={session}
         className={clsx(
-          'mb-3 rounded-lg overflow-hidden',
-          isCurrent ? 'border-2 border-blue-600' : 'border border-gray-700'
+          'mb-3 rounded-lg overflow-hidden glass-card',
+          isCurrent && 'glow-accent'
         )}
+        style={{ border: isCurrent ? '2px solid var(--accent-primary)' : '1px solid var(--border-glass)' }}
       >
         {/* Session header */}
         <div
           onClick={() => toggleSession(session)}
           className={clsx(
-            'px-4 py-2.5 cursor-pointer flex items-center gap-3 select-none',
-            isCurrent ? 'bg-blue-900/30' : 'bg-gray-800'
+            'px-4 py-2.5 cursor-pointer flex items-center gap-3 select-none glass-header',
+            isCurrent && 'bg-blue-900/20'
           )}
         >
           <span className="text-lg">
@@ -270,7 +271,7 @@ export function ScannerPage({ isPopout = false }: ScannerPageProps) {
 
         {/* Session content - buckets */}
         {!isCollapsed && (
-          <div className="p-2.5 flex overflow-x-auto bg-gray-900/50">
+          <div className="p-2.5 flex overflow-x-auto" style={{ background: 'var(--bg-glass-light)' }}>
             {BUCKET_ORDER.map(bucket => renderBucketColumn(session, bucket))}
           </div>
         )}
@@ -282,12 +283,12 @@ export function ScannerPage({ isPopout = false }: ScannerPageProps) {
     <div
       ref={containerRef}
       className={clsx(
-        'flex flex-col h-full border-2 transition-colors',
-        isActive ? 'border-blue-500' : 'border-transparent'
+        'glass-panel rounded-lg flex flex-col h-full transition-all duration-200',
+        isActive ? 'pane-active' : 'pane-inactive'
       )}
     >
       {/* Header */}
-      <div className="px-4 py-2.5 border-b border-gray-700 flex items-center gap-3 flex-shrink-0 bg-gray-800">
+      <div className="px-4 py-2.5 glass-header rounded-t-lg flex items-center gap-3 flex-shrink-0">
         <span className="font-bold text-lg">Scanner Leaderboard</span>
         <span className="text-gray-500">
           ({scannerAlerts.length} total alerts)

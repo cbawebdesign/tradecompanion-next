@@ -180,10 +180,10 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
       <div
         ref={containerRef}
         className={clsx(
-          'bg-gray-800/50 border-2 px-4 py-2 text-sm text-gray-500 transition-colors',
-          isActive ? 'border-blue-500' : 'border-gray-700'
+          'glass-panel rounded-lg px-4 py-2 text-sm transition-all duration-200',
+          isActive ? 'pane-active' : 'pane-inactive'
         )}
-        style={{ height: config.alertBarHeight }}
+        style={{ height: config.alertBarHeight, color: 'var(--text-muted)' }}
       >
         No alerts yet. Alerts will appear here in real-time.
       </div>
@@ -194,13 +194,13 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     <div
       ref={containerRef}
       className={clsx(
-        'bg-gray-800/50 border-2 flex flex-col transition-colors',
-        isActive ? 'border-blue-500' : 'border-gray-700'
+        'glass-panel rounded-lg flex flex-col transition-all duration-200',
+        isActive ? 'pane-active' : 'pane-inactive'
       )}
       style={{ height: config.alertBarHeight }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-1 bg-gray-800 border-b border-gray-700 flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-1 glass-header rounded-t-lg flex-shrink-0">
         <span className="text-xs text-gray-400">
           {visibleAlerts.length} alert{visibleAlerts.length !== 1 ? 's' : ''}
           {hiddenAlertIds.size > 0 && ` (${hiddenAlertIds.size} hidden)`}
@@ -326,7 +326,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
       {contextMenu.visible && contextMenu.alert && (
         <div
           ref={contextMenuRef}
-          className="fixed bg-gray-800 border border-gray-600 rounded shadow-lg py-1 z-50 min-w-[160px]"
+          className="fixed glass-panel rounded-lg shadow-2xl py-1 z-50 min-w-[160px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           <button

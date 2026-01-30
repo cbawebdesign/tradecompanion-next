@@ -93,6 +93,9 @@ export interface ScannerAlert {
   timestamp: string
 }
 
+// Theme type
+export type AppTheme = 'dark' | 'blue' | 'wallst'
+
 // Config types
 export interface AppConfig {
   tradingViewId: string
@@ -103,6 +106,7 @@ export interface AppConfig {
   watchlistSplitPercent: number
   marketCapMin: number
   marketCapMax: number
+  theme: AppTheme
 }
 
 // SignalR connection state

@@ -2,7 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================
+   THEME SYSTEM - CSS Variables
+   ============================================ */
+
 :root {
+  /* Alert colors */
   --alert-green: #4caf50;
   --alert-red: #f44336;
   --alert-yellow: #ffeb3b;
@@ -11,30 +16,172 @@
   --alert-orange: #ff9800;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+/* Dark theme (default) - Blue tinted dark */
+[data-theme="dark"], .dark {
+  --bg-base: #0a0e17;
+  --bg-primary: #111827;
+  --bg-secondary: #1f2937;
+  --bg-tertiary: #374151;
+  --bg-glass: rgba(17, 24, 39, 0.7);
+  --bg-glass-light: rgba(31, 41, 55, 0.5);
+  --border-primary: rgba(75, 85, 99, 0.5);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --text-primary: #f3f4f6;
+  --text-secondary: #9ca3af;
+  --text-muted: #6b7280;
+  --accent-primary: #3b82f6;
+  --accent-glow: rgba(59, 130, 246, 0.3);
+  --shadow-color: rgba(0, 0, 0, 0.5);
 }
 
-/* Custom scrollbar */
+/* Wall St theme - Black and green trading terminal */
+[data-theme="wallst"] {
+  --bg-base: #000000;
+  --bg-primary: #0a0a0a;
+  --bg-secondary: #141414;
+  --bg-tertiary: #1f1f1f;
+  --bg-glass: rgba(10, 10, 10, 0.85);
+  --bg-glass-light: rgba(20, 20, 20, 0.6);
+  --border-primary: rgba(34, 197, 94, 0.3);
+  --border-glass: rgba(34, 197, 94, 0.15);
+  --text-primary: #22c55e;
+  --text-secondary: #4ade80;
+  --text-muted: #166534;
+  --accent-primary: #22c55e;
+  --accent-glow: rgba(34, 197, 94, 0.4);
+  --shadow-color: rgba(0, 0, 0, 0.8);
+}
+
+/* Blue theme - Deep blue trading terminal */
+[data-theme="blue"] {
+  --bg-base: #020617;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
+  --bg-tertiary: #334155;
+  --bg-glass: rgba(15, 23, 42, 0.75);
+  --bg-glass-light: rgba(30, 41, 59, 0.5);
+  --border-primary: rgba(71, 85, 105, 0.5);
+  --border-glass: rgba(96, 165, 250, 0.15);
+  --text-primary: #e0f2fe;
+  --text-secondary: #93c5fd;
+  --text-muted: #64748b;
+  --accent-primary: #38bdf8;
+  --accent-glow: rgba(56, 189, 248, 0.3);
+  --shadow-color: rgba(0, 0, 0, 0.6);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+}
+
+/* ============================================
+   GLASSMORPHISM UTILITY CLASSES
+   ============================================ */
+
+/* Glass panel - main containers */
+.glass-panel {
+  background: var(--bg-glass);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-glass);
+  box-shadow:
+    0 8px 32px var(--shadow-color),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+/* Glass card - smaller cards/items */
+.glass-card {
+  background: var(--bg-glass-light);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-glass);
+  box-shadow: 0 4px 16px var(--shadow-color);
+}
+
+/* Glass header - for panel headers */
+.glass-header {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border-glass);
+}
+
+/* Glass input */
+.glass-input {
+  background: rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--border-glass);
+  transition: all 0.2s ease;
+}
+
+.glass-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* Glass button */
+.glass-btn {
+  background: var(--bg-glass-light);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid var(--border-glass);
+  transition: all 0.2s ease;
+}
+
+.glass-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Glow effect for active/focused elements */
+.glow-accent {
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+/* Subtle gradient overlay for depth */
+.gradient-overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.03) 0%,
+    rgba(255, 255, 255, 0) 50%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+}
+
+/* ============================================
+   CUSTOM SCROLLBAR - Themed
+   ============================================ */
+
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #1f2937;
+  background: var(--bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: var(--border-primary);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: var(--text-muted);
 }
 
-/* Table styles */
+/* ============================================
+   TABLE STYLES - Glassmorphism
+   ============================================ */
+
 .table-container {
   @apply overflow-auto;
 }
@@ -44,72 +191,140 @@ table {
 }
 
 th {
-  @apply sticky top-0 bg-gray-800 text-left px-3 py-2 text-sm font-semibold text-gray-300 border-b border-gray-700;
+  @apply sticky top-0 text-left px-3 py-2 text-sm font-semibold border-b;
+  background: var(--bg-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: var(--text-secondary);
+  border-color: var(--border-glass);
 }
 
 td {
-  @apply px-3 py-2 text-sm border-b border-gray-800;
+  @apply px-3 py-2 text-sm;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.03);
 }
 
 tr:hover {
-  @apply bg-gray-800/50;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 tr.selected {
-  @apply bg-blue-900/30;
+  background: var(--accent-glow);
 }
 
-/* Price colors */
+/* ============================================
+   PRICE COLORS
+   ============================================ */
+
 .price-up {
   @apply text-green-400;
+  text-shadow: 0 0 8px rgba(74, 222, 128, 0.3);
 }
 
 .price-down {
   @apply text-red-400;
+  text-shadow: 0 0 8px rgba(248, 113, 113, 0.3);
 }
 
 .price-neutral {
-  @apply text-gray-400;
+  color: var(--text-muted);
 }
 
-/* Tab styles */
+/* ============================================
+   TAB STYLES - Glassmorphism
+   ============================================ */
+
 .tab {
-  @apply px-4 py-2 text-sm font-medium text-gray-400 border-b-2 border-transparent cursor-pointer transition-colors;
+  @apply px-4 py-2 text-sm font-medium border-b-2 border-transparent cursor-pointer transition-all duration-200;
+  color: var(--text-muted);
 }
 
 .tab:hover {
-  @apply text-gray-200;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .tab.active {
-  @apply text-blue-400 border-blue-400;
+  color: var(--accent-primary);
+  border-color: var(--accent-primary);
+  background: var(--accent-glow);
 }
 
-/* Input styles */
+/* ============================================
+   INPUT STYLES - Glassmorphism
+   ============================================ */
+
 input[type="text"],
 input[type="number"],
-input[type="password"] {
-  @apply bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500;
+input[type="password"],
+select {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-glass);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  transition: all 0.2s ease;
 }
 
-/* Button styles */
+input[type="text"]:focus,
+input[type="number"]:focus,
+input[type="password"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* ============================================
+   BUTTON STYLES - Glassmorphism
+   ============================================ */
+
 .btn {
-  @apply px-4 py-2 rounded text-sm font-medium transition-colors;
+  @apply px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .btn-primary {
-  @apply bg-blue-600 text-white hover:bg-blue-700;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
 }
 
 .btn-secondary {
-  @apply bg-gray-700 text-gray-200 hover:bg-gray-600;
+  background: var(--bg-glass-light);
+  color: var(--text-primary);
+  border: 1px solid var(--border-glass);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .btn-danger {
-  @apply bg-red-600 text-white hover:bg-red-700;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
-/* Alert bar animation */
+.btn-danger:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+/* ============================================
+   ALERT BAR STYLES
+   ============================================ */
+
 @keyframes slideIn {
   from {
     transform: translateX(100%);
@@ -123,4 +338,77 @@ input[type="password"] {
 
 .alert-item {
   animation: slideIn 0.3s ease-out;
+  background: var(--bg-glass);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--border-glass);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.alert-item:hover {
+  transform: translateX(-4px);
+  box-shadow: 0 4px 20px var(--shadow-color);
+}
+
+/* ============================================
+   SCANNER LEADERBOARD GLOW EFFECTS
+   ============================================ */
+
+.scanner-row-hot {
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.15) 0%, transparent 100%);
+  border-left: 3px solid #ef4444;
+}
+
+.scanner-row-warm {
+  background: linear-gradient(90deg, rgba(251, 146, 60, 0.1) 0%, transparent 100%);
+  border-left: 3px solid #fb923c;
+}
+
+.scanner-row-cool {
+  background: linear-gradient(90deg, rgba(34, 197, 94, 0.1) 0%, transparent 100%);
+  border-left: 3px solid #22c55e;
+}
+
+/* ============================================
+   FOCUS BORDER - Active pane indicator
+   ============================================ */
+
+.pane-active {
+  border: 2px solid var(--accent-primary);
+  box-shadow: 0 0 20px var(--accent-glow);
+}
+
+.pane-inactive {
+  border: 2px solid transparent;
+}
+
+/* ============================================
+   MISC EFFECTS
+   ============================================ */
+
+/* Subtle noise texture overlay (optional) */
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+/* Connection status indicator */
+.status-connected {
+  color: #22c55e;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.5);
+}
+
+.status-connecting {
+  color: #eab308;
+  text-shadow: 0 0 8px rgba(234, 179, 8, 0.5);
+}
+
+.status-disconnected {
+  color: #ef4444;
+  text-shadow: 0 0 8px rgba(239, 68, 68, 0.5);
 }

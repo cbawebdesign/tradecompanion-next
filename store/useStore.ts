@@ -83,6 +83,7 @@ const defaultConfig: AppConfig = {
   watchlistSplitPercent: 50,
   marketCapMin: 0,
   marketCapMax: 999999999999,
+  theme: 'blue',
 }
 
 export const useStore = create<AppState>()(

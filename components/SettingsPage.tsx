@@ -1,11 +1,23 @@
 "use client"
 
 import { useStore } from '@/store/useStore'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import type { AppTheme } from '@/types'
+
+const THEMES: { value: AppTheme; label: string; description: string }[] = [
+  { value: 'blue', label: 'Deep Blue', description: 'Deep blue trading terminal (default)' },
+  { value: 'dark', label: 'Dark', description: 'Blue-tinted dark theme' },
+  { value: 'wallst', label: 'Wall St', description: 'Classic black and green terminal' },
+]
 
 export function SettingsPage() {
   const { config, updateConfig } = useStore()
   const [saved, setSaved] = useState(false)
+
+  // Apply theme to document when it changes
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', config.theme || 'blue')
+  }, [config.theme])
 
   const handleSave = () => {
     // Config is auto-persisted by Zustand, but show feedback
@@ -14,13 +26,13 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl h-full overflow-auto">
-      <h2 className="text-2xl font-bold mb-6">Settings</h2>
+    <div className="p-6 h-full overflow-auto">
+      <h2 className="text-2xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>Settings</h2>
 
-      <div className="space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Connection Settings */}
-        <section className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-4">Connection</h3>
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Connection</h3>
           <div className="space-y-4">
             <div>
               <label className="block text-sm text-gray-400 mb-1">Hub URL</label>
@@ -63,14 +75,69 @@ export function SettingsPage() {
           </div>
         </section>
 
+        {/* Theme Settings */}
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Theme</h3>
+          <div className="space-y-3">
+            {THEMES.map((theme) => (
+              <label
+                key={theme.value}
+                className={`flex items-center gap-3 p-3 rounded-lg cursor-pointer transition-all ${
+                  config.theme === theme.value
+                    ? 'ring-2 ring-blue-500 bg-blue-500/10'
+                    : 'hover:bg-white/5'
+                }`}
+                style={{ border: '1px solid var(--border-glass)' }}
+              >
+                <input
+                  type="radio"
+                  name="theme"
+                  value={theme.value}
+                  checked={config.theme === theme.value}
+                  onChange={() => updateConfig({ theme: theme.value })}
+                  className="w-4 h-4 text-blue-600"
+                />
+                <div className="flex-1">
+                  <div className="font-medium" style={{ color: 'var(--text-primary)' }}>{theme.label}</div>
+                  <div className="text-xs" style={{ color: 'var(--text-muted)' }}>{theme.description}</div>
+                </div>
+                {/* Theme preview swatch */}
+                <div className="flex gap-1">
+                  {theme.value === 'dark' && (
+                    <>
+                      <div className="w-4 h-4 rounded" style={{ background: '#111827' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#1f2937' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#3b82f6' }} />
+                    </>
+                  )}
+                  {theme.value === 'blue' && (
+                    <>
+                      <div className="w-4 h-4 rounded" style={{ background: '#0f172a' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#1e293b' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#38bdf8' }} />
+                    </>
+                  )}
+                  {theme.value === 'wallst' && (
+                    <>
+                      <div className="w-4 h-4 rounded" style={{ background: '#000000' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#0a0a0a' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#22c55e' }} />
+                    </>
+                  )}
+                </div>
+              </label>
+            ))}
+          </div>
+        </section>
+
         {/* Alert Settings */}
-        <section className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-4">Alerts</h3>
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Alerts</h3>
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <label className="text-sm text-gray-300">Audio Alerts</label>
-                <p className="text-xs text-gray-500">Play sound when alerts trigger</p>
+                <label className="text-sm" style={{ color: 'var(--text-primary)' }}>Audio Alerts</label>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Play sound when alerts trigger</p>
               </div>
               <button
                 onClick={() => updateConfig({ audioEnabled: !config.audioEnabled })}
@@ -87,7 +154,7 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm text-gray-400 mb-1">
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
                 Alert Bar Height ({config.alertBarHeight}px)
               </label>
               <input
@@ -103,11 +170,11 @@ export function SettingsPage() {
         </section>
 
         {/* Filter Settings */}
-        <section className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-4">Filters</h3>
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Filters</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Min Market Cap</label>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Min Market Cap</label>
               <input
                 type="number"
                 value={config.marketCapMin}
@@ -116,7 +183,7 @@ export function SettingsPage() {
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Max Market Cap</label>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Max Market Cap</label>
               <input
                 type="number"
                 value={config.marketCapMax}
@@ -128,10 +195,10 @@ export function SettingsPage() {
         </section>
 
         {/* UI Settings */}
-        <section className="bg-gray-800 rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-4">UI Settings</h3>
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Layout</h3>
           <div>
-            <label className="block text-sm text-gray-400 mb-1">
+            <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
               Watchlist Split ({config.watchlistSplitPercent}%)
             </label>
             <input
@@ -144,16 +211,16 @@ export function SettingsPage() {
             />
           </div>
         </section>
+      </div>
 
-        {/* Save Button */}
-        <div className="flex items-center gap-4">
-          <button onClick={handleSave} className="btn btn-primary">
-            Save Settings
-          </button>
-          {saved && (
-            <span className="text-green-400 text-sm">Settings saved!</span>
-          )}
-        </div>
+      {/* Save Button */}
+      <div className="flex items-center gap-4 mt-6">
+        <button onClick={handleSave} className="btn btn-primary">
+          Save Settings
+        </button>
+        {saved && (
+          <span className="text-green-400 text-sm">Settings saved!</span>
+        )}
       </div>
     </div>
   )
