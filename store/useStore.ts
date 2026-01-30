@@ -282,6 +282,7 @@ export const useStore = create<AppState>()(
         flaggedSymbols: Array.from(state.flaggedSymbols), // Convert Set for storage
         config: state.config,
         selectedWatchlistId: state.selectedWatchlistId,
+        selectedSymbol: state.selectedSymbol, // Sync selected symbol across windows
         alerts: state.alerts,
         scannerAlerts: state.scannerAlerts,
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
