@@ -21,10 +21,16 @@ interface Filing {
 // Module-level flag to prevent React Strict Mode double-fetch
 let hasInitiallyFetched = false
 
+// Track consecutive errors for backoff
+let consecutiveErrors = 0
+const BASE_POLL_INTERVAL = 60000 // 60 seconds
+const MAX_BACKOFF = 300000 // 5 minutes max
+
 export function useFilingsPolling() {
   const { config, addAlert, watchlists } = useStore()
   const lastFilingTimeRef = useRef<string | null>(null)
   const seenFilingIdsRef = useRef<Set<string>>(new Set())
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!config.hubUrl) return
@@ -39,6 +45,24 @@ export function useFilingsPolling() {
     const filingsUrl = `${baseUrl}/api/Filings`
 
     let cancelled = false
+
+    // Calculate next poll interval with exponential backoff on errors
+    function getNextInterval(): number {
+      if (consecutiveErrors === 0) return BASE_POLL_INTERVAL
+      // Exponential backoff: 60s, 120s, 240s, up to 5 min max
+      return Math.min(BASE_POLL_INTERVAL * Math.pow(2, consecutiveErrors), MAX_BACKOFF)
+    }
+
+    function scheduleNextPoll() {
+      if (cancelled) return
+      const interval = getNextInterval()
+      if (consecutiveErrors > 0) {
+        console.log(`Filings: next poll in ${interval/1000}s (backoff due to ${consecutiveErrors} errors)`)
+      }
+      timeoutRef.current = setTimeout(() => {
+        if (!cancelled) fetchFilings()
+      }, interval)
+    }
 
     async function fetchFilings() {
       // Prevent React Strict Mode from fetching twice on initial load
@@ -61,12 +85,20 @@ export function useFilingsPolling() {
         const response = await fetch(url)
         if (!response.ok) {
           console.log('Filings fetch failed:', response.status)
+          consecutiveErrors++
+          scheduleNextPoll()
           return
         }
 
+        // Success - reset error count
+        consecutiveErrors = 0
+
         const filings: Filing[] = await response.json()
 
-        if (filings.length === 0) return
+        if (filings.length === 0) {
+          scheduleNextPoll()
+          return
+        }
 
         // Filter to only filings for symbols in watchlist (like legacy app does)
         // But also include filings without symbols (some alert types don't have them)
@@ -78,9 +110,20 @@ export function useFilingsPolling() {
           return symbols.some(s => watchlistSymbols.has(s))
         })
 
-        console.log('Fetched', filings.length, 'filings,', watchlistFilings.length, 'match watchlist', isInitialFetch ? '(initial)' : '(poll)')
-
-        if (watchlistFilings.length === 0) return
+        if (watchlistFilings.length === 0) {
+          // No matching watchlist symbols, but still update tracking
+          const allSorted = [...filings].sort((a, b) => {
+            const timeA = new Date(a.time_et || a.date || 0).getTime()
+            const timeB = new Date(b.time_et || b.date || 0).getTime()
+            return timeA - timeB
+          })
+          if (allSorted.length > 0) {
+            const lastFiling = allSorted[allSorted.length - 1]
+            lastFilingTimeRef.current = lastFiling.time_et || lastFiling.date || null
+          }
+          scheduleNextPoll()
+          return
+        }
 
         // Process new filings (oldest first by time_et or date)
         const sortedFilings = [...watchlistFilings].sort((a, b) => {
@@ -138,24 +181,24 @@ export function useFilingsPolling() {
 
       } catch (err) {
         console.error('Error fetching filings:', err)
+        consecutiveErrors++
       }
+
+      // Schedule next poll
+      scheduleNextPoll()
     }
 
     // Initial fetch
     fetchFilings()
 
-    // Poll every 60 seconds (filings don't come as frequently as tweets)
-    const interval = setInterval(() => {
-      if (!cancelled) {
-        fetchFilings()
-      }
-    }, 60000)
-
     return () => {
       cancelled = true
-      clearInterval(interval)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
       // Reset for hot reload / remount
       hasInitiallyFetched = false
+      consecutiveErrors = 0
     }
   }, [config.hubUrl, addAlert, watchlists])
 }
