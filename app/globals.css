@@ -1,0 +1,126 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --alert-green: #4caf50;
+  --alert-red: #f44336;
+  --alert-yellow: #ffeb3b;
+  --alert-blue: #2196f3;
+  --alert-purple: #9c27b0;
+  --alert-orange: #ff9800;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1f2937;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #4b5563;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+/* Table styles */
+.table-container {
+  @apply overflow-auto;
+}
+
+table {
+  @apply w-full border-collapse;
+}
+
+th {
+  @apply sticky top-0 bg-gray-800 text-left px-3 py-2 text-sm font-semibold text-gray-300 border-b border-gray-700;
+}
+
+td {
+  @apply px-3 py-2 text-sm border-b border-gray-800;
+}
+
+tr:hover {
+  @apply bg-gray-800/50;
+}
+
+tr.selected {
+  @apply bg-blue-900/30;
+}
+
+/* Price colors */
+.price-up {
+  @apply text-green-400;
+}
+
+.price-down {
+  @apply text-red-400;
+}
+
+.price-neutral {
+  @apply text-gray-400;
+}
+
+/* Tab styles */
+.tab {
+  @apply px-4 py-2 text-sm font-medium text-gray-400 border-b-2 border-transparent cursor-pointer transition-colors;
+}
+
+.tab:hover {
+  @apply text-gray-200;
+}
+
+.tab.active {
+  @apply text-blue-400 border-blue-400;
+}
+
+/* Input styles */
+input[type="text"],
+input[type="number"],
+input[type="password"] {
+  @apply bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-gray-100 focus:outline-none focus:border-blue-500;
+}
+
+/* Button styles */
+.btn {
+  @apply px-4 py-2 rounded text-sm font-medium transition-colors;
+}
+
+.btn-primary {
+  @apply bg-blue-600 text-white hover:bg-blue-700;
+}
+
+.btn-secondary {
+  @apply bg-gray-700 text-gray-200 hover:bg-gray-600;
+}
+
+.btn-danger {
+  @apply bg-red-600 text-white hover:bg-red-700;
+}
+
+/* Alert bar animation */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.alert-item {
+  animation: slideIn 0.3s ease-out;
+}
