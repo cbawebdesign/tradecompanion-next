@@ -107,3 +107,13 @@ export interface AppConfig {
 
 // SignalR connection state
 export type ConnectionState = 'connecting' | 'connected' | 'reconnecting' | 'disconnected'
+
+// Alert subscription types (which alerts to receive)
+export type AlertType = 'PRs' | 'Filings' | 'X' | 'FilteredPRs' | 'TradeExchange' | 'TradeExchangeFiltered' | 'AfternoonBreakout' | 'TradingViewWebhooks'
+
+export interface AlertSubscription {
+  id: string
+  alertType: AlertType
+  watchlistId: string
+  audioEnabled: boolean
+}

@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
+import { AlertConfig } from './AlertConfig'
 import type { Alert } from '@/types'
 
 // Check if alert should show Grok button (filings/PRs with URL)
@@ -104,8 +105,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       {/* Header */}
       <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center justify-between flex-shrink-0">
         <div>
-          <h3 className="text-sm font-semibold text-gray-300">Flagged Symbols</h3>
-          <p className="text-xs text-gray-500">{flaggedList.length} flagged</p>
+          <h3 className="text-sm font-semibold text-gray-300">Alerts Configuration</h3>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -118,6 +118,17 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
             <PopOutButton route="/pop/alerts" title="Alerts" width={1000} height={600} />
           )}
         </div>
+      </div>
+
+      {/* Alert Config Section */}
+      <div className="border-b border-gray-700 max-h-[45%] overflow-auto">
+        <AlertConfig />
+      </div>
+
+      {/* Flagged Symbols Header */}
+      <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex-shrink-0">
+        <h3 className="text-sm font-semibold text-gray-300">Flagged Symbols</h3>
+        <p className="text-xs text-gray-500">{flaggedList.length} flagged</p>
       </div>
 
       {/* Main Content - LEFT/RIGHT Split */}

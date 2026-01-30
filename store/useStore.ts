@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert } from '@/types'
+import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert, AlertSubscription, AlertType } from '@/types'
 
 // Pane identifiers for focus management
 export type PaneId = 'watchlist' | 'alertbar' | 'alerts' | 'scanner' | null
@@ -66,6 +66,12 @@ interface AppState {
   scannerAlerts: ScannerAlert[]
   addScannerAlert: (alert: ScannerAlert) => void
   clearScannerAlerts: () => void
+
+  // Alert subscriptions (what alerts to receive)
+  alertSubscriptions: AlertSubscription[]
+  addAlertSubscription: (alertType: AlertType, watchlistId: string) => void
+  removeAlertSubscription: (id: string) => void
+  toggleAlertSubscriptionAudio: (id: string) => void
 }
 
 const defaultConfig: AppConfig = {
@@ -227,6 +233,36 @@ export const useStore = create<AppState>()(
         return { scannerAlerts: [alert, ...state.scannerAlerts].slice(0, 500) }
       }),
       clearScannerAlerts: () => set({ scannerAlerts: [] }),
+
+      // Alert subscriptions
+      alertSubscriptions: [],
+      addAlertSubscription: (alertType, watchlistId) => set((state) => {
+        // Check if already exists
+        const exists = state.alertSubscriptions.some(
+          s => s.alertType === alertType && s.watchlistId === watchlistId
+        )
+        if (exists) return state
+
+        return {
+          alertSubscriptions: [
+            ...state.alertSubscriptions,
+            {
+              id: crypto.randomUUID(),
+              alertType,
+              watchlistId,
+              audioEnabled: true,
+            }
+          ]
+        }
+      }),
+      removeAlertSubscription: (id) => set((state) => ({
+        alertSubscriptions: state.alertSubscriptions.filter(s => s.id !== id)
+      })),
+      toggleAlertSubscriptionAudio: (id) => set((state) => ({
+        alertSubscriptions: state.alertSubscriptions.map(s =>
+          s.id === id ? { ...s, audioEnabled: !s.audioEnabled } : s
+        )
+      })),
     }),
     {
       name: 'trade-companion-storage',
@@ -238,6 +274,7 @@ export const useStore = create<AppState>()(
         alerts: state.alerts,
         scannerAlerts: state.scannerAlerts,
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
+        alertSubscriptions: state.alertSubscriptions,
       }),
       onRehydrateStorage: () => (state) => {
         // Convert flaggedSymbols back to Set after rehydration

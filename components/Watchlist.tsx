@@ -30,6 +30,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     removeSymbolFromWatchlist,
     updateSymbolInWatchlist,
     addWatchlist,
+    removeWatchlist,
     flaggedSymbols,
     toggleFlag,
     alerts,
@@ -43,6 +44,9 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
   const [newSymbol, setNewSymbol] = useState('')
   const [newWatchlistName, setNewWatchlistName] = useState('')
+  const [inlineAddSymbol, setInlineAddSymbol] = useState('')
+  const [isAddingInline, setIsAddingInline] = useState(false)
+  const inlineInputRef = useRef<HTMLInputElement>(null)
   const [splitPercent, setSplitPercent] = useState(config.watchlistSplitPercent || 60)
 
   // Default to first watchlist
@@ -85,6 +89,38 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     addWatchlist(newWatchlistName.trim())
     setNewWatchlistName('')
   }, [newWatchlistName, addWatchlist])
+
+  const handleInlineAdd = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && inlineAddSymbol.trim() && selectedWatchlistId) {
+      const symbol = inlineAddSymbol.toUpperCase().trim()
+
+      // Check if already exists
+      if (currentWatchlist?.symbols.some(s => s.symbol === symbol)) {
+        setInlineAddSymbol('')
+        setIsAddingInline(false)
+        return
+      }
+
+      addSymbolToWatchlist(selectedWatchlistId, {
+        symbol,
+        upperAlert: null,
+        lowerAlert: null,
+        notes: '',
+      })
+      setInlineAddSymbol('')
+      // Keep focus for adding more
+    } else if (e.key === 'Escape') {
+      setInlineAddSymbol('')
+      setIsAddingInline(false)
+    }
+  }, [inlineAddSymbol, selectedWatchlistId, currentWatchlist, addSymbolToWatchlist])
+
+  // Focus inline input when entering add mode
+  useEffect(() => {
+    if (isAddingInline && inlineInputRef.current) {
+      inlineInputRef.current.focus()
+    }
+  }, [isAddingInline])
 
   const handleUpdateAlert = useCallback((symbol: string, field: 'upperAlert' | 'lowerAlert', value: string) => {
     if (!selectedWatchlistId) return
@@ -155,15 +191,38 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       {/* Top Controls */}
       <div className="p-2 bg-gray-800 border-b border-gray-700 flex items-center gap-4 flex-shrink-0">
         {/* Watchlist Selector */}
-        <select
-          value={selectedWatchlistId || ''}
-          onChange={(e) => setSelectedWatchlistId(e.target.value)}
-          className="text-sm py-1 px-2 bg-gray-700 border border-gray-600 rounded"
-        >
-          {watchlists.map((wl) => (
-            <option key={wl.id} value={wl.id}>{wl.name}</option>
-          ))}
-        </select>
+        <div className="flex items-center gap-1">
+          <select
+            value={selectedWatchlistId || ''}
+            onChange={(e) => setSelectedWatchlistId(e.target.value)}
+            className="text-sm py-1 px-2 bg-gray-700 border border-gray-600 rounded"
+          >
+            {watchlists.map((wl) => (
+              <option key={wl.id} value={wl.id}>{wl.name}</option>
+            ))}
+          </select>
+          {watchlists.length > 1 && selectedWatchlistId && (
+            <button
+              onClick={() => {
+                if (confirm(`Delete watchlist "${currentWatchlist?.name}"?`)) {
+                  const currentIndex = watchlists.findIndex(w => w.id === selectedWatchlistId)
+                  removeWatchlist(selectedWatchlistId)
+                  // Select another watchlist
+                  const nextWatchlist = watchlists[currentIndex === 0 ? 1 : currentIndex - 1]
+                  if (nextWatchlist) {
+                    setSelectedWatchlistId(nextWatchlist.id)
+                  }
+                }
+              }}
+              className="text-gray-400 hover:text-red-400 p-1"
+              title="Delete watchlist"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          )}
+        </div>
 
         {/* New Watchlist */}
         <form onSubmit={handleAddWatchlist} className="flex gap-1">
@@ -292,13 +351,36 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                     </tr>
                   )
                 })}
-                {(!currentWatchlist || currentWatchlist.symbols.length === 0) && (
-                  <tr>
-                    <td colSpan={9} className="text-center text-gray-500 py-8">
-                      No symbols in this watchlist. Add one above.
-                    </td>
-                  </tr>
-                )}
+                {/* Empty row for adding new symbol */}
+                <tr className="border-t border-gray-700/50">
+                  <td className="text-center text-gray-600">⚐</td>
+                  <td colSpan={8}>
+                    {isAddingInline ? (
+                      <input
+                        ref={inlineInputRef}
+                        type="text"
+                        value={inlineAddSymbol}
+                        onChange={(e) => setInlineAddSymbol(e.target.value.toUpperCase())}
+                        onKeyDown={handleInlineAdd}
+                        onBlur={() => {
+                          if (!inlineAddSymbol.trim()) {
+                            setIsAddingInline(false)
+                          }
+                        }}
+                        placeholder="Type symbol and press Enter..."
+                        className="w-full bg-transparent border-none outline-none text-sm py-1 font-mono"
+                        autoFocus
+                      />
+                    ) : (
+                      <button
+                        onClick={() => setIsAddingInline(true)}
+                        className="w-full text-left text-gray-500 hover:text-gray-300 text-sm py-1 italic"
+                      >
+                        Click to add symbol...
+                      </button>
+                    )}
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
