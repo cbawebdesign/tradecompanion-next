@@ -354,7 +354,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                 {/* Empty row for adding new symbol */}
                 <tr className="border-t border-gray-700/50">
                   <td className="text-center text-gray-600">⚐</td>
-                  <td colSpan={8}>
+                  <td>
                     {isAddingInline ? (
                       <input
                         ref={inlineInputRef}
@@ -367,18 +367,21 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                             setIsAddingInline(false)
                           }
                         }}
-                        placeholder="Type symbol and press Enter..."
-                        className="w-full bg-transparent border-none outline-none text-sm py-1 font-mono"
+                        placeholder="SYMBOL"
+                        className="w-20 bg-transparent border-none outline-none text-sm py-1 font-mono"
                         autoFocus
                       />
                     ) : (
                       <button
                         onClick={() => setIsAddingInline(true)}
-                        className="w-full text-left text-gray-500 hover:text-gray-300 text-sm py-1 italic"
+                        className="text-gray-500 hover:text-gray-300 text-sm py-1 font-mono"
                       >
-                        Click to add symbol...
+                        +
                       </button>
                     )}
+                  </td>
+                  <td colSpan={7} className="text-gray-600 text-xs">
+                    {isAddingInline && 'Press Enter to add, Esc to cancel'}
                   </td>
                 </tr>
               </tbody>
