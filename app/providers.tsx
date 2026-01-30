@@ -3,9 +3,21 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState, useEffect } from 'react'
 import { useSignalR } from '@/hooks/useSignalR'
+import { useTweetsPolling } from '@/hooks/useTweetsPolling'
+import { useFilingsPolling } from '@/hooks/useFilingsPolling'
+import { usePrevCloses } from '@/hooks/usePrevCloses'
+import { usePriceAlerts } from '@/hooks/usePriceAlerts'
+import { useCrossWindowSync } from '@/hooks/useCrossWindowSync'
+import { useQuoteBroadcaster } from '@/hooks/useQuoteBroadcast'
 
 function SignalRProvider({ children }: { children: React.ReactNode }) {
   useSignalR()
+  useTweetsPolling() // Poll tweets API for Twitter alerts
+  useFilingsPolling() // Poll filings API for SEC filings
+  usePrevCloses() // Fetch previous closes for % change calculation
+  usePriceAlerts() // Check for upper/lower price alert triggers
+  useCrossWindowSync() // Sync state across pop-out windows
+  useQuoteBroadcaster() // Broadcast quotes to pop-out windows
   return <>{children}</>
 }
 

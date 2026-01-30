@@ -1,11 +1,18 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState } from '@/types'
+import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert } from '@/types'
+
+// Pane identifiers for focus management
+export type PaneId = 'watchlist' | 'alertbar' | 'alerts' | 'scanner' | null
 
 interface AppState {
   // Connection state
   connectionState: ConnectionState
   setConnectionState: (state: ConnectionState) => void
+
+  // Focus/Active pane management
+  activePane: PaneId
+  setActivePane: (pane: PaneId) => void
 
   // Selected items
   selectedSymbol: string | null
@@ -20,11 +27,23 @@ interface AppState {
   addAlert: (alert: Alert) => void
   markAlertRead: (id: string) => void
   clearAlerts: () => void
+  hiddenAlertIds: Set<string>
+  hideAlert: (id: string) => void
+  removeAlert: (id: string) => void
 
   // Quotes (real-time)
   quotes: Record<string, Quote>
   updateQuote: (quote: Quote) => void
   updateQuotes: (quotes: Quote[]) => void
+
+  // Previous closes for % change calculation
+  prevCloses: Record<string, number>
+  setPrevCloses: (prevCloses: Record<string, number>) => void
+
+  // Price alert tracking (to avoid duplicate alerts)
+  triggeredPriceAlerts: Set<string>
+  addTriggeredPriceAlert: (key: string) => void
+  clearTriggeredPriceAlerts: () => void
 
   // Watchlists
   watchlists: Watchlist[]
@@ -42,6 +61,11 @@ interface AppState {
   // Config
   config: AppConfig
   updateConfig: (updates: Partial<AppConfig>) => void
+
+  // Scanner alerts
+  scannerAlerts: ScannerAlert[]
+  addScannerAlert: (alert: ScannerAlert) => void
+  clearScannerAlerts: () => void
 }
 
 const defaultConfig: AppConfig = {
@@ -62,6 +86,10 @@ export const useStore = create<AppState>()(
       connectionState: 'disconnected',
       setConnectionState: (connectionState) => set({ connectionState }),
 
+      // Focus/Active pane management
+      activePane: null,
+      setActivePane: (activePane) => set({ activePane }),
+
       // Selected items
       selectedSymbol: null,
       setSelectedSymbol: (selectedSymbol) => set({ selectedSymbol }),
@@ -72,13 +100,32 @@ export const useStore = create<AppState>()(
 
       // Alerts
       alerts: [],
-      addAlert: (alert) => set((state) => ({
-        alerts: [alert, ...state.alerts].slice(0, 500) // Keep last 500 alerts
-      })),
+      addAlert: (alert) => set((state) => {
+        // Deduplication: check if same symbol + message + type already exists
+        const isDuplicate = state.alerts.some(existing =>
+          existing.symbol === alert.symbol &&
+          existing.message === alert.message &&
+          existing.type === alert.type
+        )
+        if (isDuplicate) {
+          console.log('Skipping duplicate alert:', alert.symbol, alert.message.substring(0, 50))
+          return state // Don't add duplicate
+        }
+        return { alerts: [alert, ...state.alerts].slice(0, 500) }
+      }),
       markAlertRead: (id) => set((state) => ({
         alerts: state.alerts.map(a => a.id === id ? { ...a, read: true } : a)
       })),
-      clearAlerts: () => set({ alerts: [] }),
+      clearAlerts: () => set({ alerts: [], hiddenAlertIds: new Set() }),
+      hiddenAlertIds: new Set(),
+      hideAlert: (id) => set((state) => {
+        const newHidden = new Set(state.hiddenAlertIds)
+        newHidden.add(id)
+        return { hiddenAlertIds: newHidden }
+      }),
+      removeAlert: (id) => set((state) => ({
+        alerts: state.alerts.filter(a => a.id !== id)
+      })),
 
       // Quotes
       quotes: {},
@@ -87,9 +134,31 @@ export const useStore = create<AppState>()(
       })),
       updateQuotes: (quotes) => set((state) => {
         const updated = { ...state.quotes }
-        quotes.forEach(q => { updated[q.symbol] = q })
+        const prevCloses = state.prevCloses
+        quotes.forEach(q => {
+          // Calculate changePercent if we have prevClose
+          const prevClose = prevCloses[q.symbol]
+          if (prevClose && prevClose > 0 && q.last > 0) {
+            q.change = q.last - prevClose
+            q.changePercent = ((q.last - prevClose) / prevClose) * 100
+          }
+          updated[q.symbol] = q
+        })
         return { quotes: updated }
       }),
+
+      // Previous closes
+      prevCloses: {},
+      setPrevCloses: (prevCloses) => set({ prevCloses }),
+
+      // Price alert tracking
+      triggeredPriceAlerts: new Set(),
+      addTriggeredPriceAlert: (key) => set((state) => {
+        const newSet = new Set(state.triggeredPriceAlerts)
+        newSet.add(key)
+        return { triggeredPriceAlerts: newSet }
+      }),
+      clearTriggeredPriceAlerts: () => set({ triggeredPriceAlerts: new Set() }),
 
       // Watchlists
       watchlists: [
@@ -141,6 +210,23 @@ export const useStore = create<AppState>()(
       updateConfig: (updates) => set((state) => ({
         config: { ...state.config, ...updates }
       })),
+
+      // Scanner alerts
+      scannerAlerts: [],
+      addScannerAlert: (alert) => set((state) => {
+        // Update existing or add new (same symbol + session = update)
+        const existingIndex = state.scannerAlerts.findIndex(
+          a => a.symbol === alert.symbol && a.session === alert.session
+        )
+        if (existingIndex >= 0) {
+          const updated = [...state.scannerAlerts]
+          updated[existingIndex] = alert
+          return { scannerAlerts: updated }
+        }
+        // Add new, keep max 500
+        return { scannerAlerts: [alert, ...state.scannerAlerts].slice(0, 500) }
+      }),
+      clearScannerAlerts: () => set({ scannerAlerts: [] }),
     }),
     {
       name: 'trade-companion-storage',
@@ -149,11 +235,18 @@ export const useStore = create<AppState>()(
         flaggedSymbols: Array.from(state.flaggedSymbols), // Convert Set for storage
         config: state.config,
         selectedWatchlistId: state.selectedWatchlistId,
+        alerts: state.alerts,
+        scannerAlerts: state.scannerAlerts,
+        hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
       }),
       onRehydrateStorage: () => (state) => {
         // Convert flaggedSymbols back to Set after rehydration
         if (state && Array.isArray(state.flaggedSymbols)) {
           state.flaggedSymbols = new Set(state.flaggedSymbols as unknown as string[])
+        }
+        // Convert hiddenAlertIds back to Set after rehydration
+        if (state && Array.isArray(state.hiddenAlertIds)) {
+          state.hiddenAlertIds = new Set(state.hiddenAlertIds as unknown as string[])
         }
       },
     }

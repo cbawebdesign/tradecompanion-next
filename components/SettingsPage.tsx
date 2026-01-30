@@ -14,7 +14,7 @@ export function SettingsPage() {
   }
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6 max-w-2xl h-full overflow-auto">
       <h2 className="text-2xl font-bold mb-6">Settings</h2>
 
       <div className="space-y-6">

@@ -37,6 +37,7 @@ export function useSignalR() {
     config,
     setConnectionState,
     addAlert,
+    addScannerAlert,
     updateQuotes,
     watchlists
   } = useStore()
@@ -73,18 +74,31 @@ export function useSignalR() {
       try {
         setConnectionState('connecting')
 
-        // Step 1: Call negotiate endpoint to get actual SignalR URL + token
-        const negotiateResult = await negotiate(config.hubUrl, config.tradingViewId || 'anonymous')
+        let connection: HubConnection
 
-        if (cancelled) return
+        // Check if this is a local hub (localhost) or Azure SignalR (requires negotiate)
+        const isLocalHub = config.hubUrl.includes('localhost') || config.hubUrl.includes('127.0.0.1')
 
-        // Step 2: Build connection with the negotiated URL and token
-        const connection = new HubConnectionBuilder()
-          .withUrl(negotiateResult.url, {
-            accessTokenFactory: () => negotiateResult.accessToken
-          })
-          .withAutomaticReconnect([0, 2000, 10000, 30000])
-          .build()
+        if (isLocalHub) {
+          // Direct connection to local hub (e.g., http://localhost:5000/lxhub)
+          console.log('SignalR: Connecting directly to local hub:', config.hubUrl)
+          connection = new HubConnectionBuilder()
+            .withUrl(config.hubUrl)
+            .withAutomaticReconnect([0, 2000, 10000, 30000])
+            .build()
+        } else {
+          // Azure SignalR - use negotiate endpoint
+          const negotiateResult = await negotiate(config.hubUrl, config.tradingViewId || 'anonymous')
+
+          if (cancelled) return
+
+          connection = new HubConnectionBuilder()
+            .withUrl(negotiateResult.url, {
+              accessTokenFactory: () => negotiateResult.accessToken
+            })
+            .withAutomaticReconnect([0, 2000, 10000, 30000])
+            .build()
+        }
 
         connectionRef.current = connection
 
@@ -94,9 +108,18 @@ export function useSignalR() {
           setConnectionState('reconnecting')
         })
 
-        connection.onreconnected(() => {
+        connection.onreconnected(async () => {
           console.log('SignalR: Reconnected')
           setConnectionState('connected')
+          // Re-subscribe to alert triggers for local hub
+          if (isLocalHub) {
+            try {
+              await connection.invoke('SubAlertTriggers')
+              console.log('SignalR: Re-subscribed to alert triggers')
+            } catch (e) {
+              console.log('SignalR: SubAlertTriggers failed on reconnect', e)
+            }
+          }
           subscribeToQuotes()
         })
 
@@ -121,6 +144,22 @@ export function useSignalR() {
           updateQuotes(quotes)
         })
 
+        // BroadcastL1 - legacy format { symbol: { l, b, a, bz, az, t, ti }, ... }
+        connection.on('BroadcastL1', (data: Record<string, any>) => {
+          console.log('BroadcastL1 received:', Object.keys(data).length, 'quotes')
+          const quotes: Quote[] = Object.entries(data).map(([symbol, q]) => ({
+            symbol,
+            bid: q.b || 0,
+            ask: q.a || 0,
+            last: q.l || 0,
+            volume: 0,
+            change: 0,
+            changePercent: 0,
+            timestamp: new Date(),
+          }))
+          updateQuotes(quotes)
+        })
+
         // Broadcast1sBar for 1-second bars
         connection.on('Broadcast1sBar', (data: any[]) => {
           console.log('Broadcast1sBar received:', data.length, 'bars')
@@ -137,19 +176,91 @@ export function useSignalR() {
           updateQuotes(quotes)
         })
 
-        connection.on('newFiling', (data: any) => {
-          console.log('newFiling received:', data)
+        // Alert clear handler
+        connection.on('broadcastAlertClear', () => {
+          console.log('broadcastAlertClear received')
+          // Don't auto-clear, just log it
+        })
+
+        // Main alert handler - BroadcastAlertTrigger (used by legacy app)
+        // AlertTrigger: { time, alert, alertName, watchlist, message, symbol, color }
+        connection.on('BroadcastAlertTrigger', (data: any) => {
+          console.log('BroadcastAlertTrigger received:', data)
+
+          // Parse JSON alert format: {"text": "...", "url": "..."}
+          let message = ''
+          let url: string | undefined
+          const alertStr = data.alert || ''
+          const alertName = data.alertName || 'Alert'
+
+          if (alertStr.includes('"url":')) {
+            try {
+              const parsed = JSON.parse(alertStr.replace(/\n/g, ' ').replace(/\\/g, ' '))
+              message = parsed.text || alertStr
+              url = parsed.url
+            } catch {
+              message = alertStr
+            }
+          } else {
+            message = data.message || alertStr
+          }
+
+          // Determine alert type from alertName
+          let alertType: Alert['type'] = 'news'
+          const lowerName = alertName.toLowerCase()
+          if (lowerName.includes('filing') || lowerName.includes('pr')) {
+            alertType = 'filing'
+          } else if (lowerName.includes('catalyst')) {
+            alertType = 'catalyst'
+          } else if (lowerName.includes('trade')) {
+            alertType = 'trade_exchange'
+          }
+
           const alert: Alert = {
             id: crypto.randomUUID(),
-            symbol: data.symbol || data.Symbol || data.s,
-            message: `Filing: ${data.title || data.Title || data.form_type}`,
+            symbol: data.symbol || '',
+            message,
+            type: alertType,
+            color: data.color || '#4caf50',
+            timestamp: new Date(data.time) || new Date(),
+            read: false,
+            url,
+          }
+          addAlert(alert)
+
+          if (config.audioEnabled) playAlertSound()
+        })
+
+        // Specific event handlers (alternative to BroadcastAlertTrigger)
+        connection.on('newFiling', (data: any) => {
+          console.log('newFiling received:', data)
+          let message = ''
+          let url: string | undefined
+          const alertStr = data.alert || data.message || ''
+
+          if (alertStr.includes('"url":')) {
+            try {
+              const parsed = JSON.parse(alertStr.replace(/\n/g, ' ').replace(/\\/g, ' '))
+              message = parsed.text || alertStr
+              url = parsed.url
+            } catch {
+              message = alertStr
+            }
+          } else {
+            message = data.title || data.Title || data.form_type || alertStr || 'New Filing'
+          }
+
+          const alert: Alert = {
+            id: crypto.randomUUID(),
+            symbol: data.symbol || data.Symbol || data.s || '',
+            message,
             type: 'filing',
             color: '#00bcd4',
             timestamp: new Date(),
             read: false,
+            url,
           }
           addAlert(alert)
-
           if (config.audioEnabled) playAlertSound()
         })
 
@@ -165,7 +276,6 @@ export function useSignalR() {
             read: false,
           }
           addAlert(alert)
-
           if (config.audioEnabled) playAlertSound()
         })
 
@@ -173,15 +283,14 @@ export function useSignalR() {
           console.log('newCatalystScanner received:', data)
           const alert: Alert = {
             id: crypto.randomUUID(),
-            symbol: data.symbol || data.Symbol || data.s,
-            message: data.description || data.Description || data.msg,
+            symbol: data.symbol || data.Symbol || data.s || '',
+            message: data.description || data.Description || data.msg || '',
             type: 'catalyst',
             color: '#9c27b0',
             timestamp: new Date(),
             read: false,
           }
           addAlert(alert)
-
           if (config.audioEnabled) playAlertSound()
         })
 
@@ -197,26 +306,23 @@ export function useSignalR() {
             read: false,
           }
           addAlert(alert)
-
           if (config.audioEnabled) playAlertSound()
         })
 
-        // Scanner alerts - 4%+ movers
+        // Scanner alerts - 4%+ movers (only goes to Scanner page, not AlertBar)
         connection.on('ScannerAlert', (data: any) => {
           console.log('ScannerAlert received:', data)
-          const direction = data.pctChange > 0 ? '▲' : '▼'
-          const alert: Alert = {
-            id: crypto.randomUUID(),
-            symbol: data.symbol || '',
-            message: `${direction} ${Math.abs(data.pctChange).toFixed(1)}% ($${data.price?.toFixed(2)}) [${data.session}] [${data.bucket}]`,
-            type: 'scanner',
-            color: data.pctChange > 0 ? '#4caf50' : '#f44336',
-            timestamp: new Date(),
-            read: false,
-          }
-          addAlert(alert)
 
-          if (config.audioEnabled) playAlertSound()
+          // Add to scanner leaderboard only
+          addScannerAlert({
+            symbol: data.symbol || '',
+            pctChange: data.pctChange || 0,
+            price: data.price || 0,
+            prevClose: data.prevClose || 0,
+            session: data.session || 'MKT',
+            bucket: data.bucket || null,
+            timestamp: data.timestamp || new Date().toISOString(),
+          })
         })
 
         // Start connection
@@ -230,6 +336,16 @@ export function useSignalR() {
           console.log('SignalR: Ping sent')
         } catch (e) {
           console.log('SignalR: Ping failed (ok if not supported)', e)
+        }
+
+        // Subscribe to alert triggers (only for local hub - Azure doesn't have this)
+        if (isLocalHub) {
+          try {
+            await connection.invoke('SubAlertTriggers')
+            console.log('SignalR: Subscribed to alert triggers')
+          } catch (e) {
+            console.log('SignalR: SubAlertTriggers failed', e)
+          }
         }
 
         // Subscribe to quotes

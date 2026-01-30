@@ -4,6 +4,7 @@ import { useStore } from '@/store/useStore'
 import { AlertBar } from '@/components/AlertBar'
 import { Watchlist } from '@/components/Watchlist'
 import { AlertsPage } from '@/components/AlertsPage'
+import { ScannerPage } from '@/components/ScannerPage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { clsx } from 'clsx'
@@ -11,17 +12,26 @@ import { clsx } from 'clsx'
 const TABS = [
   { id: 0, label: 'Home', icon: '🏠' },
   { id: 1, label: 'Alerts', icon: '🔔' },
-  { id: 2, label: 'Watchlist', icon: '👁️' },
-  { id: 3, label: 'Settings', icon: '⚙️' },
+  { id: 2, label: 'Watchlist', icon: '📋' },
+  { id: 3, label: 'Scanner', icon: '📊' },
+  { id: 4, label: 'Settings', icon: '⚙️' },
 ]
 
 export default function Home() {
-  const { activeTab, setActiveTab, config } = useStore()
+  const { activeTab, setActiveTab, setActivePane } = useStore()
+
+  // Clear pane focus when clicking on header/tabs
+  const handleHeaderClick = () => {
+    setActivePane(null)
+  }
 
   return (
     <div className="flex flex-col h-screen">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+      <header
+        className="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700"
+        onClick={handleHeaderClick}
+      >
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-bold text-blue-400">Trade Companion</h1>
           <ConnectionStatus />
@@ -45,19 +55,23 @@ export default function Home() {
         </nav>
       </header>
 
-      {/* Alert Bar - always visible */}
-      <AlertBar />
-
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         {activeTab === 0 && <HomePage />}
         {activeTab === 1 && <AlertsPage />}
         {activeTab === 2 && <Watchlist />}
-        {activeTab === 3 && <SettingsPage />}
+        {activeTab === 3 && <ScannerPage />}
+        {activeTab === 4 && <SettingsPage />}
       </main>
 
+      {/* Alert Bar - at bottom */}
+      <AlertBar />
+
       {/* Keyboard shortcuts hint */}
-      <footer className="px-4 py-1 text-xs text-gray-500 bg-gray-800 border-t border-gray-700">
+      <footer
+        className="px-4 py-1 text-xs text-gray-500 bg-gray-800 border-t border-gray-700 flex-shrink-0"
+        onClick={handleHeaderClick}
+      >
         <kbd>PageUp</kbd>/<kbd>PageDown</kbd> switch tabs • <kbd>↑</kbd>/<kbd>↓</kbd> navigate • <kbd>Space</kbd> flag symbol
       </footer>
     </div>

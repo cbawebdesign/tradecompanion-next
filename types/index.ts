@@ -19,6 +19,7 @@ export interface Alert {
   color: string
   timestamp: Date
   read: boolean
+  url?: string  // URL for filings/PRs/tweets
 }
 
 export interface PriceAlert {
@@ -76,6 +77,20 @@ export interface TradingViewAlert {
   symbol: string
   message: string
   timestamp: Date
+}
+
+// Scanner Alert types
+export type ScannerSession = 'PRE' | 'MKT' | 'AH' | 'ON'
+export type ScannerBucket = 'NANO' | 'MICRO' | 'SMALL' | 'MID' | 'LARGE' | 'MEGA' | 'UNKNOWN'
+
+export interface ScannerAlert {
+  symbol: string
+  pctChange: number
+  price: number
+  prevClose: number
+  session: ScannerSession
+  bucket: ScannerBucket | null
+  timestamp: string
 }
 
 // Config types
