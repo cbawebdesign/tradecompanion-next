@@ -71,7 +71,7 @@ interface AppState {
 const defaultConfig: AppConfig = {
   tradingViewId: '',
   apiKey: '',
-  hubUrl: 'https://stage.news.scanzzers.com',
+  hubUrl: 'https://tradecompanion3-test.azurewebsites.net/api',
   audioEnabled: true,
   alertBarHeight: 200,
   watchlistSplitPercent: 50,
