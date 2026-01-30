@@ -7,7 +7,6 @@ import { AlertsPage } from '@/components/AlertsPage'
 import { ScannerPage } from '@/components/ScannerPage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
-import { ChartPanel } from '@/components/ChartPanel'
 import { clsx } from 'clsx'
 
 const TABS = [
@@ -19,7 +18,20 @@ const TABS = [
 ]
 
 export default function Home() {
-  const { activeTab, setActiveTab, setActivePane, chartMode, toggleChartMode, selectedSymbol } = useStore()
+  const { activeTab, setActiveTab, setActivePane, selectedSymbol } = useStore()
+
+  // Open chart in pop-out window
+  const openChartPopout = () => {
+    const width = 900
+    const height = 600
+    const left = window.screenX + (window.outerWidth - width) / 2
+    const top = window.screenY + (window.outerHeight - height) / 2
+    window.open(
+      '/pop/chart',
+      'chart-popout',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes`
+    )
+  }
 
   // Clear pane focus when clicking on header/tabs
   const handleHeaderClick = () => {
@@ -55,28 +67,6 @@ export default function Home() {
           ))}
         </nav>
 
-        {/* Chart Toggle */}
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleChartMode()
-          }}
-          className={clsx(
-            'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-all',
-            chartMode
-              ? 'bg-blue-600 text-white'
-              : 'glass-btn text-gray-400 hover:text-white'
-          )}
-          title={chartMode ? 'Hide chart' : 'Show chart'}
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
-          </svg>
-          <span>Chart</span>
-          {chartMode && selectedSymbol && (
-            <span className="text-xs opacity-75">({selectedSymbol})</span>
-          )}
-        </button>
       </header>
 
       {/* Main Content */}
@@ -91,8 +81,24 @@ export default function Home() {
       {/* Alert Bar - at bottom */}
       <AlertBar />
 
-      {/* Floating Chart Panel */}
-      <ChartPanel />
+      {/* Floating Chart Button (FAB) */}
+      <button
+        onClick={openChartPopout}
+        className="fixed bottom-20 right-4 z-40 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg transition-all hover:scale-105"
+        style={{
+          background: 'linear-gradient(135deg, var(--accent-primary) 0%, var(--bg-tertiary) 100%)',
+          boxShadow: '0 4px 20px var(--accent-glow)',
+          border: '1px solid var(--border-glass)'
+        }}
+        title={selectedSymbol ? `Open chart for ${selectedSymbol}` : 'Open chart'}
+      >
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+        </svg>
+        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+          {selectedSymbol || 'Chart'}
+        </span>
+      </button>
 
       {/* Keyboard shortcuts hint */}
       <footer
