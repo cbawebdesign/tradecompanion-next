@@ -14,6 +14,21 @@ export function ChartPanel() {
 
   const quote = selectedSymbol ? quotes[selectedSymbol] : null
 
+  // Pop out chart to separate window
+  const handlePopout = () => {
+    const width = 900
+    const height = 600
+    const left = window.screenX + (window.outerWidth - width) / 2
+    const top = window.screenY + (window.outerHeight - height) / 2
+    window.open(
+      '/pop/chart',
+      'chart-popout',
+      `width=${width},height=${height},left=${left},top=${top},resizable=yes`
+    )
+    // Close inline panel after popping out
+    toggleChartMode()
+  }
+
   // Handle dragging
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.chart-resize-handle')) return
@@ -160,15 +175,28 @@ export function ChartPanel() {
             </span>
           )}
         </div>
-        <button
-          onClick={toggleChartMode}
-          className="text-gray-400 hover:text-white p-1"
-          title="Close chart"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
+        <div className="flex items-center gap-1">
+          {/* Pop-out button */}
+          <button
+            onClick={handlePopout}
+            className="text-gray-400 hover:text-white p-1"
+            title="Pop out to separate window"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+          </button>
+          {/* Close button */}
+          <button
+            onClick={toggleChartMode}
+            className="text-gray-400 hover:text-white p-1"
+            title="Close chart"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Chart Container */}

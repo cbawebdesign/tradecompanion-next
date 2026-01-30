@@ -37,6 +37,9 @@ export function useCrossWindowSync() {
             if (parsed.state.config) {
               useStore.setState({ config: parsed.state.config })
             }
+            if (parsed.state.selectedSymbol !== undefined) {
+              useStore.setState({ selectedSymbol: parsed.state.selectedSymbol })
+            }
           }
         } catch (err) {
           console.error('Error syncing state across windows:', err)
