@@ -20,16 +20,10 @@ function extractSymbols(text: string): string[] {
   return matches.map(s => s.replace('$', ''))
 }
 
-// Track consecutive errors for backoff
-let consecutiveErrors = 0
-const BASE_POLL_INTERVAL = 30000 // 30 seconds
-const MAX_BACKOFF = 300000 // 5 minutes max
-
 export function useTweetsPolling() {
   const { config, addAlert } = useStore()
   const lastTweetIdRef = useRef<number | null>(null)
   const seenTweetIdsRef = useRef<Set<number>>(new Set())
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!config.hubUrl) return
@@ -40,24 +34,6 @@ export function useTweetsPolling() {
 
     let cancelled = false
 
-    // Calculate next poll interval with exponential backoff on errors
-    function getNextInterval(): number {
-      if (consecutiveErrors === 0) return BASE_POLL_INTERVAL
-      // Exponential backoff: 30s, 60s, 120s, up to 5 min max
-      return Math.min(BASE_POLL_INTERVAL * Math.pow(2, consecutiveErrors), MAX_BACKOFF)
-    }
-
-    function scheduleNextPoll() {
-      if (cancelled) return
-      const interval = getNextInterval()
-      if (consecutiveErrors > 0) {
-        console.log(`Tweets: next poll in ${interval/1000}s (backoff due to ${consecutiveErrors} errors)`)
-      }
-      timeoutRef.current = setTimeout(() => {
-        if (!cancelled) fetchTweets()
-      }, interval)
-    }
-
     async function fetchTweets() {
       try {
         // Azure API requires 'since' parameter (id_long)
@@ -65,24 +41,18 @@ export function useTweetsPolling() {
         const sinceId = lastTweetIdRef.current ?? 0
         const url = `${tweetsUrl}?since=${sinceId}`
 
+        console.log('Tweets: fetching from', url)
         const response = await fetch(url)
         if (!response.ok) {
           const text = await response.text()
           console.log('Tweets fetch failed:', response.status, text)
-          consecutiveErrors++
-          scheduleNextPoll()
           return
         }
-
-        // Success - reset error count
-        consecutiveErrors = 0
 
         const tweets: Tweet[] = await response.json()
+        console.log('Tweets: got', tweets.length, 'tweets, sinceId was', sinceId)
 
-        if (tweets.length === 0) {
-          scheduleNextPoll()
-          return
-        }
+        if (tweets.length === 0) return
 
         // Process new tweets (oldest first, using id_long which is chronological)
         const sortedTweets = [...tweets].sort((a, b) => a.id_long - b.id_long)
@@ -129,22 +99,22 @@ export function useTweetsPolling() {
 
       } catch (err) {
         console.error('Error fetching tweets:', err)
-        consecutiveErrors++
       }
-
-      // Schedule next poll
-      scheduleNextPoll()
     }
 
     // Initial fetch
     fetchTweets()
 
+    // Poll every 30 seconds
+    const interval = setInterval(() => {
+      if (!cancelled) {
+        fetchTweets()
+      }
+    }, 30000)
+
     return () => {
       cancelled = true
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current)
-      }
-      consecutiveErrors = 0
+      clearInterval(interval)
     }
   }, [config.hubUrl, addAlert])
 }
