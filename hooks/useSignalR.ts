@@ -39,15 +39,19 @@ export function useSignalR() {
     addAlert,
     addScannerAlert,
     updateQuotes,
-    watchlists
+    watchlists,
+    flaggedSymbols
   } = useStore()
 
-  // Subscribe to quotes for all watchlist symbols
+  // Subscribe to quotes for all watchlist symbols AND flagged symbols
   const subscribeToQuotes = useCallback(async () => {
     const connection = connectionRef.current
     if (!connection || connection.state !== HubConnectionState.Connected) return
 
-    const allSymbols = watchlists.flatMap(w => w.symbols.map(s => s.symbol))
+    // Combine watchlist symbols and flagged symbols
+    const watchlistSymbols = watchlists.flatMap(w => w.symbols.map(s => s.symbol))
+    const flaggedArray = Array.from(flaggedSymbols)
+    const allSymbols = [...watchlistSymbols, ...flaggedArray]
     const uniqueSymbols = Array.from(new Set(allSymbols))
 
     // Subscribe one at a time (that's how SubL1 works on the server)
@@ -59,7 +63,7 @@ export function useSignalR() {
         console.error('Failed to subscribe to', symbol, err)
       }
     }
-  }, [watchlists])
+  }, [watchlists, flaggedSymbols])
 
   // Initialize connection
   useEffect(() => {
