@@ -8,6 +8,8 @@ const THEMES: { value: AppTheme; label: string; description: string }[] = [
   { value: 'blue', label: 'Deep Blue', description: 'Deep blue trading terminal (default)' },
   { value: 'dark', label: 'Dark', description: 'Blue-tinted dark theme' },
   { value: 'wallst', label: 'Wall St', description: 'Classic black and green terminal' },
+  { value: 'crimson', label: 'Crimson', description: 'Black and red aggressive style' },
+  { value: 'nebula', label: 'Nebula', description: 'Deep purple and blue cosmic vibes' },
 ]
 
 export function SettingsPage() {
@@ -122,6 +124,20 @@ export function SettingsPage() {
                       <div className="w-4 h-4 rounded" style={{ background: '#000000' }} />
                       <div className="w-4 h-4 rounded" style={{ background: '#0a0a0a' }} />
                       <div className="w-4 h-4 rounded" style={{ background: '#22c55e' }} />
+                    </>
+                  )}
+                  {theme.value === 'crimson' && (
+                    <>
+                      <div className="w-4 h-4 rounded" style={{ background: '#0a0000' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#1a0f0f' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#ef4444' }} />
+                    </>
+                  )}
+                  {theme.value === 'nebula' && (
+                    <>
+                      <div className="w-4 h-4 rounded" style={{ background: '#0c0015' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#1e0a3a' }} />
+                      <div className="w-4 h-4 rounded" style={{ background: '#a78bfa' }} />
                     </>
                   )}
                 </div>

@@ -94,7 +94,7 @@ export interface ScannerAlert {
 }
 
 // Theme type
-export type AppTheme = 'dark' | 'blue' | 'wallst'
+export type AppTheme = 'dark' | 'blue' | 'wallst' | 'crimson' | 'nebula'
 
 // Config types
 export interface AppConfig {
