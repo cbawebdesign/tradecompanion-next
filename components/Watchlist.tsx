@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
+import { GrokStockButton } from './GrokStockButton'
 import { PopOutButton } from './PopOutButton'
 import type { Alert } from '@/types'
 
@@ -300,7 +301,12 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                           {isFlagged ? '⚑' : '⚐'}
                         </button>
                       </td>
-                      <td className="font-mono font-semibold">{item.symbol}</td>
+                      <td className="font-mono font-semibold">
+                        <div className="flex items-center gap-1">
+                          <span>{item.symbol}</span>
+                          <GrokStockButton symbol={item.symbol} />
+                        </div>
+                      </td>
                       <td className={clsx('text-right font-mono', changeClass)}>
                         {quote?.last?.toFixed(2) || '-'}
                       </td>

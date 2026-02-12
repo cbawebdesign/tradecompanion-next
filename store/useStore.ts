@@ -89,6 +89,7 @@ const defaultConfig: AppConfig = {
   marketCapMin: 0,
   marketCapMax: 999999999999,
   theme: 'blue',
+  grokApiKey: '',
 }
 
 export const useStore = create<AppState>()(

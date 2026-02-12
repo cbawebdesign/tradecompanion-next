@@ -74,6 +74,20 @@ export function SettingsPage() {
                 className="w-full"
               />
             </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Grok API Key (xAI)</label>
+              <input
+                type="password"
+                value={config.grokApiKey || ''}
+                onChange={(e) => updateConfig({ grokApiKey: e.target.value })}
+                placeholder="xai-..."
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                For stock research AI. Get key at x.ai
+              </p>
+            </div>
           </div>
         </section>
 

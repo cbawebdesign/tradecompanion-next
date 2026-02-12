@@ -107,6 +107,7 @@ export interface AppConfig {
   marketCapMin: number
   marketCapMax: number
   theme: AppTheme
+  grokApiKey: string
 }
 
 // SignalR connection state
