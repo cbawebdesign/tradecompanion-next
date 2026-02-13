@@ -6,6 +6,7 @@ import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
 import { GrokStockButton } from './GrokStockButton'
 import { PopOutButton } from './PopOutButton'
+import { StockDataRibbon } from './StockDataRibbon'
 import type { Alert } from '@/types'
 
 // Check if alert should show Grok button (filings/PRs with URL)
@@ -59,10 +60,67 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
   const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId)
 
-  // Get alerts for the selected symbol
-  const symbolAlerts = selectedSymbol
-    ? alerts.filter(a => a.symbol === selectedSymbol)
-    : []
+  // DB alerts state
+  const [dbAlerts, setDbAlerts] = useState<Alert[]>([])
+  const [dbAlertsSymbol, setDbAlertsSymbol] = useState<string | null>(null)
+  const [dbAlertsLoading, setDbAlertsLoading] = useState(false)
+
+  // Fetch DB alerts when selected symbol changes
+  useEffect(() => {
+    if (!selectedSymbol) {
+      setDbAlerts([])
+      setDbAlertsSymbol(null)
+      return
+    }
+    if (selectedSymbol === dbAlertsSymbol) return
+
+    const controller = new AbortController()
+    setDbAlertsLoading(true)
+    const timeoutId = setTimeout(() => controller.abort(), 15000)
+
+    fetch(`${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`, { signal: controller.signal })
+      .then(r => {
+        clearTimeout(timeoutId)
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then(data => {
+        const mapped: Alert[] = []
+        data.tweets?.forEach((t: any) => {
+          mapped.push({ id: `db-tweet-${t.time}-${t.source}`, symbol: selectedSymbol, message: t.text, type: 'news', color: '', timestamp: new Date(t.time), read: false })
+        })
+        data.filings?.forEach((f: any) => {
+          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: selectedSymbol, message: f.text, type: 'filing', color: '', timestamp: new Date(f.time), read: false, url: f.url })
+        })
+        data.tradeExchange?.forEach((tx: any) => {
+          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: selectedSymbol, message: tx.text, type: 'trade_exchange', color: '', timestamp: new Date(tx.time), read: false })
+        })
+        data.tradingView?.forEach((tv: any) => {
+          mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'news', color: '', timestamp: new Date(tv.time), read: false })
+        })
+        setDbAlerts(mapped)
+        setDbAlertsSymbol(selectedSymbol)
+        setDbAlertsLoading(false)
+      })
+      .catch(err => {
+        if (err.name !== 'AbortError') setDbAlertsLoading(false)
+      })
+
+    return () => { controller.abort(); clearTimeout(timeoutId) }
+  }, [selectedSymbol, config.hubUrl])
+
+  // Get alerts for the selected symbol — merge live + DB
+  const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
+  const mergedDbAlerts = dbAlertsSymbol === selectedSymbol ? dbAlerts : []
+  const seenKeys = new Set<string>()
+  const symbolAlerts = [...liveAlerts, ...mergedDbAlerts]
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+    .filter(a => {
+      const key = `${a.message}-${new Date(a.timestamp).toISOString().substring(11, 19)}`
+      if (seenKeys.has(key)) return false
+      seenKeys.add(key)
+      return true
+    })
 
   const handleAddSymbol = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -431,8 +489,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
           <div className="px-3 py-2 glass-header flex-shrink-0">
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
               Alerts for {selectedSymbol || '—'}
-              {selectedSymbol && <span className="text-xs text-gray-500 ml-2">({symbolAlerts.length})</span>}
+              {selectedSymbol && <span className="text-xs text-gray-500 ml-2">({symbolAlerts.length}){dbAlertsLoading && ' loading...'}</span>}
             </h3>
+          </div>
+          <div className="px-2 pt-1 flex-shrink-0">
+            <StockDataRibbon symbol={selectedSymbol} />
           </div>
           <div className="flex-1 overflow-auto">
             {selectedSymbol ? (
@@ -443,7 +504,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                       <th className="w-20 px-2 py-1 text-left">Time</th>
                       <th className="w-24 px-2 py-1 text-left">Type</th>
                       <th className="px-2 py-1 text-left">Message</th>
-                      <th className="w-8 px-2 py-1">AI</th>
+                      <th className="w-16 px-2 py-1"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -467,8 +528,19 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                             {alert.type}
                           </span>
                         </td>
-                        <td className="px-2 py-1 text-gray-300">{alert.message}</td>
-                        <td className="px-2 py-1 text-center">
+                        <td className="px-2 py-1 text-gray-300">
+                          {alert.url ? (
+                            <a href={alert.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{alert.message}</a>
+                          ) : alert.message}
+                        </td>
+                        <td className="px-2 py-1 text-center whitespace-nowrap">
+                          <button
+                            onClick={() => navigator.clipboard.writeText((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
+                            className="text-gray-500 hover:text-gray-300 text-xs mr-1"
+                            title="Copy to clipboard"
+                          >
+                            📋
+                          </button>
                           {shouldShowGrok(alert) && alert.url && (
                             <GrokButton
                               url={alert.url}

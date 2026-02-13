@@ -92,14 +92,14 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
   }, [])
 
   const handleCopyText = useCallback((alert: Alert) => {
-    const text = `${alert.symbol}: ${alert.message}`
+    const text = `${alert.symbol}: ${(alert.message || '').replace(/^Catalyst PR\s*/i, '')}`
     navigator.clipboard.writeText(text)
     setContextMenu(prev => ({ ...prev, visible: false }))
   }, [])
 
   const handleAlertClick = useCallback((alert: Alert) => {
     // Copy text to clipboard
-    const text = `${alert.symbol}: ${alert.message}`
+    const text = `${alert.symbol}: ${(alert.message || '').replace(/^Catalyst PR\s*/i, '')}`
     navigator.clipboard.writeText(text)
 
     // Set selected symbol and go to watchlist tab
@@ -112,7 +112,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     e.stopPropagation()
 
     // Copy alert text to clipboard
-    const text = alert.message
+    const text = (alert.message || '').replace(/^Catalyst PR\s*/i, '')
     navigator.clipboard.writeText(text)
 
     // Open URL if present (filings, PRs)

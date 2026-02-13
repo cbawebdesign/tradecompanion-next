@@ -1,7 +1,7 @@
 "use client"
 
 import { useStore } from '@/store/useStore'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { AppTheme } from '@/types'
 
 const THEMES: { value: AppTheme; label: string; description: string }[] = [
@@ -12,9 +12,18 @@ const THEMES: { value: AppTheme; label: string; description: string }[] = [
   { value: 'nebula', label: 'Nebula', description: 'Deep purple and blue cosmic vibes' },
 ]
 
+const APP_VERSION = '2.1.0'
+
 export function SettingsPage() {
-  const { config, updateConfig } = useStore()
+  const { config, updateConfig, connectionState, watchlists, setWatchlists, flaggedSymbols, alertSubscriptions } = useStore()
   const [saved, setSaved] = useState(false)
+
+  // User sync state
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'success' | 'error'>('idle')
+  const [syncMessage, setSyncMessage] = useState('')
+  const [keyInput, setKeyInput] = useState('')
+  const [copied, setCopied] = useState(false)
+  const [changingKey, setChangingKey] = useState(false)
 
   // Apply theme to document when it changes
   useEffect(() => {
@@ -26,6 +35,158 @@ export function SettingsPage() {
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
+
+  // User Sync: Generate new key
+  const handleGenerateKey = useCallback(async () => {
+    setSyncStatus('syncing')
+    setSyncMessage('Registering...')
+    try {
+      const resp = await fetch(`${config.hubUrl}/user/register`, { method: 'POST' })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const data = await resp.json()
+      updateConfig({ userKey: data.user_key })
+      setSyncStatus('success')
+      setSyncMessage(`Key generated: ${data.user_key}`)
+    } catch (err: any) {
+      setSyncStatus('error')
+      setSyncMessage(`Failed: ${err.message}`)
+    }
+  }, [config.hubUrl, updateConfig])
+
+  // User Sync: Load existing key
+  const handleLoadKey = useCallback(async () => {
+    const key = keyInput.trim().toUpperCase()
+    if (!key) return
+    setSyncStatus('syncing')
+    setSyncMessage('Validating key...')
+    try {
+      const resp = await fetch(`${config.hubUrl}/user/${encodeURIComponent(key)}`)
+      if (resp.status === 404) {
+        setSyncStatus('error')
+        setSyncMessage('Key not found')
+        return
+      }
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const userData = await resp.json()
+      console.log('[UserSync] Server returned:', JSON.stringify(userData, null, 2))
+      updateConfig({ userKey: userData.user_key })
+
+      // Restore watchlists if server has data
+      // Server format: { "Main Watch": ["AAPL", "TSLA"], "Tech": ["GOOG"] }
+      // Zustand format: [{ id, name, symbols: [{ symbol, upperAlert, lowerAlert, notes }] }]
+      if (userData.watchlists && Object.keys(userData.watchlists).length > 0) {
+        const restored = Object.entries(userData.watchlists).map(([name, symbols]: [string, any]) => ({
+          id: crypto.randomUUID(),
+          name,
+          symbols: (symbols as string[]).map((sym: string) => ({
+            symbol: sym,
+            upperAlert: null,
+            lowerAlert: null,
+            notes: '',
+          })),
+        }))
+        console.log('[UserSync] Restoring watchlists:', JSON.stringify(restored, null, 2))
+        setWatchlists(restored)
+        setSyncMessage(`Key valid. Restored ${restored.length} watchlist(s) with ${restored.reduce((n, wl) => n + wl.symbols.length, 0)} symbols.`)
+      } else {
+        console.log('[UserSync] No watchlists on server')
+        setSyncMessage('Key valid. No server data to restore.')
+      }
+      setSyncStatus('success')
+      setKeyInput('')
+    } catch (err: any) {
+      setSyncStatus('error')
+      setSyncMessage(`Failed: ${err.message}`)
+    }
+  }, [keyInput, config.hubUrl, updateConfig, setWatchlists])
+
+  // User Sync: Pull from server (restore watchlists/config)
+  const handlePull = useCallback(async () => {
+    if (!config.userKey) return
+    setSyncStatus('syncing')
+    setSyncMessage('Pulling from server...')
+    try {
+      const resp = await fetch(`${config.hubUrl}/user/${encodeURIComponent(config.userKey)}`)
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const userData = await resp.json()
+      console.log('[UserSync] Pull - server returned:', JSON.stringify(userData, null, 2))
+
+      if (userData.watchlists && Object.keys(userData.watchlists).length > 0) {
+        const restored = Object.entries(userData.watchlists).map(([name, symbols]: [string, any]) => ({
+          id: crypto.randomUUID(),
+          name,
+          symbols: (symbols as string[]).map((sym: string) => ({
+            symbol: sym,
+            upperAlert: null,
+            lowerAlert: null,
+            notes: '',
+          })),
+        }))
+        console.log('[UserSync] Restoring watchlists:', JSON.stringify(restored, null, 2))
+        setWatchlists(restored)
+        setSyncStatus('success')
+        setSyncMessage(`Pulled ${restored.length} watchlist(s) with ${restored.reduce((n, wl) => n + wl.symbols.length, 0)} symbols from server.`)
+      } else {
+        setSyncStatus('success')
+        setSyncMessage('Server has no watchlist data to pull.')
+      }
+    } catch (err: any) {
+      setSyncStatus('error')
+      setSyncMessage(`Pull failed: ${err.message}`)
+    }
+  }, [config.userKey, config.hubUrl, setWatchlists])
+
+  // User Sync: Push current state to server
+  const handlePush = useCallback(async () => {
+    if (!config.userKey) return
+    setSyncStatus('syncing')
+    setSyncMessage('Pushing to server...')
+    try {
+      const watchlistData: Record<string, string[]> = {}
+      watchlists.forEach(wl => {
+        watchlistData[wl.name] = wl.symbols.map(s => s.symbol)
+      })
+
+      const configData: Record<string, string> = {
+        theme: config.theme,
+        hubUrl: config.hubUrl,
+        tradingViewId: config.tradingViewId,
+        audioEnabled: String(config.audioEnabled),
+        marketCapMin: String(config.marketCapMin),
+        marketCapMax: String(config.marketCapMax),
+      }
+
+      const payload = {
+        id: config.userKey,
+        user_key: config.userKey,
+        watchlists: watchlistData,
+        configs: configData,
+        flagged_symbols: Array.from(flaggedSymbols),
+      }
+
+      console.log('[UserSync] Pushing payload:', JSON.stringify(payload, null, 2))
+
+      const resp = await fetch(`${config.hubUrl}/user/${encodeURIComponent(config.userKey)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      setSyncStatus('success')
+      setSyncMessage('Pushed to server successfully')
+    } catch (err: any) {
+      setSyncStatus('error')
+      setSyncMessage(`Push failed: ${err.message}`)
+    }
+  }, [config, watchlists, flaggedSymbols])
+
+  const handleCopyKey = useCallback(() => {
+    if (config.userKey) {
+      navigator.clipboard.writeText(config.userKey)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }, [config.userKey])
 
   return (
     <div className="p-6 h-full overflow-auto">
@@ -88,6 +249,132 @@ export function SettingsPage() {
                 For stock research AI. Get key at x.ai
               </p>
             </div>
+          </div>
+        </section>
+
+        {/* User Sync */}
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>User Sync</h3>
+          <div className="space-y-4">
+            {config.userKey ? (
+              <>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Your Key</label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 px-3 py-2 rounded text-sm font-mono" style={{ background: 'var(--bg-glass)', color: 'var(--accent-primary)' }}>
+                      {config.userKey}
+                    </code>
+                    <button
+                      onClick={handleCopyKey}
+                      className="btn btn-secondary text-xs px-3 py-2"
+                    >
+                      {copied ? 'Copied!' : 'Copy'}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Save this key to restore your settings on another device
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePull}
+                    disabled={syncStatus === 'syncing'}
+                    className="btn btn-primary flex-1"
+                  >
+                    {syncStatus === 'syncing' ? 'Syncing...' : 'Pull from Server'}
+                  </button>
+                  <button
+                    onClick={handlePush}
+                    disabled={syncStatus === 'syncing'}
+                    className="btn btn-secondary flex-1"
+                  >
+                    {syncStatus === 'syncing' ? 'Syncing...' : 'Push to Server'}
+                  </button>
+                </div>
+                {changingKey ? (
+                  <div className="space-y-2">
+                    <label className="block text-sm text-gray-400">Enter New Key</label>
+                    <p className="text-xs text-gray-500">Current: {config.userKey}</p>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={keyInput}
+                        onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
+                        placeholder="TC-XXXXXX"
+                        className="flex-1"
+                      />
+                      <button
+                        onClick={() => { handleLoadKey(); setChangingKey(false) }}
+                        disabled={syncStatus === 'syncing' || !keyInput.trim()}
+                        className="btn btn-primary"
+                      >
+                        Load
+                      </button>
+                      <button
+                        onClick={() => { setChangingKey(false); setKeyInput('') }}
+                        className="btn btn-secondary"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setChangingKey(true)}
+                      className="btn btn-secondary flex-1 text-xs"
+                    >
+                      Change Key
+                    </button>
+                    <button
+                      onClick={() => updateConfig({ userKey: '' })}
+                      className="btn btn-secondary flex-1 text-xs"
+                    >
+                      Disconnect Key
+                    </button>
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleGenerateKey}
+                  disabled={syncStatus === 'syncing'}
+                  className="btn btn-primary w-full"
+                >
+                  {syncStatus === 'syncing' ? 'Generating...' : 'Generate New Key'}
+                </button>
+                <div className="flex items-center gap-2" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex-1 h-px" style={{ background: 'var(--border-glass)' }} />
+                  <span className="text-xs">or</span>
+                  <div className="flex-1 h-px" style={{ background: 'var(--border-glass)' }} />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-400 mb-1">Enter Existing Key</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={keyInput}
+                      onChange={(e) => setKeyInput(e.target.value.toUpperCase())}
+                      placeholder="TC-XXXXXX"
+                      className="flex-1"
+                    />
+                    <button
+                      onClick={handleLoadKey}
+                      disabled={syncStatus === 'syncing' || !keyInput.trim()}
+                      className="btn btn-primary"
+                    >
+                      Load
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+            {syncMessage && (
+              <p className={`text-xs ${syncStatus === 'error' ? 'text-red-400' : syncStatus === 'success' ? 'text-green-400' : 'text-gray-400'}`}>
+                {syncMessage}
+              </p>
+            )}
           </div>
         </section>
 
@@ -251,6 +538,27 @@ export function SettingsPage() {
         {saved && (
           <span className="text-green-400 text-sm">Settings saved!</span>
         )}
+      </div>
+
+      {/* Version & Status Footer */}
+      <div className="mt-6 pt-4 flex items-center gap-6 text-xs" style={{ borderTop: '1px solid var(--border-glass)', color: 'var(--text-muted)' }}>
+        <span>v{APP_VERSION}</span>
+        <span>
+          Connection:{' '}
+          <span className={
+            connectionState === 'connected' ? 'text-green-400' :
+            connectionState === 'reconnecting' ? 'text-yellow-400' :
+            'text-red-400'
+          }>
+            {connectionState}
+          </span>
+        </span>
+        {config.userKey && (
+          <span>
+            User: <span style={{ color: 'var(--accent-primary)' }}>{config.userKey}</span>
+          </span>
+        )}
+        <span>Hub: {config.hubUrl ? new URL(config.hubUrl).hostname : 'not set'}</span>
       </div>
     </div>
   )
