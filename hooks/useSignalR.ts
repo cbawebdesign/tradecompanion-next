@@ -241,14 +241,14 @@ export function useSignalR() {
         connection.on('newFiling', (data: any) => {
           console.log('newFiling received:', data)
           let message = ''
-          let url: string | undefined
+          let url: string | undefined = data.url || data.Url || undefined
           const alertStr = data.alert || data.message || ''
 
           if (alertStr.includes('"url":')) {
             try {
               const parsed = JSON.parse(alertStr.replace(/\n/g, ' ').replace(/\\/g, ' '))
               message = parsed.text || alertStr
-              url = parsed.url
+              url = url || parsed.url
             } catch {
               message = alertStr
             }

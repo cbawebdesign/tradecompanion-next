@@ -52,6 +52,7 @@ interface AppState {
 
   // Watchlists
   watchlists: Watchlist[]
+  setWatchlists: (watchlists: Watchlist[]) => void
   addWatchlist: (name: string) => void
   removeWatchlist: (id: string) => void
   addSymbolToWatchlist: (watchlistId: string, symbol: WatchlistSymbol) => void
@@ -82,7 +83,7 @@ interface AppState {
 const defaultConfig: AppConfig = {
   tradingViewId: '',
   apiKey: '',
-  hubUrl: 'https://tradecompanion3-test.azurewebsites.net/api',
+  hubUrl: 'https://tradecompanion3.azurewebsites.net/api',
   audioEnabled: true,
   alertBarHeight: 200,
   watchlistSplitPercent: 50,
@@ -90,6 +91,7 @@ const defaultConfig: AppConfig = {
   marketCapMax: 999999999999,
   theme: 'blue',
   grokApiKey: '',
+  userKey: '',
 }
 
 export const useStore = create<AppState>()(
@@ -108,7 +110,7 @@ export const useStore = create<AppState>()(
       setSelectedSymbol: (selectedSymbol) => set({ selectedSymbol }),
       selectedWatchlistId: null,
       setSelectedWatchlistId: (selectedWatchlistId) => set({ selectedWatchlistId }),
-      activeTab: 0,
+      activeTab: 1, // Default to Alerts tab
       setActiveTab: (activeTab) => set({ activeTab }),
 
       // Chart mode
@@ -182,6 +184,7 @@ export const useStore = create<AppState>()(
       watchlists: [
         { id: 'default', name: 'Main', symbols: [] }
       ],
+      setWatchlists: (watchlists) => set({ watchlists, selectedWatchlistId: watchlists[0]?.id || null }),
       addWatchlist: (name) => set((state) => ({
         watchlists: [...state.watchlists, { id: crypto.randomUUID(), name, symbols: [] }]
       })),

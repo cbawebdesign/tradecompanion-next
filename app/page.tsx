@@ -7,6 +7,8 @@ import { AlertsPage } from '@/components/AlertsPage'
 import { ScannerPage } from '@/components/ScannerPage'
 import { ChartsPage } from '@/components/ChartsPage'
 import { SettingsPage } from '@/components/SettingsPage'
+import { AdminPage } from '@/components/AdminPage'
+import { MonitorPage } from '@/components/MonitorPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
 import { clsx } from 'clsx'
@@ -17,7 +19,9 @@ const TABS = [
   { id: 2, label: 'Watchlist', icon: '📋' },
   { id: 3, label: 'Scanner', icon: '📊' },
   { id: 4, label: 'Charts', icon: '📈' },
-  { id: 5, label: 'Settings', icon: '⚙️' },
+  { id: 5, label: 'Monitor', icon: '🖥' },
+  { id: 6, label: 'Admin', icon: '🔧' },
+  { id: 7, label: 'Settings', icon: '⚙️' },
 ]
 
 export default function Home() {
@@ -66,7 +70,9 @@ export default function Home() {
         {activeTab === 2 && <Watchlist />}
         {activeTab === 3 && <ScannerPage />}
         {activeTab === 4 && <ChartsPage />}
-        {activeTab === 5 && <SettingsPage />}
+        {activeTab === 5 && <MonitorPage />}
+        {activeTab === 6 && <AdminPage />}
+        {activeTab === 7 && <SettingsPage />}
       </main>
 
       {/* Alert Bar - at bottom */}

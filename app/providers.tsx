@@ -9,6 +9,8 @@ import { usePrevCloses } from '@/hooks/usePrevCloses'
 import { usePriceAlerts } from '@/hooks/usePriceAlerts'
 import { useCrossWindowSync } from '@/hooks/useCrossWindowSync'
 import { useQuoteBroadcaster } from '@/hooks/useQuoteBroadcast'
+import { useTradeExchangePolling } from '@/hooks/useTradeExchangePolling'
+import { useCatalystPolling } from '@/hooks/useCatalystPolling'
 import { useStore } from '@/store/useStore'
 
 // Apply theme on mount and when it changes
@@ -22,10 +24,23 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+function CloseConfirmation() {
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [])
+  return null
+}
+
 function SignalRProvider({ children }: { children: React.ReactNode }) {
   useSignalR()
   useTweetsPolling() // Poll tweets API for Twitter alerts
   useFilingsPolling() // Poll filings API for SEC filings
+  useTradeExchangePolling() // Poll Trade Exchange API for TX posts
+  useCatalystPolling() // Poll Catalyst API for catalyst PRs
   usePrevCloses() // Fetch previous closes for % change calculation
   usePriceAlerts() // Check for upper/lower price alert triggers
   useCrossWindowSync() // Sync state across pop-out windows
@@ -57,6 +72,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
+        <CloseConfirmation />
         <SignalRProvider>
           {children}
         </SignalRProvider>
