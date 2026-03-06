@@ -125,6 +125,9 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
         data.tradingView?.forEach((tv: any) => {
           mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'news', color: '', timestamp: new Date(tv.time), read: false })
         })
+        data.catalysts?.forEach((c: any) => {
+          mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: selectedSymbol, message: c.text, type: 'catalyst', color: '', timestamp: new Date(c.time), read: false })
+        })
         setDbAlerts(mapped)
         setDbAlertsSymbol(selectedSymbol)
         setDbAlertsLoading(false)
