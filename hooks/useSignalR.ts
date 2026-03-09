@@ -110,16 +110,15 @@ export function useSignalR() {
 
     console.log('SignalR: Subscribing to', uniqueSymbols.length, 'symbols')
 
-    // Subscribe one at a time with delay to avoid rate limiting (429)
-    for (const symbol of uniqueSymbols) {
-      try {
-        await connection.invoke('SubL1', symbol)
-        // Small delay between subscriptions to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 150))
-      } catch (err) {
-        console.error('Failed to subscribe to', symbol, err)
-      }
-    }
+    // Fire all SubL1 calls without delay — legacy app does the same (tight loop, no throttle)
+    // Azure SignalR hub handles the volume fine
+    await Promise.all(
+      uniqueSymbols.map(symbol =>
+        connection.invoke('SubL1', symbol).catch(err =>
+          console.error('Failed to subscribe to', symbol, err)
+        )
+      )
+    )
   }, [])
 
   // Initialize connection
@@ -365,13 +364,17 @@ export function useSignalR() {
 
         connection.on('newCatalystScanner', (data: any) => {
           console.log('newCatalystScanner received:', data)
+          const symbol = (data.symbol || data.Symbol || data.s || '').toUpperCase()
+          // Use title (same field as polling) so dedup catches duplicates
+          const title = data.title || data.Title || data.description || data.Description || data.msg || ''
+          const price = data.startPrice || data.StartPrice || 0
           const alert: Alert = {
             id: crypto.randomUUID(),
-            symbol: data.symbol || data.Symbol || data.s || '',
-            message: data.description || data.Description || data.msg || '',
+            symbol,
+            message: `${title}${price ? ` ($${Number(price).toFixed(2)})` : ''}`,
             type: 'catalyst',
             color: '#9c27b0',
-            timestamp: new Date(),
+            timestamp: data.saveTime_et ? new Date(data.saveTime_et) : new Date(),
             read: false,
           }
           addAlert(alert)
@@ -426,7 +429,7 @@ export function useSignalR() {
             id: crypto.randomUUID(),
             symbol,
             message: rawText || JSON.stringify(data),
-            type: 'news',
+            type: 'tradingview',
             color: '#4caf50',
             timestamp: data.received_utc ? new Date(data.received_utc) : new Date(),
             read: false,
@@ -499,9 +502,17 @@ export function useSignalR() {
         }
 
         // Stale quote re-subscription: check every 30s for symbols with no update in >3 min
+        // Only during market hours (avoid spamming re-subs outside hours)
         staleQuoteTimer = setInterval(async () => {
           const conn = connectionRef.current
           if (!conn || conn.state !== HubConnectionState.Connected) return
+
+          // Skip outside US market hours (4am-8pm ET roughly) to avoid re-sub spam
+          const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+          const hour = nowET.getHours()
+          const day = nowET.getDay()
+          if (day === 0 || day === 6 || hour < 4 || hour >= 20) return
+
           const now = Date.now()
           const staleSymbols: string[] = []
 
@@ -515,15 +526,14 @@ export function useSignalR() {
           }
 
           if (staleSymbols.length > 0) {
-            console.log(`SignalR: Re-subscribing to ${staleSymbols.length} stale symbols:`, staleSymbols.join(','))
-            for (const sym of staleSymbols) {
-              try {
-                await conn.invoke('SubL1', sym)
-                await new Promise(resolve => setTimeout(resolve, 100))
-              } catch (err) {
-                console.error('SignalR: Re-sub failed for', sym, err)
-              }
-            }
+            console.log(`SignalR: Re-subscribing to ${staleSymbols.length} stale symbols`)
+            await Promise.all(
+              staleSymbols.map(sym =>
+                conn.invoke('SubL1', sym).catch(err =>
+                  console.error('SignalR: Re-sub failed for', sym, err)
+                )
+              )
+            )
           }
         }, STALE_CHECK_INTERVAL_MS)
 
