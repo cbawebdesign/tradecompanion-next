@@ -19,6 +19,34 @@ interface StockDataItem {
 // Client-side cache shared across all ribbon instances
 const cache = new Map<string, StockDataItem>()
 
+/** Background-preload StockData for a list of symbols into the shared cache */
+let _preloading = false
+export function preloadStockData(symbols: string[], hubUrl: string) {
+  if (_preloading) return
+  _preloading = true
+  const uncached = symbols.filter(s => !cache.has(s.toUpperCase()))
+  if (uncached.length === 0) { _preloading = false; return }
+  console.log(`StockDataRibbon: preloading ${uncached.length} symbols`)
+  const batchSize = 10
+  let i = 0
+  function nextBatch() {
+    const batch = uncached.slice(i, i + batchSize)
+    if (batch.length === 0) { _preloading = false; return }
+    Promise.all(
+      batch.map(sym =>
+        fetch(`${hubUrl}/StockData?symbol=${encodeURIComponent(sym.toUpperCase())}`)
+          .then(r => r.ok ? r.json() : null)
+          .then(data => { if (data) cache.set(sym.toUpperCase(), data) })
+          .catch(() => {})
+      )
+    ).then(() => {
+      i += batchSize
+      setTimeout(nextBatch, 100)
+    })
+  }
+  nextBatch()
+}
+
 function formatMillions(val: number | null | undefined): string {
   if (val == null || val === 0) return '\u2014'
   if (val >= 1000) return (val / 1000).toFixed(1) + 'B'

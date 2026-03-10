@@ -11,6 +11,7 @@ import { useCrossWindowSync } from '@/hooks/useCrossWindowSync'
 import { useQuoteBroadcaster } from '@/hooks/useQuoteBroadcast'
 import { useTradeExchangePolling } from '@/hooks/useTradeExchangePolling'
 import { useCatalystPolling } from '@/hooks/useCatalystPolling'
+import { useStockDataPreload } from '@/hooks/useStockDataPreload'
 import { useStore } from '@/store/useStore'
 
 // Apply theme on mount and when it changes
@@ -45,6 +46,7 @@ function SignalRProvider({ children }: { children: React.ReactNode }) {
   usePriceAlerts() // Check for upper/lower price alert triggers
   useCrossWindowSync() // Sync state across pop-out windows
   useQuoteBroadcaster() // Broadcast quotes to pop-out windows
+  useStockDataPreload() // Background-preload StockData cache for all watchlist symbols
   return <>{children}</>
 }
 

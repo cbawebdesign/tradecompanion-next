@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Companion — Architecture Comparison</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #0a0e17;
+    --bg-card: #111827;
+    --bg-card-hover: #1a2332;
+    --bg-glass: rgba(17, 24, 39, 0.85);
+    --border: #1e293b;
+    --border-accent: #334155;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --accent-legacy: #f59e0b;
+    --accent-legacy-bg: rgba(245, 158, 11, 0.08);
+    --accent-legacy-border: rgba(245, 158, 11, 0.25);
+    --accent-next: #3b82f6;
+    --accent-next-bg: rgba(59, 130, 246, 0.08);
+    --accent-next-border: rgba(59, 130, 246, 0.25);
+    --accent-shared: #10b981;
+    --accent-shared-bg: rgba(16, 185, 129, 0.08);
+    --green: #22c55e;
+    --red: #ef4444;
+    --purple: #a78bfa;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg-deep);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(59, 130, 246, 0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 2rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 3rem;
+    padding: 2.5rem 2rem;
+    background: linear-gradient(135deg, var(--bg-card) 0%, rgba(17, 24, 39, 0.5) 100%);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent-legacy), var(--accent-shared), var(--accent-next));
+  }
+
+  .header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+  }
+
+  .header h1 .legacy { color: var(--accent-legacy); }
+  .header h1 .vs { color: var(--text-muted); font-weight: 300; margin: 0 0.5rem; }
+  .header h1 .next { color: var(--accent-next); }
+
+  .header p {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+    max-width: 700px;
+    margin: 0 auto;
+  }
+
+  /* Summary Cards */
+  .summary-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .summary-card {
+    padding: 1.5rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .summary-card.legacy {
+    background: var(--accent-legacy-bg);
+    border-color: var(--accent-legacy-border);
+  }
+
+  .summary-card.next {
+    background: var(--accent-next-bg);
+    border-color: var(--accent-next-border);
+  }
+
+  .summary-card h2 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .summary-card.legacy h2 { color: var(--accent-legacy); }
+  .summary-card.next h2 { color: var(--accent-next); }
+
+  .summary-card .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .summary-card.legacy .tag { background: rgba(245, 158, 11, 0.15); color: var(--accent-legacy); }
+  .summary-card.next .tag { background: rgba(59, 130, 246, 0.15); color: var(--accent-next); }
+
+  .tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+  }
+
+  .tech-pill {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+  }
+
+  /* Section layout */
+  .section {
+    margin-bottom: 2.5rem;
+  }
+
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text);
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px 10px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .section-title .icon {
+    font-size: 1.1rem;
+  }
+
+  /* Comparison table */
+  .comp-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 10px 10px;
+    overflow: hidden;
+  }
+
+  .comp-table thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.75rem 1rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    color: var(--text-muted);
+  }
+
+  .comp-table thead th:nth-child(1) { width: 20%; }
+  .comp-table thead th:nth-child(2) { width: 40%; color: var(--accent-legacy); }
+  .comp-table thead th:nth-child(3) { width: 40%; color: var(--accent-next); }
+
+  .comp-table tbody td {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+    font-size: 0.85rem;
+    vertical-align: top;
+    color: var(--text-dim);
+  }
+
+  .comp-table tbody tr:last-child td { border-bottom: none; }
+
+  .comp-table tbody tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .comp-table tbody td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    font-size: 0.8rem;
+    color: var(--text);
+  }
+
+  .comp-table code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    background: rgba(255, 255, 255, 0.06);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: var(--purple);
+  }
+
+  /* Flow diagram sections */
+  .flow-container {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .flow-box {
+    padding: 1.25rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+
+  .flow-box h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .flow-box.legacy h3 { color: var(--accent-legacy); }
+  .flow-box.next h3 { color: var(--accent-next); }
+
+  .flow-diagram {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    line-height: 1.8;
+    color: var(--text-dim);
+    white-space: pre;
+    overflow-x: auto;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+    border: 1px solid rgba(30, 41, 59, 0.5);
+  }
+
+  .flow-diagram .highlight-legacy { color: var(--accent-legacy); font-weight: 600; }
+  .flow-diagram .highlight-next { color: var(--accent-next); font-weight: 600; }
+  .flow-diagram .highlight-green { color: var(--green); font-weight: 600; }
+  .flow-diagram .arrow { color: var(--text-muted); }
+  .flow-diagram .dim { color: var(--text-muted); }
+
+  /* Trade-off cards */
+  .tradeoff-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .tradeoff-card {
+    padding: 1.25rem;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+
+  .tradeoff-card h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--text);
+  }
+
+  .tradeoff-card p {
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+
+  .tradeoff-card .winner {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    margin-top: 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .tradeoff-card .winner.legacy {
+    background: rgba(245, 158, 11, 0.15);
+    color: var(--accent-legacy);
+  }
+
+  .tradeoff-card .winner.next {
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--accent-next);
+  }
+
+  .tradeoff-card .winner.tie {
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--accent-shared);
+  }
+
+  /* Connection map */
+  .conn-section {
+    margin-bottom: 2.5rem;
+  }
+
+  .conn-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .conn-col {
+    padding: 1.25rem;
+  }
+
+  .conn-col.legacy { background: var(--accent-legacy-bg); border-right: 1px solid var(--border); }
+  .conn-col.next { background: var(--accent-next-bg); }
+
+  .conn-col h3 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+
+  .conn-col.legacy h3 { color: var(--accent-legacy); }
+  .conn-col.next h3 { color: var(--accent-next); }
+
+  .conn-item {
+    margin-bottom: 0.75rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+    border: 1px solid rgba(30, 41, 59, 0.5);
+  }
+
+  .conn-item .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text);
+    display: block;
+    margin-bottom: 2px;
+  }
+
+  .conn-item .url {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    word-break: break-all;
+  }
+
+  .conn-item .desc {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    border-top: 1px solid var(--border);
+  }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .summary-row, .flow-container, .conn-grid, .tradeoff-grid {
+      grid-template-columns: 1fr;
+    }
+    .conn-col.legacy { border-right: none; border-bottom: 1px solid var(--border); }
+    .comp-table { font-size: 0.8rem; }
+  }
+
+  /* Animations */
+  .section, .summary-card, .flow-box, .tradeoff-card {
+    animation: fadeUp 0.5s ease both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section:nth-child(2) { animation-delay: 0.05s; }
+  .section:nth-child(3) { animation-delay: 0.1s; }
+  .section:nth-child(4) { animation-delay: 0.15s; }
+  .section:nth-child(5) { animation-delay: 0.2s; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1><span class="legacy">Legacy Desktop</span><span class="vs">vs</span><span class="next">Next.js Web</span></h1>
+    <p>Architecture deep-dive comparing the C#/React hybrid desktop app with the Next.js/Zustand web app. Same data, very different plumbing.</p>
+  </div>
+
+  <!-- SUMMARY CARDS -->
+  <div class="summary-row">
+    <div class="summary-card legacy">
+      <h2>Legacy Desktop App <span class="tag">C# + React</span></h2>
+      <p style="font-size:0.85rem; color:var(--text-dim);">
+        ASP.NET Core 6.0 server hosting a React 18 SPA. The C# backend manages all real-time connections, state, and alert logic. React is purely a rendering layer that talks to the local SignalR hub.
+      </p>
+      <div class="tech-stack">
+        <span class="tech-pill">C# / .NET 6</span>
+        <span class="tech-pill">ASP.NET Core</span>
+        <span class="tech-pill">React 18</span>
+        <span class="tech-pill">TypeScript</span>
+        <span class="tech-pill">SignalR (3 hubs)</span>
+        <span class="tech-pill">Serilog</span>
+        <span class="tech-pill">File Config</span>
+        <span class="tech-pill">Cosmos DB Sync</span>
+      </div>
+    </div>
+    <div class="summary-card next">
+      <h2>Next.js Web App <span class="tag">React + Zustand</span></h2>
+      <p style="font-size:0.85rem; color:var(--text-dim);">
+        Next.js 14 App Router with client-side Zustand state. All data fetching happens in the browser via hooks — SignalR for real-time, REST polling for alerts. Optional Electron wrapper for desktop.
+      </p>
+      <div class="tech-stack">
+        <span class="tech-pill">Next.js 14</span>
+        <span class="tech-pill">React 18</span>
+        <span class="tech-pill">Zustand</span>
+        <span class="tech-pill">Tailwind CSS</span>
+        <span class="tech-pill">SignalR (2 hubs)</span>
+        <span class="tech-pill">Electron (optional)</span>
+        <span class="tech-pill">Vercel</span>
+        <span class="tech-pill">BroadcastChannel</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CORE ARCHITECTURE -->
+  <div class="section">
+    <div class="section-title"><span class="icon">&#9881;</span> Core Architecture</div>
+    <table class="comp-table">
+      <thead><tr><th>Aspect</th><th>Legacy Desktop</th><th>Next.js Web</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Runtime Model</td>
+          <td><strong>Server + Client</strong> — C# process runs on localhost:5000, React SPA on localhost:3000 (dev) or served from wwwroot (prod)</td>
+          <td><strong>Client-only</strong> — Everything runs in the browser. Next.js SSR used only for initial HTML shell. All data fetching is client-side.</td>
+        </tr>
+        <tr>
+          <td>State Management</td>
+          <td><strong>Static globals in C#</strong> — <code>G.cs</code> holds singletons: <code>QuoteManager</code>, <code>AlertService</code>, <code>ConfigService</code>. React uses component state only.</td>
+          <td><strong>Zustand store</strong> — Single client-side store with <code>persist</code> middleware (localStorage). Quotes, alerts, watchlists, config all in one place.</td>
+        </tr>
+        <tr>
+          <td>Config Storage</td>
+          <td><strong>File-based</strong> — <code>~/.config/LX/config.ini</code> for settings, <code>runningAlerts2.json</code> for alerts. Synced to Cosmos DB by <code>UserSyncService</code>.</td>
+          <td><strong>localStorage</strong> — All config persisted via Zustand's <code>persist</code> middleware as <code>'trade-companion-storage'</code> key.</td>
+        </tr>
+        <tr>
+          <td>Alert Logic</td>
+          <td><strong>Server-side (C#)</strong> — <code>AlertService</code> orchestrates all <code>IAlert</code> implementations. Alerts fire events, get routed through central service, then broadcast to React.</td>
+          <td><strong>Client-side (hooks)</strong> — Each alert type has its own hook (<code>useFilingsPolling</code>, <code>useTweetsPolling</code>, etc.). Each hook independently calls <code>store.addAlert()</code>.</td>
+        </tr>
+        <tr>
+          <td>Entry Point</td>
+          <td><code>Program.cs</code> &rarr; <code>G.cs</code> (initializes all services) &rarr; <code>index.tsx</code> (React)</td>
+          <td><code>app/layout.tsx</code> &rarr; <code>providers.tsx</code> (wires hooks) &rarr; <code>page.tsx</code> (tabs)</td>
+        </tr>
+        <tr>
+          <td>Logging</td>
+          <td><strong>Serilog</strong> — Separate log files per feature: <code>QuoteManager.txt</code>, <code>Alerts.txt</code>, <code>PRs.txt</code> in <code>~/.config/LX/Logs/</code></td>
+          <td><strong>console.log</strong> — Browser dev tools only. No persistent logging.</td>
+        </tr>
+        <tr>
+          <td>Deploy Target</td>
+          <td><strong>Local machine only</strong> — <code>dotnet run</code> on the user's desktop. Dead launcher at <code>scanzzers.com/lx/v3build</code>.</td>
+          <td><strong>Vercel (web)</strong> + optional <strong>Electron</strong> wrapper for desktop. Can run anywhere with a browser.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- REAL-TIME CONNECTIONS -->
+  <div class="conn-section">
+    <div class="section-title"><span class="icon">&#9889;</span> Real-Time Connections</div>
+    <div class="conn-grid">
+      <div class="conn-col legacy">
+        <h3>Legacy — 3 SignalR Hubs</h3>
+        <div class="conn-item">
+          <span class="label">1. Azure Function Hub</span>
+          <span class="url">tradecompanion3.azurewebsites.net/api/</span>
+          <span class="desc">Quotes, TradingView, catalysts, filings, bars. Auth: negotiate endpoint.</span>
+        </div>
+        <div class="conn-item">
+          <span class="label">2. News Hub (Direct)</span>
+          <span class="url">stage.news.scanzzers.com/newshub</span>
+          <span class="desc">Press releases, filtered PRs. Auth: JWT via machine-login.</span>
+        </div>
+        <div class="conn-item">
+          <span class="label">3. Local Hub</span>
+          <span class="url">localhost:5000/lxhub</span>
+          <span class="desc">C# backend &harr; React frontend bridge. No auth (local only).</span>
+        </div>
+        <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem;">
+          C# manages all 3 connections server-side. React only connects to local hub. Quotes are relayed: Azure &rarr; C# QuoteManager &rarr; local hub &rarr; React.
+        </p>
+      </div>
+      <div class="conn-col next">
+        <h3>Next.js — 2 SignalR Hubs (Direct)</h3>
+        <div class="conn-item">
+          <span class="label">1. Azure Function Hub</span>
+          <span class="url">tradecompanion3.azurewebsites.net/api/</span>
+          <span class="desc">Quotes, alerts, scanner. Auth: negotiate. Connected directly from browser via useSignalR hook.</span>
+        </div>
+        <div class="conn-item">
+          <span class="label">2. News Hub (Direct)</span>
+          <span class="url">stage.news.scanzzers.com/newshub</span>
+          <span class="desc">Press releases. Auth: API key as bearer token. Connected via useNewsHub hook.</span>
+        </div>
+        <div class="conn-item" style="opacity:0.4; border-style:dashed;">
+          <span class="label">3. Local Hub — Not needed</span>
+          <span class="desc">No C# middleman. Browser connects directly to Azure.</span>
+        </div>
+        <p style="font-size:0.72rem; color:var(--text-muted); margin-top:0.75rem;">
+          Browser connects directly to Azure SignalR + News hub. No local relay layer. Also uses 4 REST polling hooks for filings, tweets, catalysts, and trade exchange.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DATA FLOW DIAGRAMS -->
+  <div class="flow-container">
+    <div class="flow-box legacy">
+      <h3>Quote Data Flow</h3>
+      <div class="flow-diagram"><span class="highlight-legacy">Azure SignalR</span>
+  <span class="arrow">│</span> BroadcastQuotes event
+  <span class="arrow">▼</span>
+<span class="highlight-legacy">SigRCoreClient</span> <span class="dim">(C#)</span>
+  <span class="arrow">│</span> OnBroadcastQuotes event
+  <span class="arrow">▼</span>
+<span class="highlight-legacy">QuoteManager</span> <span class="dim">(C#)</span>
+  <span class="arrow">│</span> Updates _symbolL1Dict
+  <span class="arrow">│</span> 250ms broadcast timer
+  <span class="arrow">▼</span>
+<span class="highlight-legacy">Local Hub</span> <span class="dim">(localhost:5000)</span>
+  <span class="arrow">│</span> BroadcastL1 event
+  <span class="arrow">▼</span>
+<span class="highlight-green">React WatchList</span> <span class="dim">(renders)</span>
+
+<span class="dim">4 hops: Azure → C# client → C# service → React</span></div>
+    </div>
+    <div class="flow-box next">
+      <h3>Quote Data Flow</h3>
+      <div class="flow-diagram"><span class="highlight-next">Azure SignalR</span>
+  <span class="arrow">│</span> BroadcastQuotes event
+  <span class="arrow">▼</span>
+<span class="highlight-next">useSignalR hook</span> <span class="dim">(browser)</span>
+  <span class="arrow">│</span> batchQuoteUpdate (250ms)
+  <span class="arrow">▼</span>
+<span class="highlight-next">Zustand store</span>
+  <span class="arrow">│</span> updateQuotes()
+  <span class="arrow">├──▶</span> <span class="highlight-green">Watchlist</span> <span class="dim">(re-renders)</span>
+  <span class="arrow">├──▶</span> <span class="highlight-green">usePriceAlerts</span> <span class="dim">(checks thresholds)</span>
+  <span class="arrow">└──▶</span> <span class="highlight-green">BroadcastChannel</span> <span class="dim">(→ pop-outs)</span>
+
+<span class="dim">2 hops: Azure → browser hook → store → UI</span></div>
+    </div>
+  </div>
+
+  <div class="flow-container">
+    <div class="flow-box legacy">
+      <h3>Alert Data Flow</h3>
+      <div class="flow-diagram"><span class="dim">Multiple sources:</span>
+  <span class="highlight-legacy">News Hub</span> → PRs.cs / FilteredPR.cs
+  <span class="highlight-legacy">Azure Hub</span> → TradingView.cs / CatalystScan.cs
+  <span class="highlight-legacy">REST Poll</span> → Filings.cs (30s)
+  <span class="highlight-legacy">X Service</span> → X.cs (downloads tweets)
+  <span class="arrow">     │</span>
+  <span class="arrow">     ▼</span> AlertTriggered event
+<span class="highlight-legacy">AlertService</span> <span class="dim">(central router)</span>
+  <span class="arrow">│</span> BroadcastAlertTrigger
+  <span class="arrow">▼</span>
+<span class="highlight-legacy">Local Hub</span> → <span class="highlight-green">TopToolbar</span>
+  <span class="arrow">│</span> setState({ alertTriggers })
+  <span class="arrow">▼</span>
+<span class="highlight-green">AlertBar</span> <span class="dim">(renders + audio)</span></div>
+    </div>
+    <div class="flow-box next">
+      <h3>Alert Data Flow</h3>
+      <div class="flow-diagram"><span class="dim">Independent hooks (parallel):</span>
+  <span class="highlight-next">useSignalR</span> → BroadcastAlertTrigger, newFiling
+  <span class="highlight-next">useNewsHub</span> → BroadcastNews (PRs)
+  <span class="highlight-next">useFilingsPolling</span> → REST (30-60s)
+  <span class="highlight-next">useTweetsPolling</span> → REST (30s)
+  <span class="highlight-next">useCatalystPolling</span> → REST (30s)
+  <span class="highlight-next">useTradeExchangePolling</span> → REST (30s)
+  <span class="arrow">     │</span>
+  <span class="arrow">     ▼</span> store.addAlert()
+<span class="highlight-next">Zustand store</span> <span class="dim">(dedup: sym+type+msg)</span>
+  <span class="arrow">│</span> max 500 alerts
+  <span class="arrow">▼</span>
+<span class="highlight-green">AlertBar</span> <span class="dim">(renders + audio)</span></div>
+    </div>
+  </div>
+
+  <!-- STATE MANAGEMENT -->
+  <div class="section">
+    <div class="section-title"><span class="icon">&#128451;</span> State Management</div>
+    <table class="comp-table">
+      <thead><tr><th>Aspect</th><th>Legacy Desktop</th><th>Next.js Web</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Pattern</td>
+          <td><strong>Static service singletons</strong> — <code>G.QuoteManager</code>, <code>G.AlertService</code>, etc. C# objects with in-memory dictionaries.</td>
+          <td><strong>Zustand global store</strong> — Single <code>useStore()</code> hook. Reactive selectors trigger re-renders.</td>
+        </tr>
+        <tr>
+          <td>Quote Storage</td>
+          <td><code>QuoteManager._symbolL1Dict</code> — C# <code>Dictionary&lt;string, L1&gt;</code>. Buffered 250ms, then broadcast to React as a flat object.</td>
+          <td><code>store.quotes</code> — <code>Record&lt;string, Quote&gt;</code>. Updated via <code>updateQuotes(batch)</code> every 250ms (hook-side batching).</td>
+        </tr>
+        <tr>
+          <td>Alert Storage</td>
+          <td><code>AlertService._runningAlerts</code> — C# list. File-persisted to <code>runningAlerts2.json</code>. React gets individual events via SignalR.</td>
+          <td><code>store.alerts[]</code> — JS array, max 500. Persisted to localStorage. Dedup by <code>symbol|message|type</code>.</td>
+        </tr>
+        <tr>
+          <td>Watchlists</td>
+          <td><code>WatchlistManager</code> — JSON files in <code>~/.config/LX/Watchlists/</code>. Synced to Cosmos DB.</td>
+          <td><code>store.watchlists[]</code> — localStorage. No server sync (yet).</td>
+        </tr>
+        <tr>
+          <td>Persistence</td>
+          <td><strong>Files + Cosmos DB</strong> — Config.ini (local), JSON files (watchlists), Cosmos (cloud sync)</td>
+          <td><strong>localStorage only</strong> — Everything in <code>'trade-companion-storage'</code> key. No cloud backup.</td>
+        </tr>
+        <tr>
+          <td>Cross-Window</td>
+          <td><strong>Not needed</strong> — Single window app. C# process is the single source of truth.</td>
+          <td><strong>BroadcastChannel + Storage events</strong> — Main window broadcasts quotes to pop-outs via <code>BroadcastChannel</code>. State synced via <code>storage</code> events.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- SUBSCRIPTION & QUOTE MANAGEMENT -->
+  <div class="section">
+    <div class="section-title"><span class="icon">&#128200;</span> Subscription & Quote Management</div>
+    <table class="comp-table">
+      <thead><tr><th>Aspect</th><th>Legacy Desktop</th><th>Next.js Web</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>SubL1 Calls</td>
+          <td><strong>Tight loop (zero delay)</strong> — <code>QuoteManager.cs</code> iterates watchlist, calls <code>SubL1</code> per symbol sequentially. Blazing fast because it's server-to-server.</td>
+          <td><strong>Promise.all (parallel)</strong> — Browser fires all <code>SubL1</code> calls concurrently. Fixed from original 150ms throttle.</td>
+        </tr>
+        <tr>
+          <td>Stale Detection</td>
+          <td><strong>None</strong> — Relies on SignalR auto-reconnect. If connection drops, C# reconnects and re-subscribes.</td>
+          <td><strong>3-minute timeout</strong> — Detects symbols with no update for 3+ min during market hours. Auto re-subscribes stale symbols.</td>
+        </tr>
+        <tr>
+          <td>Quote Batching</td>
+          <td><strong>250ms timer (C#)</strong> — <code>QuoteManager</code> collects ticks, broadcasts buffered snapshot every 250ms.</td>
+          <td><strong>250ms timer (JS)</strong> — <code>useSignalR</code> collects ticks in <code>quoteBatchRef</code>, flushes to store every 250ms.</td>
+        </tr>
+        <tr>
+          <td>Reconnection</td>
+          <td><strong>C# SigRCoreClient</strong> — Exponential backoff. Token refresh every 45 min. Re-subscribes all symbols on reconnect.</td>
+          <td><strong>SignalR withAutomaticReconnect</strong> — [0, 2s, 10s, 30s] retry schedule. Re-subscribes on reconnect. Token refresh every 40 min.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ALERT ARCHITECTURE -->
+  <div class="section">
+    <div class="section-title"><span class="icon">&#128276;</span> Alert Architecture</div>
+    <table class="comp-table">
+      <thead><tr><th>Aspect</th><th>Legacy Desktop</th><th>Next.js Web</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Pattern</td>
+          <td><strong>Centralized (OOP)</strong> — <code>IAlert</code> interface. Each alert type is a class (<code>PRs.cs</code>, <code>Filings.cs</code>, <code>TradingView.cs</code>, <code>X.cs</code>). All fire <code>AlertTriggered</code> events routed through <code>AlertService</code>.</td>
+          <td><strong>Decentralized (hooks)</strong> — Each alert source is an independent React hook. No central router — each hook calls <code>store.addAlert()</code> directly.</td>
+        </tr>
+        <tr>
+          <td>Deduplication</td>
+          <td><strong>Per-alert-class logic</strong> — Each class tracks its own seen alerts. PRs checks headline text, Filings checks filing ID, etc.</td>
+          <td><strong>Store-level</strong> — <code>addAlert()</code> checks <code>symbol + type + first40chars</code>. Single dedup layer for all sources.</td>
+        </tr>
+        <tr>
+          <td>Alert Sources</td>
+          <td>6: TradingView, PRs (news hub), FilteredPR, CatalystScan, Filings, X (Twitter)</td>
+          <td>7: SignalR alerts, News hub, Filings polling, Tweets polling, Catalyst polling, TradeExchange polling, Price alerts</td>
+        </tr>
+        <tr>
+          <td>PR/News</td>
+          <td><strong>SignalR real-time</strong> via News Hub + polling fallback (60s). C# <code>PRs.cs</code> handles both paths.</td>
+          <td><strong>SignalR real-time</strong> via <code>useNewsHub</code> + <code>useSignalR</code> (BroadcastNews). Also caught by <code>useTweetsPolling</code> as backup.</td>
+        </tr>
+        <tr>
+          <td>Audio</td>
+          <td><strong>SpeechService (C#)</strong> — System TTS. Can speak alert text aloud.</td>
+          <td><strong>Web Audio API</strong> — <code>new Audio('/alert.mp3').play()</code>. Configurable per alert type.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- MULTI-WINDOW -->
+  <div class="section">
+    <div class="section-title"><span class="icon">&#128187;</span> Multi-Window Architecture</div>
+    <table class="comp-table">
+      <thead><tr><th>Aspect</th><th>Legacy Desktop</th><th>Next.js Web</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Window Model</td>
+          <td><strong>Single window</strong> — One browser tab served by the C# backend. No pop-outs.</td>
+          <td><strong>Multi-window</strong> — Main window + up to 6 pop-out tabs (alerts, watchlist, scanner, alertbar, mascot). Each is a separate <code>/pop/*</code> route.</td>
+        </tr>
+        <tr>
+          <td>Data Sharing</td>
+          <td>N/A — single window</td>
+          <td><strong>Two-tier sync</strong>: Zustand &rarr; localStorage (state sync via <code>storage</code> events) + <code>BroadcastChannel</code> (high-frequency quote broadcast every 500ms)</td>
+        </tr>
+        <tr>
+          <td>Pop-out Providers</td>
+          <td>N/A</td>
+          <td><strong>Lightweight</strong> — Pop-outs use <code>PopoutProviders</code> with NO polling hooks. Only <code>useCrossWindowSync</code> + <code>useQuoteReceiver</code>. Prevents duplicate API calls.</td>
+        </tr>
+        <tr>
+          <td>Electron</td>
+          <td>N/A — runs as dotnet process</td>
+          <td><strong>Optional wrapper</strong> — <code>electron/main.js</code> creates BrowserWindow. Mascot = transparent, always-on-top window. System tray integration on macOS.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- BUILD & DEPLOY -->
+  <div class="section">
+    <div class="section-title"><span class="icon">&#128640;</span> Build & Deployment</div>
+    <table class="comp-table">
+      <thead><tr><th>Aspect</th><th>Legacy Desktop</th><th>Next.js Web</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Build Process</td>
+          <td><code>npm run build</code> (React) + <code>dotnet publish</code> (C#). React output copied to wwwroot.</td>
+          <td><code>npm run build</code> (Next.js). Optional <code>npm run build:mac</code> / <code>build:win</code> for Electron.</td>
+        </tr>
+        <tr>
+          <td>Runtime Deps</td>
+          <td><strong>.NET 6 runtime</strong> required on user machine. Node.js for dev only.</td>
+          <td><strong>None</strong> (web). Electron bundles Chromium (~200MB).</td>
+        </tr>
+        <tr>
+          <td>Distribution</td>
+          <td><strong>Manual</strong> — Dead launcher (<code>scanzzers.com/lx/v3build</code>). Users run from local source.</td>
+          <td><strong>Vercel CDN</strong> (web). Electron: DMG/NSIS installer via electron-builder.</td>
+        </tr>
+        <tr>
+          <td>Updates</td>
+          <td><strong>Manual</strong> — User must pull latest code and rebuild.</td>
+          <td><strong>Instant</strong> — Vercel deploys on git push. Electron could use auto-updater (not wired yet).</td>
+        </tr>
+        <tr>
+          <td>Solution Structure</td>
+          <td><strong>7 C# projects</strong> — TradeCompanion, Services, Models, SignalRClient, Util, Helpers, LxV3Launcher, TestProject</td>
+          <td><strong>Flat</strong> — <code>app/</code>, <code>components/</code>, <code>hooks/</code>, <code>store/</code>, <code>lib/</code>, <code>types/</code>, <code>electron/</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- TRADE-OFF ANALYSIS -->
+  <div class="section-title" style="border-radius:10px 10px 0 0; margin-bottom:0;"><span class="icon">&#9878;</span> Architecture Trade-offs</div>
+  <div style="border:1px solid var(--border); border-top:none; border-radius:0 0 10px 10px; padding:1.25rem;">
+    <div class="tradeoff-grid">
+      <div class="tradeoff-card">
+        <h4>Latency</h4>
+        <p>Legacy has an extra hop (C# relay) but it's on localhost so negligible. Next.js connects directly to Azure — fewer hops over the wire.</p>
+        <span class="winner next">Edge: Next.js</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>Reliability</h4>
+        <p>Legacy's C# process is always-on with robust reconnection. Next.js depends on browser staying open — tab sleep, refresh = lost state.</p>
+        <span class="winner legacy">Edge: Legacy</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>Scalability</h4>
+        <p>Next.js can run anywhere, multi-window, multi-device. Legacy is locked to one machine, one window.</p>
+        <span class="winner next">Edge: Next.js</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>State Durability</h4>
+        <p>Legacy persists to files + Cosmos DB (survives crashes). Next.js uses localStorage only — clear browser data = gone.</p>
+        <span class="winner legacy">Edge: Legacy</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>Alert Processing</h4>
+        <p>Legacy's centralized <code>AlertService</code> gives single control point. Next.js hooks are independent — harder to coordinate but simpler to add new sources.</p>
+        <span class="winner tie">Tie</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>Deployment</h4>
+        <p>Legacy requires .NET runtime + manual updates. Next.js auto-deploys via Vercel, works in any browser.</p>
+        <span class="winner next">Edge: Next.js</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>Debugging</h4>
+        <p>Legacy has Serilog per-feature log files — excellent for post-mortem. Next.js has only console.log in browser devtools.</p>
+        <span class="winner legacy">Edge: Legacy</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>Multi-Window</h4>
+        <p>Next.js has full pop-out support with BroadcastChannel sync. Legacy is single-window only.</p>
+        <span class="winner next">Edge: Next.js</span>
+      </div>
+      <div class="tradeoff-card">
+        <h4>Code Simplicity</h4>
+        <p>Next.js is ~2K LOC hooks + components. Legacy is 7 C# projects + React. Same features, 3-5x less code.</p>
+        <span class="winner next">Edge: Next.js</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    Trade Companion Architecture Comparison &mdash; Generated March 2026
+  </div>
+
+</div>
+</body>
+</html>

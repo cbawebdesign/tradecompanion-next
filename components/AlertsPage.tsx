@@ -16,6 +16,9 @@ const shouldShowGrok = (alert: Alert): boolean => {
   return type === 'filing' || type.includes('pr') || type.includes('filing')
 }
 
+// Module-level cache for AlertsBySymbol results — survives remounts
+const dbAlertsCache: Record<string, Alert[]> = {}
+
 interface AlertsPageProps {
   isPopout?: boolean
 }
@@ -56,6 +59,12 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     if (!isActive) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept keys when typing in inputs
+      const tag = (e.target as HTMLElement)?.tagName
+      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+        || (e.target as HTMLElement)?.isContentEditable
+      if (isEditable && e.key !== 'Escape') return
+
       const flaggedArray = Array.from(flaggedSymbols)
       if (flaggedArray.length === 0) return
 
@@ -92,7 +101,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   const [dbAlertsSymbol, setDbAlertsSymbol] = useState<string | null>(null)
   const [dbAlertsLoading, setDbAlertsLoading] = useState(false)
 
-  // Fetch DB alerts when selected symbol changes
+  // Fetch DB alerts when selected symbol changes — show cached instantly, refresh in background
   useEffect(() => {
     if (!selectedSymbol) {
       setDbAlerts([])
@@ -101,8 +110,17 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     }
     if (selectedSymbol === dbAlertsSymbol) return
 
+    // Show cached data instantly if available
+    const cached = dbAlertsCache[selectedSymbol.toUpperCase()]
+    if (cached) {
+      setDbAlerts(cached)
+      setDbAlertsSymbol(selectedSymbol)
+      setDbAlertsLoading(false)
+    } else {
+      setDbAlertsLoading(true)
+    }
+
     const controller = new AbortController()
-    setDbAlertsLoading(true)
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     fetch(`${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`, { signal: controller.signal })
@@ -128,6 +146,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
         data.catalysts?.forEach((c: any) => {
           mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: selectedSymbol, message: c.text, type: 'catalyst', color: '', timestamp: new Date(c.time), read: false })
         })
+        dbAlertsCache[selectedSymbol.toUpperCase()] = mapped
         setDbAlerts(mapped)
         setDbAlertsSymbol(selectedSymbol)
         setDbAlertsLoading(false)
