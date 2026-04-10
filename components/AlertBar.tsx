@@ -7,11 +7,11 @@ import type { Alert } from '@/types'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 
-// Check if alert should show Grok button (filings/PRs with URL)
+// Check if alert should show Grok button (any alert with a URL worth summarizing)
 const shouldShowGrok = (alert: Alert): boolean => {
   if (!alert.url) return false
   const type = alert.type.toLowerCase()
-  return type === 'filing' || type.includes('pr') || type.includes('filing')
+  return type === 'filing' || type === 'news' || type === 'catalyst' || type === 'tweet'
 }
 
 interface ContextMenuState {
@@ -138,6 +138,12 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (visibleAlerts.length === 0) return
 
+      // Don't intercept keys when user is typing in an input/textarea/select
+      const tag = (e.target as HTMLElement)?.tagName
+      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+        || (e.target as HTMLElement)?.isContentEditable
+      if (isEditable) return
+
       if (e.key === 'ArrowDown') {
         e.preventDefault()
         setSelectedAlertIndex(prev =>
@@ -149,10 +155,13 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
           prev > 0 ? prev - 1 : visibleAlerts.length - 1
         )
       } else if (e.key === ' ' && selectedAlertIndex >= 0) {
-        // Space to flag symbol
+        // Space to flag symbol + copy to clipboard for AHK/Hammerspoon
         e.preventDefault()
         const alert = visibleAlerts[selectedAlertIndex]
-        if (alert) toggleFlag(alert.symbol)
+        if (alert) {
+          toggleFlag(alert.symbol)
+          navigator.clipboard.writeText(alert.symbol).catch(() => {})
+        }
       } else if (e.key === 'Enter' && selectedAlertIndex >= 0) {
         // Enter to select and go to watchlist
         e.preventDefault()
@@ -278,6 +287,8 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                         alert.type === 'catalyst' && 'bg-orange-900/50 text-orange-400',
                         alert.type === 'trade_exchange' && 'bg-yellow-900/50 text-yellow-400',
                         alert.type === 'scanner' && 'bg-cyan-900/50 text-cyan-400',
+                        alert.type === 'tweet' && 'bg-sky-900/50 text-sky-400',
+                        alert.type === 'tradingview' && 'bg-emerald-900/50 text-emerald-400',
                       )}
                     >
                       {alert.type}

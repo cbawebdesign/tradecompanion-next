@@ -30,6 +30,7 @@ interface AppState {
   // Alerts
   alerts: Alert[]
   addAlert: (alert: Alert) => void
+  addAlerts: (alerts: Alert[]) => void
   markAlertRead: (id: string) => void
   clearAlerts: () => void
   hiddenAlertIds: Set<string>
@@ -78,6 +79,10 @@ interface AppState {
   addAlertSubscription: (alertType: AlertType, watchlistId: string) => void
   removeAlertSubscription: (id: string) => void
   toggleAlertSubscriptionAudio: (id: string) => void
+
+  // Mascot
+  mascotPosition: { x: number; y: number }
+  setMascotPosition: (pos: { x: number; y: number }) => void
 }
 
 const defaultConfig: AppConfig = {
@@ -92,6 +97,10 @@ const defaultConfig: AppConfig = {
   theme: 'blue',
   grokApiKey: '',
   userKey: '',
+  mascotEnabled: true,
+  mascotSize: 'md',
+  mascotCharacter: 'classic',
+  newsApiKey: '',
 }
 
 export const useStore = create<AppState>()(
@@ -121,17 +130,28 @@ export const useStore = create<AppState>()(
       // Alerts
       alerts: [],
       addAlert: (alert) => set((state) => {
-        // Deduplication: check if same symbol + message + type already exists
-        const isDuplicate = state.alerts.some(existing =>
-          existing.symbol === alert.symbol &&
-          existing.message === alert.message &&
-          existing.type === alert.type
-        )
+        // Deduplication: check if same symbol + type already exists with similar message
+        const isDuplicate = state.alerts.some(existing => {
+          if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
+          // Exact message match
+          if (existing.message === alert.message) return true
+          // Fuzzy match: same symbol+type and messages share first 40 chars (handles slight formatting diffs)
+          const existFirst = (existing.message || '').slice(0, 40).toLowerCase()
+          const newFirst = (alert.message || '').slice(0, 40).toLowerCase()
+          if (existFirst.length > 10 && existFirst === newFirst) return true
+          return false
+        })
         if (isDuplicate) {
-          console.log('Skipping duplicate alert:', alert.symbol, alert.message.substring(0, 50))
           return state // Don't add duplicate
         }
         return { alerts: [alert, ...state.alerts].slice(0, 500) }
+      }),
+      addAlerts: (newAlerts) => set((state) => {
+        // Batch add with dedup — single store update for many alerts
+        const existing = new Set(state.alerts.map(a => `${a.symbol}|${a.message}|${a.type}`))
+        const unique = newAlerts.filter(a => !existing.has(`${a.symbol}|${a.message}|${a.type}`))
+        if (unique.length === 0) return state
+        return { alerts: [...unique.reverse(), ...state.alerts].slice(0, 500) }
       }),
       markAlertRead: (id) => set((state) => ({
         alerts: state.alerts.map(a => a.id === id ? { ...a, read: true } : a)
@@ -278,6 +298,10 @@ export const useStore = create<AppState>()(
           s.id === id ? { ...s, audioEnabled: !s.audioEnabled } : s
         )
       })),
+
+      // Mascot
+      mascotPosition: { x: 20, y: -200 }, // bottom-left, offset from bottom
+      setMascotPosition: (mascotPosition) => set({ mascotPosition }),
     }),
     {
       name: 'trade-companion-storage',
@@ -290,6 +314,8 @@ export const useStore = create<AppState>()(
         scannerAlerts: state.scannerAlerts,
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
         alertSubscriptions: state.alertSubscriptions,
+        mascotPosition: state.mascotPosition,
+        quotes: state.quotes,
       }),
       onRehydrateStorage: () => (state) => {
         // Convert flaggedSymbols back to Set after rehydration

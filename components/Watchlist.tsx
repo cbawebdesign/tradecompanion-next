@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
+import { proxyUrl } from '@/lib/proxyUrl'
 import { GrokButton } from './GrokButton'
 import { GrokStockButton } from './GrokStockButton'
 import { PopOutButton } from './PopOutButton'
@@ -47,28 +48,32 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const isActive = activePane === 'watchlist'
 
+  const [sortCol, setSortCol] = useState<'symbol' | 'change' | null>(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
   const [newSymbol, setNewSymbol] = useState('')
   const [newWatchlistName, setNewWatchlistName] = useState('')
   const [inlineAddSymbol, setInlineAddSymbol] = useState('')
   const [isAddingInline, setIsAddingInline] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
   const inlineInputRef = useRef<HTMLInputElement>(null)
   const [splitPercent, setSplitPercent] = useState(config.watchlistSplitPercent || 60)
 
-  // Default to first watchlist
+  // Auto-select first watchlist if selectedWatchlistId is stale or missing
   useEffect(() => {
-    if (!selectedWatchlistId && watchlists.length > 0) {
+    if (watchlists.length > 0 && !watchlists.find(w => w.id === selectedWatchlistId)) {
+      console.log('Watchlist: auto-selecting first watchlist (stale ID)')
       setSelectedWatchlistId(watchlists[0].id)
     }
   }, [selectedWatchlistId, watchlists, setSelectedWatchlistId])
 
-  const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId)
+  const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId) || watchlists[0]
 
   // DB alerts state
   const [dbAlerts, setDbAlerts] = useState<Alert[]>([])
   const [dbAlertsSymbol, setDbAlertsSymbol] = useState<string | null>(null)
   const [dbAlertsLoading, setDbAlertsLoading] = useState(false)
 
-  // Fetch DB alerts when selected symbol changes — show cached instantly, refresh in background
+  // Fetch DB alerts when selected symbol changes
   useEffect(() => {
     if (!selectedSymbol) {
       setDbAlerts([])
@@ -90,7 +95,8 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-    fetch(`${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`, { signal: controller.signal })
+    const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
+    fetch(proxyUrl(`${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`), { signal: controller.signal })
       .then(r => {
         clearTimeout(timeoutId)
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -140,7 +146,8 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
   const handleAddSymbol = useCallback((e: React.FormEvent) => {
     e.preventDefault()
-    if (!newSymbol.trim() || !selectedWatchlistId) return
+    const wlId = selectedWatchlistId || currentWatchlist?.id
+    if (!newSymbol.trim() || !wlId) return
 
     const symbol = newSymbol.toUpperCase().trim()
 
@@ -149,7 +156,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       return
     }
 
-    addSymbolToWatchlist(selectedWatchlistId, {
+    addSymbolToWatchlist(wlId, {
       symbol,
       upperAlert: null,
       lowerAlert: null,
@@ -166,7 +173,8 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   }, [newWatchlistName, addWatchlist])
 
   const handleInlineAdd = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' && inlineAddSymbol.trim() && selectedWatchlistId) {
+    const wlId = selectedWatchlistId || currentWatchlist?.id
+    if (e.key === 'Enter' && inlineAddSymbol.trim() && wlId) {
       const symbol = inlineAddSymbol.toUpperCase().trim()
 
       // Check if already exists
@@ -176,7 +184,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         return
       }
 
-      addSymbolToWatchlist(selectedWatchlistId, {
+      addSymbolToWatchlist(wlId, {
         symbol,
         upperAlert: null,
         lowerAlert: null,
@@ -226,11 +234,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       if (!isActive) return
       if (!currentWatchlist) return
 
-      // Don't intercept keys when typing in inputs
+      // Skip keys when focus is in an input/textarea/select/contentEditable
       const tag = (e.target as HTMLElement)?.tagName
-      const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
+      const inInput = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
         || (e.target as HTMLElement)?.isContentEditable
-      if (isEditable && e.key !== 'Escape') return
+      if (inInput && e.key !== 'Escape') return
 
       const symbols = currentWatchlist.symbols
       const currentIndex = symbols.findIndex(s => s.symbol === selectedSymbol)
@@ -243,10 +251,26 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         e.preventDefault()
         const prevIndex = currentIndex > 0 ? currentIndex - 1 : symbols.length - 1
         setSelectedSymbol(symbols[prevIndex]?.symbol || null)
+      } else if (e.key === 'ArrowLeft') {
+        // Switch to previous watchlist tab
+        const wlIndex = watchlists.findIndex(w => w.id === selectedWatchlistId)
+        if (wlIndex > 0) {
+          e.preventDefault()
+          setSelectedWatchlistId(watchlists[wlIndex - 1].id)
+        }
+      } else if (e.key === 'ArrowRight') {
+        // Switch to next watchlist tab
+        const wlIndex = watchlists.findIndex(w => w.id === selectedWatchlistId)
+        if (wlIndex < watchlists.length - 1) {
+          e.preventDefault()
+          setSelectedWatchlistId(watchlists[wlIndex + 1].id)
+        }
       } else if (e.key === ' ' && selectedSymbol) {
         e.preventDefault()
         toggleFlag(selectedSymbol)
-      } else if (e.key === 'Delete' && selectedSymbol) {
+        // Copy symbol to clipboard for AHK/Hammerspoon automation
+        navigator.clipboard.writeText(selectedSymbol).catch(() => {})
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSymbol) {
         e.preventDefault()
         removeSymbolFromWatchlist(selectedWatchlistId!, selectedSymbol)
       }
@@ -254,7 +278,81 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, currentWatchlist, selectedSymbol, selectedWatchlistId, setSelectedSymbol, toggleFlag, removeSymbolFromWatchlist])
+  }, [isActive, currentWatchlist, selectedSymbol, selectedWatchlistId, watchlists, setSelectedSymbol, setSelectedWatchlistId, toggleFlag, removeSymbolFromWatchlist])
+
+  // Close context menu on click-away or Escape
+  useEffect(() => {
+    if (!contextMenu) return
+    const close = () => setContextMenu(null)
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
+    window.addEventListener('click', close)
+    window.addEventListener('keydown', handleEsc)
+    return () => {
+      window.removeEventListener('click', close)
+      window.removeEventListener('keydown', handleEsc)
+    }
+  }, [contextMenu])
+
+  // Context menu handlers
+  const handleContextMenu = useCallback((e: React.MouseEvent, symbol: string) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, symbol })
+  }, [])
+
+  const handleMoveToWatchlist = useCallback((symbol: string, targetWatchlistId: string) => {
+    if (!selectedWatchlistId) return
+    const current = currentWatchlist?.symbols.find(s => s.symbol === symbol)
+    if (!current) return
+    removeSymbolFromWatchlist(selectedWatchlistId, symbol)
+    addSymbolToWatchlist(targetWatchlistId, { ...current })
+    setContextMenu(null)
+  }, [selectedWatchlistId, currentWatchlist, removeSymbolFromWatchlist, addSymbolToWatchlist])
+
+  const handleCopyToWatchlist = useCallback((symbol: string, targetWatchlistId: string) => {
+    const current = currentWatchlist?.symbols.find(s => s.symbol === symbol)
+    if (!current) return
+    addSymbolToWatchlist(targetWatchlistId, { ...current })
+    setContextMenu(null)
+  }, [currentWatchlist, addSymbolToWatchlist])
+
+  // Sort toggle handler
+  const handleSort = useCallback((col: 'symbol' | 'change') => {
+    if (sortCol === col) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortCol(col)
+      setSortDir(col === 'change' ? 'desc' : 'asc')
+    }
+  }, [sortCol])
+
+  // Smart price formatting: 4 decimals if < $1, otherwise 2
+  const formatPrice = (val: number | undefined) => {
+    if (!val) return '-'
+    return val < 1 ? val.toFixed(4) : val.toFixed(2)
+  }
+
+  // Get sorted symbols
+  const getSortedSymbols = () => {
+    if (!currentWatchlist) return []
+    const syms = [...currentWatchlist.symbols]
+    if (!sortCol) return syms
+    return syms.sort((a, b) => {
+      let cmp = 0
+      if (sortCol === 'symbol') {
+        cmp = a.symbol.localeCompare(b.symbol)
+      } else if (sortCol === 'change') {
+        const aChg = quotes[a.symbol]?.changePercent || 0
+        const bChg = quotes[b.symbol]?.changePercent || 0
+        cmp = aChg - bChg
+      }
+      return sortDir === 'desc' ? -cmp : cmp
+    })
+  }
+
+  const sortArrow = (col: 'symbol' | 'change') => {
+    if (sortCol !== col) return ''
+    return sortDir === 'asc' ? ' ▲' : ' ▼'
+  }
 
   const formatTime = (date: Date) => {
     const d = new Date(date)
@@ -342,18 +440,18 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
               <thead>
                 <tr>
                   <th className="w-8">Flag</th>
-                  <th>Symbol</th>
+                  <th className="cursor-pointer select-none" onClick={() => handleSort('symbol')}>Symbol{sortArrow('symbol')}</th>
                   <th className="text-right">Last</th>
                   <th className="text-right">Bid</th>
                   <th className="text-right">Ask</th>
-                  <th className="text-right">% Chg</th>
+                  <th className="text-right cursor-pointer select-none" onClick={() => handleSort('change')}>% Chg{sortArrow('change')}</th>
                   <th className="text-right">Upper</th>
                   <th className="text-right">Lower</th>
                   <th className="w-8"></th>
                 </tr>
               </thead>
               <tbody>
-                {currentWatchlist?.symbols.map((item) => {
+                {getSortedSymbols().map((item) => {
                   const quote = quotes[item.symbol]
                   const isFlagged = flaggedSymbols.has(item.symbol)
                   const changeClass = quote?.change > 0 ? 'price-up' : quote?.change < 0 ? 'price-down' : 'price-neutral'
@@ -362,6 +460,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                     <tr
                       key={item.symbol}
                       onClick={() => setSelectedSymbol(item.symbol)}
+                      onContextMenu={(e) => handleContextMenu(e, item.symbol)}
                       className={clsx(
                         'cursor-pointer',
                         selectedSymbol === item.symbol && 'selected'
@@ -388,13 +487,13 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         </div>
                       </td>
                       <td className={clsx('text-right font-mono', changeClass)}>
-                        {quote?.last?.toFixed(2) || '-'}
+                        {formatPrice(quote?.last)}
                       </td>
                       <td className="text-right font-mono text-gray-400">
-                        {quote?.bid?.toFixed(2) || '-'}
+                        {formatPrice(quote?.bid)}
                       </td>
                       <td className="text-right font-mono text-gray-400">
-                        {quote?.ask?.toFixed(2) || '-'}
+                        {formatPrice(quote?.ask)}
                       </td>
                       <td className={clsx('text-right font-mono', changeClass)}>
                         {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}
@@ -590,6 +689,59 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
           </div>
         </div>
       </div>
+
+      {/* Right-click Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 min-w-[160px] py-1 rounded shadow-lg border"
+          style={{
+            top: contextMenu.y,
+            left: contextMenu.x,
+            background: 'var(--bg-panel, #1a1a2e)',
+            borderColor: 'var(--border-glass, #333)',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b" style={{ borderColor: 'var(--border-glass, #333)' }}>
+            {contextMenu.symbol}
+          </div>
+          <button
+            className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/10 text-red-400"
+            onClick={() => {
+              if (selectedWatchlistId) removeSymbolFromWatchlist(selectedWatchlistId, contextMenu.symbol)
+              setContextMenu(null)
+            }}
+          >
+            Remove
+          </button>
+          {watchlists.filter(w => w.id !== selectedWatchlistId).length > 0 && (
+            <>
+              <div className="h-px my-0.5" style={{ background: 'var(--border-glass, #333)' }} />
+              <div className="px-3 py-1 text-xs text-gray-500">Move to...</div>
+              {watchlists.filter(w => w.id !== selectedWatchlistId).map(wl => (
+                <button
+                  key={`move-${wl.id}`}
+                  className="w-full text-left px-5 py-1 text-sm hover:bg-white/10 text-gray-300"
+                  onClick={() => handleMoveToWatchlist(contextMenu.symbol, wl.id)}
+                >
+                  {wl.name}
+                </button>
+              ))}
+              <div className="h-px my-0.5" style={{ background: 'var(--border-glass, #333)' }} />
+              <div className="px-3 py-1 text-xs text-gray-500">Copy to...</div>
+              {watchlists.filter(w => w.id !== selectedWatchlistId).map(wl => (
+                <button
+                  key={`copy-${wl.id}`}
+                  className="w-full text-left px-5 py-1 text-sm hover:bg-white/10 text-gray-300"
+                  onClick={() => handleCopyToWatchlist(contextMenu.symbol, wl.id)}
+                >
+                  {wl.name}
+                </button>
+              ))}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

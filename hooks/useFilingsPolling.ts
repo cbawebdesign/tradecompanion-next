@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
+import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
 
 // Filing from Azure API (matches lx_filing_rss)
@@ -20,19 +21,20 @@ interface Filing {
 
 // Module-level flag to prevent React Strict Mode double-fetch
 let hasInitiallyFetched = false
+// Module-level cursors survive React remounts (but not full page reload)
+let persistedLastFilingTime: string | null = null
+let persistedSeenFilingIds: Set<string> = new Set()
 
 export function useFilingsPolling() {
-  const { config, addAlert, watchlists } = useStore()
-  const lastFilingTimeRef = useRef<string | null>(null)
-  const seenFilingIdsRef = useRef<Set<string>>(new Set())
+  const { config, addAlert, addAlerts, watchlists } = useStore()
+  const lastFilingTimeRef = useRef<string | null>(persistedLastFilingTime)
+  const seenFilingIdsRef = useRef<Set<string>>(persistedSeenFilingIds)
+  // Use ref so watchlist changes don't restart the polling effect
+  const watchlistsRef = useRef(watchlists)
+  watchlistsRef.current = watchlists
 
   useEffect(() => {
     if (!config.hubUrl) return
-
-    // Get all symbols from watchlists for filtering (computed inside effect)
-    const watchlistSymbols = new Set(
-      watchlists.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
-    )
 
     // Get base URL from hubUrl
     const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
@@ -47,6 +49,11 @@ export function useFilingsPolling() {
         hasInitiallyFetched = true
       }
 
+      // Read latest watchlists from ref (not stale closure)
+      const watchlistSymbols = new Set(
+        watchlistsRef.current.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
+      )
+
       try {
         // Build URL - only add since param for subsequent fetches
         // Initial fetch uses API default (last 5 days), we limit client-side
@@ -58,7 +65,7 @@ export function useFilingsPolling() {
           url += `?since=${encodeURIComponent(formatted)}`
         }
 
-        const response = await fetch(url)
+        const response = await fetch(proxyUrl(url))
         if (!response.ok) {
           console.log('Filings fetch failed:', response.status)
           return
@@ -89,33 +96,35 @@ export function useFilingsPolling() {
           return timeA - timeB
         })
 
+        // Build batch of new alerts
+        const batch: Alert[] = []
         for (const filing of sortedFilings) {
-          // Create unique ID from cik + dcn (or fallback to symbol + form + time)
           const filingId = filing.dcn
             ? `${filing.cik}-${filing.dcn}`
             : `${filing.symbol}-${filing.form}-${filing.time_et || filing.date}`
 
-          // Skip if we've already seen this filing
           if (seenFilingIdsRef.current.has(filingId)) continue
           seenFilingIdsRef.current.add(filingId)
 
-          // Get first matching watchlist symbol
           const filingSymbols = filing.symbol.split(',').map(s => s.trim().toUpperCase())
           const matchedSymbol = filingSymbols.find(s => watchlistSymbols.has(s)) || filing.symbol
 
-          // Create alert from filing
-          const alert: Alert = {
+          batch.push({
             id: crypto.randomUUID(),
             symbol: matchedSymbol,
             message: `${filing.form}${filing.title ? ': ' + filing.title : ''}`,
             type: 'filing',
-            color: '#00bcd4', // Cyan for filings
+            color: '#00bcd4',
             timestamp: new Date(filing.time_et || filing.date || new Date()),
             read: false,
             url: filing.url,
-          }
+          })
+        }
 
-          addAlert(alert)
+        // Single store update for initial load, one-by-one for live updates
+        if (batch.length > 0) {
+          if (isInitialFetch) addAlerts(batch)
+          else batch.forEach(a => addAlert(a))
         }
 
         // Update last filing time for next fetch (use original filings, not filtered)
@@ -128,6 +137,7 @@ export function useFilingsPolling() {
         if (allSorted.length > 0) {
           const lastFiling = allSorted[allSorted.length - 1]
           lastFilingTimeRef.current = lastFiling.time_et || lastFiling.date || null
+          persistedLastFilingTime = lastFilingTimeRef.current
         }
 
         // Keep seen filings set from growing too large
@@ -135,14 +145,15 @@ export function useFilingsPolling() {
           const arr = Array.from(seenFilingIdsRef.current)
           seenFilingIdsRef.current = new Set(arr.slice(-250))
         }
+        persistedSeenFilingIds = seenFilingIdsRef.current
 
       } catch (err) {
         console.error('Error fetching filings:', err)
       }
     }
 
-    // Initial fetch
-    fetchFilings()
+    // Stagger initial fetch to avoid ERR_INSUFFICIENT_RESOURCES
+    const initTimer = setTimeout(fetchFilings, 2000)
 
     // Poll every 60 seconds (filings don't come as frequently as tweets)
     const interval = setInterval(() => {
@@ -153,9 +164,10 @@ export function useFilingsPolling() {
 
     return () => {
       cancelled = true
+      clearTimeout(initTimer)
       clearInterval(interval)
       // Reset for hot reload / remount
       hasInitiallyFetched = false
     }
-  }, [config.hubUrl, addAlert, watchlists])
+  }, [config.hubUrl, addAlert, addAlerts])
 }

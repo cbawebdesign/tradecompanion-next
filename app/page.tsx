@@ -9,6 +9,7 @@ import { SettingsPage } from '@/components/SettingsPage'
 import { AdminPage } from '@/components/AdminPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
+import { AlertMascot } from '@/components/AlertMascot'
 import { clsx } from 'clsx'
 
 const TABS = [
@@ -74,6 +75,9 @@ export default function Home() {
 
       {/* Floating Chart Panel */}
       <ChartPanel />
+
+      {/* Floating Alert Mascot */}
+      <AlertMascot />
 
       {/* Floating Chart Button (FAB) */}
       <button

@@ -59,14 +59,14 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     if (!isActive) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept keys when typing in inputs
+      const flaggedArray = Array.from(flaggedSymbols)
+      if (flaggedArray.length === 0) return
+
+      // Don't intercept keys when user is typing in an input/textarea/select
       const tag = (e.target as HTMLElement)?.tagName
       const isEditable = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT'
         || (e.target as HTMLElement)?.isContentEditable
       if (isEditable && e.key !== 'Escape') return
-
-      const flaggedArray = Array.from(flaggedSymbols)
-      if (flaggedArray.length === 0) return
 
       const currentIndex = selectedSymbol ? flaggedArray.indexOf(selectedSymbol) : -1
 
@@ -101,7 +101,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   const [dbAlertsSymbol, setDbAlertsSymbol] = useState<string | null>(null)
   const [dbAlertsLoading, setDbAlertsLoading] = useState(false)
 
-  // Fetch DB alerts when selected symbol changes — show cached instantly, refresh in background
+  // Fetch DB alerts when selected symbol changes
   useEffect(() => {
     if (!selectedSymbol) {
       setDbAlerts([])

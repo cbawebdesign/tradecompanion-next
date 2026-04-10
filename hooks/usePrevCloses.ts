@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
+import { proxyUrl } from '@/lib/proxyUrl'
 
 interface MarketResult {
   Ti: string  // Ticker
@@ -19,7 +20,7 @@ interface MarketRespObj {
 }
 
 export function usePrevCloses() {
-  const { config, setPrevCloses, watchlists } = useStore()
+  const { config, setPrevCloses, updateQuotes, quotes, watchlists } = useStore()
   const fetchedRef = useRef(false)
   const lastFetchRef = useRef<number>(0)
 
@@ -40,7 +41,7 @@ export function usePrevCloses() {
 
         console.log('Fetching prevCloses from:', url)
 
-        const response = await fetch(url)
+        const response = await fetch(proxyUrl(url))
         if (!response.ok) {
           throw new Error(`PrevCloses fetch failed: ${response.status}`)
         }
@@ -80,6 +81,26 @@ export function usePrevCloses() {
         fetchedRef.current = true
         lastFetchRef.current = now
 
+        // Seed watchlist quotes with prevClose as last price when no live quote exists
+        const currentQuotes = useStore.getState().quotes
+        const watchlistSymbols = useStore.getState().watchlists.flatMap(w => w.symbols.map(s => s.symbol))
+        const seedQuotes = watchlistSymbols
+          .filter(sym => !currentQuotes[sym]?.last && prevCloses[sym])
+          .map(sym => ({
+            symbol: sym,
+            bid: 0,
+            ask: 0,
+            last: prevCloses[sym],
+            volume: 0,
+            change: 0,
+            changePercent: 0,
+            timestamp: new Date(),
+          }))
+        if (seedQuotes.length > 0) {
+          console.log('Seeding', seedQuotes.length, 'watchlist quotes from prevCloses')
+          updateQuotes(seedQuotes)
+        }
+
       } catch (error) {
         console.error('Error fetching prevCloses:', error)
       }
@@ -92,4 +113,28 @@ export function usePrevCloses() {
     return () => clearInterval(interval)
 
   }, [config.hubUrl, setPrevCloses])
+
+  // Re-seed quotes when watchlist changes (e.g. after loading TC key)
+  useEffect(() => {
+    if (!fetchedRef.current) return // prevCloses not loaded yet
+    const prevCloses = useStore.getState().prevCloses
+    const currentQuotes = useStore.getState().quotes
+    const watchlistSymbols = watchlists.flatMap(w => w.symbols.map(s => s.symbol))
+    const seedQuotes = watchlistSymbols
+      .filter(sym => !currentQuotes[sym]?.last && prevCloses[sym])
+      .map(sym => ({
+        symbol: sym,
+        bid: 0,
+        ask: 0,
+        last: prevCloses[sym],
+        volume: 0,
+        change: 0,
+        changePercent: 0,
+        timestamp: new Date(),
+      }))
+    if (seedQuotes.length > 0) {
+      console.log('Seeding', seedQuotes.length, 'new watchlist quotes from prevCloses')
+      updateQuotes(seedQuotes)
+    }
+  }, [watchlists, updateQuotes])
 }

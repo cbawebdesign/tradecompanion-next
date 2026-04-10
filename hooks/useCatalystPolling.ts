@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
+import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
 
 interface CatalystItem {
@@ -12,18 +13,20 @@ interface CatalystItem {
 }
 
 let hasInitiallyFetched = false
+// Module-level cursor survives React remounts (but not full page reload)
+let persistedLastTime: string | null = null
+let persistedSeenKeys: Set<string> = new Set()
 
 export function useCatalystPolling() {
   const { config, addAlert, watchlists } = useStore()
-  const lastTimeRef = useRef<string | null>(null)
-  const seenKeysRef = useRef<Set<string>>(new Set())
+  const lastTimeRef = useRef<string | null>(persistedLastTime)
+  const seenKeysRef = useRef<Set<string>>(persistedSeenKeys)
+  // Use ref so watchlist changes don't restart the polling effect
+  const watchlistsRef = useRef(watchlists)
+  watchlistsRef.current = watchlists
 
   useEffect(() => {
     if (!config.hubUrl) return
-
-    const watchlistSymbols = new Set(
-      watchlists.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
-    )
 
     const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
     const apiUrl = `${baseUrl}/api/Catalyst`
@@ -36,6 +39,11 @@ export function useCatalystPolling() {
         hasInitiallyFetched = true
       }
 
+      // Read latest watchlists from ref (not stale closure)
+      const watchlistSymbols = new Set(
+        watchlistsRef.current.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
+      )
+
       try {
         let url = apiUrl
         if (lastTimeRef.current) {
@@ -44,7 +52,7 @@ export function useCatalystPolling() {
           url += `?since=${encodeURIComponent(formatted)}`
         }
 
-        const response = await fetch(url)
+        const response = await fetch(proxyUrl(url))
         if (!response.ok) {
           // 503 = catalyst service not ready, don't log as error
           if (response.status !== 503) {
@@ -88,9 +96,10 @@ export function useCatalystPolling() {
           console.log('Catalyst:', newCount, 'new PRs', isInitialFetch ? '(initial)' : '(poll)')
         }
 
-        // Update cursor
+        // Update cursor (also persist to module level so remounts don't reset)
         if (sorted.length > 0) {
           lastTimeRef.current = sorted[sorted.length - 1].saveTime_et
+          persistedLastTime = lastTimeRef.current
         }
 
         // Trim seen set
@@ -98,12 +107,14 @@ export function useCatalystPolling() {
           const arr = Array.from(seenKeysRef.current)
           seenKeysRef.current = new Set(arr.slice(-250))
         }
+        persistedSeenKeys = seenKeysRef.current
       } catch (err) {
         console.error('Error fetching catalysts:', err)
       }
     }
 
-    fetchCatalysts()
+    // Stagger initial fetch to avoid ERR_INSUFFICIENT_RESOURCES
+    const initTimer = setTimeout(fetchCatalysts, 5000)
 
     // Poll every 60 seconds
     const interval = setInterval(() => {
@@ -112,8 +123,9 @@ export function useCatalystPolling() {
 
     return () => {
       cancelled = true
+      clearTimeout(initTimer)
       clearInterval(interval)
       hasInitiallyFetched = false
     }
-  }, [config.hubUrl, addAlert, watchlists])
+  }, [config.hubUrl, addAlert])
 }

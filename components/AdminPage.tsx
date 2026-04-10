@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
+import { proxyUrl } from '@/lib/proxyUrl'
 
 interface StockDataItem {
   Ticker: string
@@ -19,6 +20,42 @@ interface StockDataItem {
 export function AdminPage() {
   const hubUrl = useStore((s) => s.config.hubUrl)
 
+  // Rollback state
+  const [rollbackStatus, setRollbackStatus] = useState<'idle' | 'confirming' | 'loading' | 'success' | 'error'>('idle')
+  const [rollbackMessage, setRollbackMessage] = useState('')
+  const [healthData, setHealthData] = useState<any>(null)
+  const [healthLoading, setHealthLoading] = useState(false)
+
+  const fetchHealth = useCallback(async () => {
+    if (!hubUrl) return
+    setHealthLoading(true)
+    try {
+      const resp = await fetch(proxyUrl(`${hubUrl}/tcadmin/health`))
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      setHealthData(await resp.json())
+    } catch (err: any) {
+      setHealthData({ error: err.message })
+    } finally {
+      setHealthLoading(false)
+    }
+  }, [hubUrl])
+
+  const handleRollback = useCallback(async () => {
+    if (!hubUrl) return
+    setRollbackStatus('loading')
+    try {
+      const resp = await fetch(proxyUrl(`${hubUrl}/tcadmin/rollback`), { method: 'POST' })
+      const data = await resp.json()
+      if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`)
+      setRollbackStatus('success')
+      setRollbackMessage(data.message || 'Rollback triggered successfully')
+      setTimeout(() => setRollbackStatus('idle'), 10000)
+    } catch (err: any) {
+      setRollbackStatus('error')
+      setRollbackMessage(err.message)
+    }
+  }, [hubUrl])
+
   // Float editor state
   const [lookupSymbol, setLookupSymbol] = useState('')
   const [stockData, setStockData] = useState<StockDataItem | null>(null)
@@ -34,7 +71,7 @@ export function AdminPage() {
     setLookupStatus('loading')
     setStockData(null)
     try {
-      const resp = await fetch(`${hubUrl}/StockData?symbol=${encodeURIComponent(sym)}`)
+      const resp = await fetch(proxyUrl(`${hubUrl}/StockData?symbol=${encodeURIComponent(sym)}`))
       if (resp.status === 404) {
         setLookupStatus('notfound')
         return
@@ -137,7 +174,7 @@ export function AdminPage() {
                       onClick={async () => {
                         setSaveStatus('saving')
                         try {
-                          const resp = await fetch(`${hubUrl}/StockData/update`, {
+                          const resp = await fetch(proxyUrl(`${hubUrl}/StockData/update`), {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -174,12 +211,111 @@ export function AdminPage() {
           </div>
         </section>
 
-        {/* Placeholder for future admin features */}
+        {/* Deployment & Rollback */}
         <section className="glass-panel rounded-lg p-4">
-          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Global Settings</h3>
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            Banned symbols, scanner thresholds, and market cap bucket overrides will go here.
-          </p>
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Deployment &amp; Rollback</h3>
+          <div className="space-y-4">
+            {/* Health Check */}
+            <div>
+              <button
+                onClick={fetchHealth}
+                disabled={healthLoading}
+                className="btn btn-primary text-sm"
+              >
+                {healthLoading ? 'Checking...' : 'Check System Health'}
+              </button>
+              {healthData && !healthData.error && (
+                <div className="mt-3 space-y-1">
+                  {healthData.services?.map((svc: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <span
+                        style={{
+                          width: 8, height: 8, borderRadius: '50%', display: 'inline-block',
+                          backgroundColor: svc.isConnected ? '#4caf50' : '#f44336',
+                        }}
+                      />
+                      <span style={{ color: 'var(--text-primary)' }}>{svc.name}</span>
+                      <span style={{ color: 'var(--text-muted)' }}>({svc.messageCount} msgs)</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {healthData?.error && (
+                <p className="text-xs text-red-400 mt-2">{healthData.error}</p>
+              )}
+            </div>
+
+            {/* Divider */}
+            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }} />
+
+            {/* Rollback Button */}
+            <div>
+              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                Roll back the Azure Function to the previous deployment. Takes ~2 minutes, zero downtime.
+              </p>
+              {rollbackStatus === 'idle' && (
+                <button
+                  onClick={() => setRollbackStatus('confirming')}
+                  style={{
+                    width: '100%', padding: '12px', backgroundColor: '#d32f2f', color: '#fff',
+                    border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700,
+                    cursor: 'pointer', letterSpacing: '0.5px',
+                  }}
+                >
+                  ROLLBACK TO PREVIOUS VERSION
+                </button>
+              )}
+              {rollbackStatus === 'confirming' && (
+                <div className="space-y-2">
+                  <p className="text-sm text-yellow-400 font-semibold">
+                    Are you sure? This will redeploy the previous version.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleRollback}
+                      style={{
+                        flex: 1, padding: '10px', backgroundColor: '#d32f2f', color: '#fff',
+                        border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                      }}
+                    >
+                      YES, ROLL BACK NOW
+                    </button>
+                    <button
+                      onClick={() => setRollbackStatus('idle')}
+                      style={{
+                        flex: 1, padding: '10px', backgroundColor: '#333', color: '#ccc',
+                        border: '1px solid #555', borderRadius: '6px', fontSize: '14px', cursor: 'pointer',
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+              {rollbackStatus === 'loading' && (
+                <div className="text-center py-3">
+                  <p className="text-sm text-yellow-400">Triggering rollback...</p>
+                </div>
+              )}
+              {rollbackStatus === 'success' && (
+                <div style={{ backgroundColor: 'rgba(76,175,80,0.15)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', padding: '12px' }}>
+                  <p className="text-sm text-green-400 font-semibold">{rollbackMessage}</p>
+                </div>
+              )}
+              {rollbackStatus === 'error' && (
+                <div style={{ backgroundColor: 'rgba(244,67,54,0.15)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '12px' }}>
+                  <p className="text-sm text-red-400">Error: {rollbackMessage}</p>
+                  <button
+                    onClick={() => setRollbackStatus('idle')}
+                    className="text-xs underline mt-1"
+                    style={{ color: 'var(--text-muted)' }}
+                  >
+                    Try again
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </section>
       </div>
     </div>

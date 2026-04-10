@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback } from 'react'
+import { proxyUrl } from '@/lib/proxyUrl'
 
 const GROK_API_URL = 'https://tradecompanion-grok.azurewebsites.net/api/groksummary-func'
 
@@ -68,7 +69,7 @@ export function GrokButton({
         url: url,
         filingType: alertType,
       })
-      const response = await fetch(`${GROK_API_URL}?${params}`)
+      const response = await fetch(proxyUrl(`${GROK_API_URL}?${params}`))
       const data = await response.json()
 
       const contentEl = win.document.querySelector('.content')

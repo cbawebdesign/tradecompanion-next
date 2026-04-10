@@ -2,7 +2,10 @@
 
 import { useStore } from '@/store/useStore'
 import { useState, useEffect, useCallback } from 'react'
-import type { AppTheme } from '@/types'
+import { proxyUrl } from '@/lib/proxyUrl'
+import { getSession, clearSession } from '@/components/LoginGate'
+import type { AppTheme, MascotSize, MascotCharacter } from '@/types'
+import { MASCOT_CHARACTERS } from './AlertMascot'
 
 const THEMES: { value: AppTheme; label: string; description: string }[] = [
   { value: 'blue', label: 'Deep Blue', description: 'Deep blue trading terminal (default)' },
@@ -25,6 +28,11 @@ export function SettingsPage() {
   const [copied, setCopied] = useState(false)
   const [changingKey, setChangingKey] = useState(false)
 
+  // TradingView webhook registration state
+  const [tvRegStatus, setTvRegStatus] = useState<'idle' | 'registering' | 'success' | 'error'>('idle')
+  const [tvWebhookUrl, setTvWebhookUrl] = useState('')
+  const [tvRegError, setTvRegError] = useState('')
+
   // Apply theme to document when it changes
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', config.theme || 'blue')
@@ -41,7 +49,7 @@ export function SettingsPage() {
     setSyncStatus('syncing')
     setSyncMessage('Registering...')
     try {
-      const resp = await fetch(`${config.hubUrl}/user/register`, { method: 'POST' })
+      const resp = await fetch(proxyUrl(`${config.hubUrl}/user/register`), { method: 'POST' })
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const data = await resp.json()
       updateConfig({ userKey: data.user_key })
@@ -60,7 +68,7 @@ export function SettingsPage() {
     setSyncStatus('syncing')
     setSyncMessage('Validating key...')
     try {
-      const resp = await fetch(`${config.hubUrl}/user/${encodeURIComponent(key)}`)
+      const resp = await fetch(proxyUrl(`${config.hubUrl}/user/${encodeURIComponent(key)}`))
       if (resp.status === 404) {
         setSyncStatus('error')
         setSyncMessage('Key not found')
@@ -106,7 +114,7 @@ export function SettingsPage() {
     setSyncStatus('syncing')
     setSyncMessage('Pulling from server...')
     try {
-      const resp = await fetch(`${config.hubUrl}/user/${encodeURIComponent(config.userKey)}`)
+      const resp = await fetch(proxyUrl(`${config.hubUrl}/user/${encodeURIComponent(config.userKey)}`))
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
       const userData = await resp.json()
       console.log('[UserSync] Pull - server returned:', JSON.stringify(userData, null, 2))
@@ -166,7 +174,7 @@ export function SettingsPage() {
 
       console.log('[UserSync] Pushing payload:', JSON.stringify(payload, null, 2))
 
-      const resp = await fetch(`${config.hubUrl}/user/${encodeURIComponent(config.userKey)}`, {
+      const resp = await fetch(proxyUrl(`${config.hubUrl}/user/${encodeURIComponent(config.userKey)}`), {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -179,6 +187,32 @@ export function SettingsPage() {
       setSyncMessage(`Push failed: ${err.message}`)
     }
   }, [config, watchlists, flaggedSymbols])
+
+  // TradingView webhook registration
+  const handleTvRegister = useCallback(async () => {
+    if (!config.tradingViewId) return
+    setTvRegStatus('registering')
+    setTvRegError('')
+    setTvWebhookUrl('')
+    try {
+      // Generate a random webhook key
+      const webhookKey = crypto.randomUUID().replace(/-/g, '').substring(0, 16)
+      const trimmedUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
+      const resp = await fetch(proxyUrl(`${trimmedUrl}/api/tv/register`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: config.tradingViewId, webhook_key: webhookKey }),
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const data = await resp.json()
+      const url = data.webhook_url || `${trimmedUrl}/api/tv/${webhookKey}`
+      setTvWebhookUrl(url)
+      setTvRegStatus('success')
+    } catch (err: any) {
+      setTvRegStatus('error')
+      setTvRegError(err.message)
+    }
+  }, [config.tradingViewId, config.hubUrl])
 
   const handleCopyKey = useCallback(() => {
     if (config.userKey) {
@@ -227,13 +261,51 @@ export function SettingsPage() {
 
             <div>
               <label className="block text-sm text-gray-400 mb-1">TradingView ID</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={config.tradingViewId}
+                  onChange={(e) => updateConfig({ tradingViewId: e.target.value })}
+                  placeholder="Your TradingView username"
+                  className="flex-1"
+                />
+                <button
+                  onClick={handleTvRegister}
+                  disabled={!config.tradingViewId || tvRegStatus === 'registering'}
+                  className="btn btn-secondary text-xs px-3 py-2 whitespace-nowrap"
+                >
+                  {tvRegStatus === 'registering' ? 'Registering...' : 'Register Webhook'}
+                </button>
+              </div>
+              {tvWebhookUrl && (
+                <div className="mt-2 p-2 rounded text-xs" style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)' }}>
+                  <p className="text-green-400 mb-1">Webhook registered! Use this URL in TradingView alerts:</p>
+                  <code className="block break-all" style={{ color: 'var(--accent-primary)' }}>{tvWebhookUrl}</code>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(tvWebhookUrl); }}
+                    className="btn btn-secondary text-xs px-2 py-1 mt-1"
+                  >
+                    Copy URL
+                  </button>
+                </div>
+              )}
+              {tvRegError && (
+                <p className="text-xs text-red-400 mt-1">Registration failed: {tvRegError}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">News Hub API Key</label>
               <input
-                type="text"
-                value={config.tradingViewId}
-                onChange={(e) => updateConfig({ tradingViewId: e.target.value })}
-                placeholder="Your TradingView username"
+                type="password"
+                value={config.newsApiKey || ''}
+                onChange={(e) => updateConfig({ newsApiKey: e.target.value })}
+                placeholder="Enter news hub API key"
                 className="w-full"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Direct connection to news hub for real-time PR alerts
+              </p>
             </div>
 
             <div>
@@ -511,6 +583,80 @@ export function SettingsPage() {
           </div>
         </section>
 
+        {/* Mascot Settings */}
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Alert Mascot</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm" style={{ color: 'var(--text-primary)' }}>Show Mascot</label>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Floating mascot reacts to alerts</p>
+              </div>
+              <button
+                onClick={() => updateConfig({ mascotEnabled: !config.mascotEnabled })}
+                className={`w-12 h-6 rounded-full transition-colors ${
+                  config.mascotEnabled ? 'bg-blue-600' : 'bg-gray-600'
+                }`}
+              >
+                <span
+                  className={`block w-5 h-5 rounded-full bg-white transform transition-transform ${
+                    config.mascotEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                  }`}
+                />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Character</label>
+              <div className="flex gap-3">
+                {(Object.entries(MASCOT_CHARACTERS) as [MascotCharacter, typeof MASCOT_CHARACTERS[keyof typeof MASCOT_CHARACTERS]][]).map(([key, char]) => (
+                  <button
+                    key={key}
+                    onClick={() => updateConfig({ mascotCharacter: key })}
+                    className={`flex flex-col items-center gap-1.5 p-2 rounded-lg transition-all ${
+                      config.mascotCharacter === key
+                        ? 'ring-2 ring-blue-500 bg-blue-500/10'
+                        : 'hover:bg-white/5'
+                    }`}
+                    style={{ border: '1px solid var(--border-glass)' }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={char.idle}
+                      alt={char.label}
+                      width={48}
+                      height={48}
+                      className="w-12 h-12 object-contain"
+                      style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.3))' }}
+                    />
+                    <span className="text-xs" style={{ color: 'var(--text-primary)' }}>{char.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Size</label>
+              <div className="flex gap-2">
+                {([['sm', 'Small'], ['md', 'Medium'], ['lg', 'Large']] as [MascotSize, string][]).map(([value, label]) => (
+                  <button
+                    key={value}
+                    onClick={() => updateConfig({ mascotSize: value })}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm transition-all ${
+                      config.mascotSize === value
+                        ? 'ring-2 ring-blue-500 bg-blue-500/10'
+                        : 'hover:bg-white/5'
+                    }`}
+                    style={{ border: '1px solid var(--border-glass)', color: 'var(--text-primary)' }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* UI Settings */}
         <section className="glass-panel rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Layout</h3>
@@ -559,6 +705,21 @@ export function SettingsPage() {
           </span>
         )}
         <span>Hub: {config.hubUrl ? new URL(config.hubUrl).hostname : 'not set'}</span>
+        {getSession() && (
+          <button
+            onClick={() => {
+              clearSession()
+              window.location.reload()
+            }}
+            className="ml-auto px-3 py-1 rounded text-xs font-medium transition-all hover:bg-red-500/20"
+            style={{
+              color: '#ef4444',
+              border: '1px solid rgba(239,68,68,0.3)',
+            }}
+          >
+            Logout
+          </button>
+        )}
       </div>
     </div>
   )

@@ -15,7 +15,7 @@ export interface Alert {
   id: string
   symbol: string
   message: string
-  type: 'price' | 'filing' | 'news' | 'catalyst' | 'trade_exchange' | 'scanner'
+  type: 'price' | 'filing' | 'news' | 'catalyst' | 'trade_exchange' | 'scanner' | 'tweet' | 'tradingview'
   color: string
   timestamp: Date
   read: boolean
@@ -96,6 +96,10 @@ export interface ScannerAlert {
 // Theme type
 export type AppTheme = 'dark' | 'blue' | 'wallst' | 'crimson' | 'nebula'
 
+// Mascot types
+export type MascotSize = 'sm' | 'md' | 'lg'
+export type MascotCharacter = 'classic' | 'bullish' | 'shouting'
+
 // Config types
 export interface AppConfig {
   tradingViewId: string
@@ -109,6 +113,10 @@ export interface AppConfig {
   theme: AppTheme
   grokApiKey: string
   userKey: string
+  mascotEnabled: boolean
+  mascotSize: MascotSize
+  mascotCharacter: MascotCharacter
+  newsApiKey: string
 }
 
 // SignalR connection state

@@ -5,6 +5,13 @@ import './globals.css'
 export const metadata: Metadata = {
   title: 'Trade Companion',
   description: 'Real-time trading alerts and watchlist management',
+  manifest: '/manifest.json',
+  themeColor: '#0a0e17',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Trade Companion',
+  },
 }
 
 export default function RootLayout({

@@ -11,8 +11,10 @@ import { useCrossWindowSync } from '@/hooks/useCrossWindowSync'
 import { useQuoteBroadcaster } from '@/hooks/useQuoteBroadcast'
 import { useTradeExchangePolling } from '@/hooks/useTradeExchangePolling'
 import { useCatalystPolling } from '@/hooks/useCatalystPolling'
+import { useNewsHub } from '@/hooks/useNewsHub'
 import { useStockDataPreload } from '@/hooks/useStockDataPreload'
 import { useStore } from '@/store/useStore'
+import { LoginGate } from '@/components/LoginGate'
 
 // Apply theme on mount and when it changes
 function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -42,6 +44,7 @@ function SignalRProvider({ children }: { children: React.ReactNode }) {
   useFilingsPolling() // Poll filings API for SEC filings
   useTradeExchangePolling() // Poll Trade Exchange API for TX posts
   useCatalystPolling() // Poll Catalyst API for catalyst PRs
+  useNewsHub() // Direct SignalR connection to news hub for real-time PRs
   usePrevCloses() // Fetch previous closes for % change calculation
   usePriceAlerts() // Check for upper/lower price alert triggers
   useCrossWindowSync() // Sync state across pop-out windows
@@ -74,10 +77,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <CloseConfirmation />
-        <SignalRProvider>
-          {children}
-        </SignalRProvider>
+        <LoginGate>
+          <CloseConfirmation />
+          <SignalRProvider>
+            {children}
+          </SignalRProvider>
+        </LoginGate>
       </ThemeProvider>
     </QueryClientProvider>
   )

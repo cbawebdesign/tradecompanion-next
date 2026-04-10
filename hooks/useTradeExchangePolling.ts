@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
+import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
 
 interface TradeExchangePost {
@@ -31,13 +32,12 @@ export function useTradeExchangePolling() {
   const { config, addAlert, watchlists } = useStore()
   const lastTimeRef = useRef<string | null>(null)
   const seenIdsRef = useRef<Set<string>>(new Set())
+  // Use ref so watchlist changes don't restart the polling effect
+  const watchlistsRef = useRef(watchlists)
+  watchlistsRef.current = watchlists
 
   useEffect(() => {
     if (!config.hubUrl) return
-
-    const watchlistSymbols = new Set(
-      watchlists.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
-    )
 
     const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
     const apiUrl = `${baseUrl}/api/TradeExchangeGet`
@@ -50,6 +50,11 @@ export function useTradeExchangePolling() {
         hasInitiallyFetched = true
       }
 
+      // Read latest watchlists from ref (not stale closure)
+      const watchlistSymbols = new Set(
+        watchlistsRef.current.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
+      )
+
       try {
         let url = apiUrl
         if (lastTimeRef.current) {
@@ -58,7 +63,7 @@ export function useTradeExchangePolling() {
           url += `?since=${encodeURIComponent(formatted)}`
         }
 
-        const response = await fetch(url)
+        const response = await fetch(proxyUrl(url))
         if (!response.ok) {
           console.log('TradeExchange fetch failed:', response.status)
           return
@@ -127,7 +132,8 @@ export function useTradeExchangePolling() {
       }
     }
 
-    fetchPosts()
+    // Stagger initial fetch to avoid ERR_INSUFFICIENT_RESOURCES
+    const initTimer = setTimeout(fetchPosts, 3500)
 
     // Poll every 30 seconds (TX posts come more frequently than filings)
     const interval = setInterval(() => {
@@ -136,8 +142,9 @@ export function useTradeExchangePolling() {
 
     return () => {
       cancelled = true
+      clearTimeout(initTimer)
       clearInterval(interval)
       hasInitiallyFetched = false
     }
-  }, [config.hubUrl, addAlert, watchlists])
+  }, [config.hubUrl, addAlert])
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
+import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
 
 // Matches cosmos_tweet from Azure backend
@@ -21,7 +22,7 @@ function extractSymbols(text: string): string[] {
 }
 
 export function useTweetsPolling() {
-  const { config, addAlert } = useStore()
+  const { config, addAlert, addAlerts } = useStore()
   const lastTweetIdRef = useRef<number | null>(null)
   const seenTweetIdsRef = useRef<Set<number>>(new Set())
 
@@ -42,7 +43,7 @@ export function useTweetsPolling() {
         const url = `${tweetsUrl}?since=${sinceId}`
 
         console.log('Tweets: fetching from', url)
-        const response = await fetch(url)
+        const response = await fetch(proxyUrl(url))
         if (!response.ok) {
           const text = await response.text()
           console.log('Tweets fetch failed:', response.status, text)
@@ -63,27 +64,33 @@ export function useTweetsPolling() {
           ? sortedTweets.slice(-100)
           : sortedTweets
 
+        // Build batch of new alerts
+        const batch: Alert[] = []
         for (const tweet of tweetsToProcess) {
-          // Skip if we've already seen this tweet (use id_long for tracking)
           if (seenTweetIdsRef.current.has(tweet.id_long)) continue
           seenTweetIdsRef.current.add(tweet.id_long)
 
-          // Extract symbols from tweet
           const symbols = extractSymbols(tweet.text)
-          const symbol = symbols[0] || '' // Use first symbol or empty
-
-          // Create alert from tweet
-          const alert: Alert = {
+          // Build X.com URL from username + tweet id (same as legacy X.cs)
+          const tweetUrl = tweet.username && tweet.id_long
+            ? `https://x.com/${tweet.username}/status/${tweet.id_long}`
+            : undefined
+          batch.push({
             id: crypto.randomUUID(),
-            symbol,
+            symbol: symbols[0] || '',
             message: `@${tweet.username}: ${tweet.text}`,
-            type: 'news',
-            color: '#1da1f2', // Twitter/X blue
+            type: 'tweet',
+            color: '#1da1f2',
             timestamp: new Date(tweet.created_at),
             read: false,
-          }
+            url: tweetUrl,
+          })
+        }
 
-          addAlert(alert)
+        // Single store update for all new tweets
+        if (batch.length > 0) {
+          if (sinceId === 0) addAlerts(batch)  // Initial load: batch
+          else batch.forEach(a => addAlert(a)) // Subsequent: one-by-one for live feel
         }
 
         // Update last tweet ID for next fetch (use id_long)
@@ -102,8 +109,8 @@ export function useTweetsPolling() {
       }
     }
 
-    // Initial fetch
-    fetchTweets()
+    // Stagger initial fetch to avoid ERR_INSUFFICIENT_RESOURCES
+    const initTimer = setTimeout(fetchTweets, 500)
 
     // Poll every 30 seconds
     const interval = setInterval(() => {
@@ -114,6 +121,7 @@ export function useTweetsPolling() {
 
     return () => {
       cancelled = true
+      clearTimeout(initTimer)
       clearInterval(interval)
     }
   }, [config.hubUrl, addAlert])
