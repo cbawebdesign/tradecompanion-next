@@ -1,0 +1,5 @@
+{
+  "port": 9876,
+  "scriptPath": "C:\\path\\to\\your\\script.ahk",
+  "scriptArgs": ""
+}

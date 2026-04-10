@@ -13,6 +13,8 @@ import { useTradeExchangePolling } from '@/hooks/useTradeExchangePolling'
 import { useCatalystPolling } from '@/hooks/useCatalystPolling'
 import { useNewsHub } from '@/hooks/useNewsHub'
 import { useStockDataPreload } from '@/hooks/useStockDataPreload'
+import { useAlertAuditor } from '@/hooks/useAlertAuditor'
+import { useCosmosSync } from '@/hooks/useCosmosSync'
 import { useStore } from '@/store/useStore'
 import { LoginGate } from '@/components/LoginGate'
 
@@ -50,6 +52,8 @@ function SignalRProvider({ children }: { children: React.ReactNode }) {
   useCrossWindowSync() // Sync state across pop-out windows
   useQuoteBroadcaster() // Broadcast quotes to pop-out windows
   useStockDataPreload() // Background-preload StockData cache for all watchlist symbols
+  useAlertAuditor() // Safety net: polls AlertsBySymbol to catch missed alerts
+  useCosmosSync() // Sync watchlists + config to Cosmos DB
   return <>{children}</>
 }
 

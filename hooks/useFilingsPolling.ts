@@ -106,6 +106,13 @@ export function useFilingsPolling() {
           if (seenFilingIdsRef.current.has(filingId)) continue
           seenFilingIdsRef.current.add(filingId)
 
+          // ExcludeFilings: skip certain form types (pipe-separated)
+          const excludeStr = config.excludeFilings || ''
+          if (excludeStr && filing.form) {
+            const excludeList = excludeStr.split('|').map(s => s.trim().toLowerCase())
+            if (excludeList.includes(filing.form.toLowerCase())) continue
+          }
+
           const filingSymbols = filing.symbol.split(',').map(s => s.trim().toUpperCase())
           const matchedSymbol = filingSymbols.find(s => watchlistSymbols.has(s)) || filing.symbol
 

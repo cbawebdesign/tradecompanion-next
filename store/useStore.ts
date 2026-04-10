@@ -85,11 +85,24 @@ interface AppState {
   setMascotPosition: (pos: { x: number; y: number }) => void
 }
 
+const defaultAlertSounds: Record<string, { enabled: boolean; frequency: number; duration: number }> = {
+  news: { enabled: true, frequency: 800, duration: 150 },
+  filing: { enabled: true, frequency: 600, duration: 200 },
+  tweet: { enabled: true, frequency: 900, duration: 120 },
+  catalyst: { enabled: true, frequency: 700, duration: 180 },
+  trade_exchange: { enabled: true, frequency: 750, duration: 150 },
+  tradingview: { enabled: true, frequency: 1000, duration: 200 },
+  price: { enabled: true, frequency: 1200, duration: 150 },
+  rss: { enabled: true, frequency: 500, duration: 250 },
+  mail: { enabled: true, frequency: 550, duration: 200 },
+}
+
 const defaultConfig: AppConfig = {
   tradingViewId: '',
   apiKey: '',
   hubUrl: 'https://tradecompanion3.azurewebsites.net/api',
   audioEnabled: true,
+  ttsEnabled: false,
   alertBarHeight: 200,
   watchlistSplitPercent: 50,
   marketCapMin: 0,
@@ -101,6 +114,13 @@ const defaultConfig: AppConfig = {
   mascotSize: 'md',
   mascotCharacter: 'classic',
   newsApiKey: '',
+  excludeFilings: '',
+  filteredPrPositive: '',
+  filteredPrNegative: '',
+  showAllTradeExchange: false,
+  ahkEnabled: false,
+  ahkUrl: 'http://localhost:9876',
+  alertSounds: defaultAlertSounds,
 }
 
 export const useStore = create<AppState>()(

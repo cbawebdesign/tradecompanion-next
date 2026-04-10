@@ -4,6 +4,8 @@ import { useEffect, useRef, useCallback } from 'react'
 import { HubConnection, HubConnectionBuilder, HubConnectionState } from '@microsoft/signalr'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { handleAlertAudio } from '@/lib/alertAudio'
+import { isFilteredPrMatch } from '@/lib/filteredPr'
 import type { Alert, Quote } from '@/types'
 
 interface NegotiateResult {
@@ -67,6 +69,8 @@ export function useSignalR() {
   } = useStore()
 
   // Keep refs in sync
+  const configRef = useRef(config)
+  configRef.current = config
   watchlistsRef.current = watchlists
   flaggedRef.current = flaggedSymbols
 
@@ -310,13 +314,24 @@ export function useSignalR() {
             url,
           }
           addAlert(alert)
-
-          if (config.audioEnabled) playAlertSound()
+          handleAlertAudio(alertType, alert.message, configRef.current)
         })
 
         // Specific event handlers (alternative to BroadcastAlertTrigger)
         connection.on('newFiling', (data: any) => {
           console.log('newFiling received:', data)
+
+          // ExcludeFilings: skip certain form types (pipe-separated, e.g. "SC 13G|4|D")
+          const formType = data.form || data.form_type || data.category?.[0]?.term || ''
+          const excludeStr = configRef.current.excludeFilings || ''
+          if (excludeStr && formType) {
+            const excludeList = excludeStr.split('|').map((s: string) => s.trim().toLowerCase())
+            if (excludeList.includes(formType.toLowerCase())) {
+              console.log('newFiling: excluded form type', formType)
+              return
+            }
+          }
+
           let message = ''
           let url: string | undefined = data.url || data.Url || undefined
           const alertStr = data.alert || data.message || ''
@@ -330,7 +345,7 @@ export function useSignalR() {
               message = alertStr
             }
           } else {
-            message = data.title || data.Title || data.form_type || alertStr || 'New Filing'
+            message = data.title || data.Title || (formType ? `Filing form ${formType}` : alertStr) || 'New Filing'
           }
 
           const alert: Alert = {
@@ -344,7 +359,7 @@ export function useSignalR() {
             url,
           }
           addAlert(alert)
-          if (config.audioEnabled) playAlertSound()
+          handleAlertAudio('filing', alert.message, configRef.current)
         })
 
         connection.on('newTradeExchange', (data: any) => {
@@ -359,7 +374,7 @@ export function useSignalR() {
             read: false,
           }
           addAlert(alert)
-          if (config.audioEnabled) playAlertSound()
+          handleAlertAudio('trade_exchange', alert.message, configRef.current)
         })
 
         connection.on('newCatalystScanner', (data: any) => {
@@ -378,7 +393,7 @@ export function useSignalR() {
             read: false,
           }
           addAlert(alert)
-          if (config.audioEnabled) playAlertSound()
+          handleAlertAudio('catalyst', alert.message, configRef.current)
         })
 
         // Real-time PR/headline alerts from Azure Function CatalystScannerService
@@ -388,18 +403,42 @@ export function useSignalR() {
           const headline = data.headline || data.title || data.Title || ''
           const storyId = data.story_id || data.storyId || data.resource_id || ''
           const url = storyId ? `/api/pr?id=${storyId}` : undefined
+          const ts = data.savetime_et ? new Date(data.savetime_et) : data.time_et ? new Date(data.time_et) : new Date()
+
+          // Standard PR alert
           const alert: Alert = {
             id: crypto.randomUUID(),
             symbol,
             message: headline || `Press Release ${symbol}`,
             type: 'news',
             color: '#7c4dff',
-            timestamp: data.savetime_et ? new Date(data.savetime_et) : data.time_et ? new Date(data.time_et) : new Date(),
+            timestamp: ts,
             read: false,
             url,
           }
           addAlert(alert)
-          if (config.audioEnabled) playAlertSound()
+          handleAlertAudio('news', alert.message, configRef.current)
+
+          // FilteredPR: check keyword match and fire additional alert if matched
+          const cfg = configRef.current
+          if (headline && (cfg.filteredPrPositive || cfg.filteredPrNegative)) {
+            const { matched, isPositive, isNegative } = isFilteredPrMatch(headline, cfg.filteredPrPositive, cfg.filteredPrNegative)
+            if (matched) {
+              const filteredAlert: Alert = {
+                id: crypto.randomUUID(),
+                symbol,
+                message: `[${isPositive ? '+' : ''}${isNegative ? '-' : ''}] ${headline}`,
+                type: 'news',
+                color: isNegative ? '#ff4466' : '#00e676',
+                timestamp: ts,
+                read: false,
+                url,
+              }
+              addAlert(filteredAlert)
+              handleAlertAudio('news', filteredAlert.message, configRef.current)
+              console.log(`FilteredPR: KEYWORD MATCH for ${symbol} (pos=${isPositive}, neg=${isNegative})`)
+            }
+          }
         })
 
         connection.on('tradingViewAlertRaw', (data: any) => {
@@ -435,7 +474,7 @@ export function useSignalR() {
             read: false,
           }
           addAlert(alert)
-          if (config.audioEnabled) playAlertSound()
+          handleAlertAudio('tradingview', alert.message, configRef.current)
         })
 
         // Scanner alerts - 4%+ movers (only goes to Scanner page, not AlertBar)
@@ -570,26 +609,5 @@ export function useSignalR() {
   return {
     connection: connectionRef.current,
     subscribeToQuotes,
-  }
-}
-
-// Simple beep sound for alerts
-function playAlertSound() {
-  try {
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
-    const oscillator = audioContext.createOscillator()
-    const gainNode = audioContext.createGain()
-
-    oscillator.connect(gainNode)
-    gainNode.connect(audioContext.destination)
-
-    oscillator.frequency.value = 800
-    oscillator.type = 'sine'
-    gainNode.gain.value = 0.1
-
-    oscillator.start()
-    oscillator.stop(audioContext.currentTime + 0.1)
-  } catch (e) {
-    // Audio not supported or blocked
   }
 }

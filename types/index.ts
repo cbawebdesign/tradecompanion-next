@@ -106,6 +106,7 @@ export interface AppConfig {
   apiKey: string
   hubUrl: string
   audioEnabled: boolean
+  ttsEnabled: boolean
   alertBarHeight: number
   watchlistSplitPercent: number
   marketCapMin: number
@@ -117,6 +118,14 @@ export interface AppConfig {
   mascotSize: MascotSize
   mascotCharacter: MascotCharacter
   newsApiKey: string
+  excludeFilings: string  // pipe-separated form types to exclude (e.g. "SC 13G|4|D")
+  filteredPrPositive: string  // comma=OR, &=AND, !=NOT, *=wildcard
+  filteredPrNegative: string
+  showAllTradeExchange: boolean  // show unfiltered trade exchange posts
+  ahkEnabled: boolean
+  ahkUrl: string  // local companion server URL (e.g. http://localhost:9876)
+  // Per-type audio settings
+  alertSounds: Record<string, { enabled: boolean; frequency: number; duration: number }>
 }
 
 // SignalR connection state

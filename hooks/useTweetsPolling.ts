@@ -22,9 +22,11 @@ function extractSymbols(text: string): string[] {
 }
 
 export function useTweetsPolling() {
-  const { config, addAlert, addAlerts } = useStore()
+  const { config, addAlert, addAlerts, watchlists } = useStore()
   const lastTweetIdRef = useRef<number | null>(null)
   const seenTweetIdsRef = useRef<Set<number>>(new Set())
+  const watchlistsRef = useRef(watchlists)
+  watchlistsRef.current = watchlists
 
   useEffect(() => {
     if (!config.hubUrl) return
@@ -71,20 +73,45 @@ export function useTweetsPolling() {
           seenTweetIdsRef.current.add(tweet.id_long)
 
           const symbols = extractSymbols(tweet.text)
-          // Build X.com URL from username + tweet id (same as legacy X.cs)
           const tweetUrl = tweet.username && tweet.id_long
             ? `https://x.com/${tweet.username}/status/${tweet.id_long}`
             : undefined
-          batch.push({
-            id: crypto.randomUUID(),
-            symbol: symbols[0] || '',
-            message: `@${tweet.username}: ${tweet.text}`,
-            type: 'tweet',
-            color: '#1da1f2',
-            timestamp: new Date(tweet.created_at),
-            read: false,
-            url: tweetUrl,
-          })
+          const tweetText = `@${tweet.username}: ${tweet.text}`
+          const tweetTime = new Date(tweet.created_at)
+
+          // Fire a separate alert for EACH watchlisted symbol in the tweet
+          // (Legacy X.cs has `break` after first match — that's a known bug we're fixing here)
+          const watchlistSymbols = new Set(
+            watchlistsRef.current.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
+          )
+          const matchedSymbols = symbols.filter(s => watchlistSymbols.has(s))
+
+          if (matchedSymbols.length > 0) {
+            for (const sym of matchedSymbols) {
+              batch.push({
+                id: crypto.randomUUID(),
+                symbol: sym,
+                message: tweetText,
+                type: 'tweet',
+                color: '#1da1f2',
+                timestamp: tweetTime,
+                read: false,
+                url: tweetUrl,
+              })
+            }
+          } else {
+            // No watchlist match — still show with first symbol (or empty)
+            batch.push({
+              id: crypto.randomUUID(),
+              symbol: symbols[0] || '',
+              message: tweetText,
+              type: 'tweet',
+              color: '#1da1f2',
+              timestamp: tweetTime,
+              read: false,
+              url: tweetUrl,
+            })
+          }
         }
 
         // Single store update for all new tweets
