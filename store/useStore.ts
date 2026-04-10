@@ -335,7 +335,8 @@ export const useStore = create<AppState>()(
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
         alertSubscriptions: state.alertSubscriptions,
         mascotPosition: state.mascotPosition,
-        quotes: state.quotes,
+        // quotes intentionally NOT persisted — ephemeral real-time data
+      // persisting quotes caused localStorage writes every 250ms, blocking main thread
       }),
       onRehydrateStorage: () => (state) => {
         // Convert flaggedSymbols back to Set after rehydration

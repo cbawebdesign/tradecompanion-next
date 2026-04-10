@@ -40,21 +40,52 @@ function CloseConfirmation() {
   return null
 }
 
-function SignalRProvider({ children }: { children: React.ReactNode }) {
+// Split hooks into isolated components so re-renders don't cascade.
+// Previously all 13 hooks were in one component — when usePriceAlerts or
+// useQuoteBroadcast triggered (every 250ms from quotes), ALL hooks re-ran.
+
+function RealTimeConnection() {
   useSignalR()
-  useTweetsPolling() // Poll tweets API for Twitter alerts
-  useFilingsPolling() // Poll filings API for SEC filings
-  useTradeExchangePolling() // Poll Trade Exchange API for TX posts
-  useCatalystPolling() // Poll Catalyst API for catalyst PRs
-  useNewsHub() // Direct SignalR connection to news hub for real-time PRs
-  usePrevCloses() // Fetch previous closes for % change calculation
-  usePriceAlerts() // Check for upper/lower price alert triggers
-  useCrossWindowSync() // Sync state across pop-out windows
-  useQuoteBroadcaster() // Broadcast quotes to pop-out windows
-  useStockDataPreload() // Background-preload StockData cache for all watchlist symbols
-  useAlertAuditor() // Safety net: polls AlertsBySymbol to catch missed alerts
-  useCosmosSync() // Sync watchlists + config to Cosmos DB
-  return <>{children}</>
+  useNewsHub()
+  return null
+}
+
+function QuoteProcessor() {
+  // These subscribe to quotes (high-frequency) — isolated from other hooks
+  usePriceAlerts()
+  useQuoteBroadcaster()
+  return null
+}
+
+function AlertPolling() {
+  // REST polling hooks — fire on their own intervals, don't need quote updates
+  useTweetsPolling()
+  useFilingsPolling()
+  useTradeExchangePolling()
+  useCatalystPolling()
+  useAlertAuditor()
+  return null
+}
+
+function DataSync() {
+  // Background data sync — infrequent updates
+  usePrevCloses()
+  useStockDataPreload()
+  useCrossWindowSync()
+  useCosmosSync()
+  return null
+}
+
+function SignalRProvider({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <RealTimeConnection />
+      <QuoteProcessor />
+      <AlertPolling />
+      <DataSync />
+      {children}
+    </>
+  )
 }
 
 export function Providers({ children }: { children: React.ReactNode }) {
