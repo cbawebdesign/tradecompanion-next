@@ -27,7 +27,6 @@ const isReport = args.includes('--report')
 const userKeyArg = args.includes('--user-key') ? args[args.indexOf('--user-key') + 1] : null
 
 const AZURE_API = process.env.AZURE_API_URL || 'https://tradecompanion3.azurewebsites.net/api'
-const USER_KEY = userKeyArg || process.env.USER_KEY || ''
 const AUDIT_INTERVAL_MS = 60_000  // check every 60s
 const DATA_DIR = path.join(__dirname, 'data')
 const REPORTS_DIR = path.join(__dirname, 'reports')
@@ -104,22 +103,36 @@ async function fetchJSON(url) {
 }
 
 async function getWatchlistSymbols() {
-  if (!USER_KEY) {
-    console.log('WARN: No USER_KEY set — using hardcoded test symbols')
-    return ['AAPL', 'TSLA', 'NVDA', 'SPY']
+  // Try reading from web app's exported watchlist file (written by the app or manually)
+  const watchlistFile = path.join(DATA_DIR, 'watchlist-symbols.json')
+  if (fs.existsSync(watchlistFile)) {
+    try {
+      const symbols = JSON.parse(fs.readFileSync(watchlistFile, 'utf8'))
+      if (Array.isArray(symbols) && symbols.length > 0) {
+        console.log(`  Loaded ${symbols.length} symbols from ${watchlistFile}`)
+        return symbols
+      }
+    } catch {}
   }
+
+  // Fallback: try to get from Azure Function (query all recent alerts to discover active symbols)
   try {
-    const userData = await fetchJSON(`${AZURE_API}/user/${encodeURIComponent(USER_KEY)}`)
-    if (userData.watchlists && Array.isArray(userData.watchlists)) {
-      const symbols = new Set()
-      userData.watchlists.forEach(wl => {
-        if (wl.symbols) wl.symbols.forEach(s => symbols.add(s.symbol?.toUpperCase() || s))
+    // Get recent filings — they contain symbols that are being tracked
+    const filings = await fetchJSON(`${AZURE_API}/Filings?since=${encodeURIComponent(new Date(new Date().setHours(0,0,0,0)).toISOString())}`)
+    const symbols = new Set()
+    if (Array.isArray(filings)) {
+      filings.forEach(f => {
+        if (f.symbol) f.symbol.split(',').forEach(s => symbols.add(s.trim().toUpperCase()))
       })
+    }
+    if (symbols.size > 0) {
+      console.log(`  Discovered ${symbols.size} symbols from recent filings`)
       return Array.from(symbols)
     }
-  } catch (err) {
-    console.error('Failed to fetch watchlist:', err.message)
-  }
+  } catch {}
+
+  console.log('  WARN: No watchlist found. Create agents/alert-integrity/data/watchlist-symbols.json')
+  console.log('  Example: ["AAPL", "TSLA", "NVDA", "SPY", "HCTI"]')
   return []
 }
 
@@ -447,7 +460,6 @@ ${session.audits.map(a => `<tr><td>${a.time}</td><td>${a.backendCount}</td><td>$
 async function main() {
   console.log('TC Alert Integrity Agent')
   console.log(`API: ${AZURE_API}`)
-  console.log(`User Key: ${USER_KEY ? USER_KEY.substring(0, 8) + '...' : '(not set)'}`)
   console.log(`Mode: ${isWatch ? 'WATCH (continuous)' : isReport ? 'REPORT' : 'SINGLE RUN'}`)
   console.log('')
 
