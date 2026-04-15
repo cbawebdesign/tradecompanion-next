@@ -272,7 +272,7 @@ export function useSignalR() {
         // Main alert handler - BroadcastAlertTrigger (used by legacy app)
         // AlertTrigger: { time, alert, alertName, watchlist, message, symbol, color }
         connection.on('BroadcastAlertTrigger', (data: any) => {
-          console.log('BroadcastAlertTrigger received:', data)
+          // console.log('BroadcastAlertTrigger received:', data)
 
           // Parse JSON alert format: {"text": "...", "url": "..."}
           let message = ''
@@ -319,18 +319,24 @@ export function useSignalR() {
 
         // Specific event handlers (alternative to BroadcastAlertTrigger)
         connection.on('newFiling', (data: any) => {
-          console.log('newFiling received:', data)
+          // Filing SignalR broadcasts ALL filings — filter to watchlist symbols only
+          const filingSymbolRaw = data.symbol || data.Symbol || data.s || ''
+          const filingSymbols = filingSymbolRaw.split(',').map((s: string) => s.trim().toUpperCase()).filter(Boolean)
+          const wlSymbols = new Set(
+            watchlistsRef.current.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
+          )
+          const matchedSymbol = filingSymbols.find((s: string) => wlSymbols.has(s))
+          if (!matchedSymbol) return  // not on watchlist — skip silently
 
           // ExcludeFilings: skip certain form types (pipe-separated, e.g. "SC 13G|4|D")
           const formType = data.form || data.form_type || data.category?.[0]?.term || ''
           const excludeStr = configRef.current.excludeFilings || ''
           if (excludeStr && formType) {
             const excludeList = excludeStr.split('|').map((s: string) => s.trim().toLowerCase())
-            if (excludeList.includes(formType.toLowerCase())) {
-              console.log('newFiling: excluded form type', formType)
-              return
-            }
+            if (excludeList.includes(formType.toLowerCase())) return
           }
+
+          console.log('newFiling: MATCH', matchedSymbol, formType)
 
           let message = ''
           let url: string | undefined = data.url || data.Url || undefined
@@ -350,7 +356,7 @@ export function useSignalR() {
 
           const alert: Alert = {
             id: crypto.randomUUID(),
-            symbol: data.symbol || data.Symbol || data.s || '',
+            symbol: matchedSymbol,
             message,
             type: 'filing',
             color: '#00bcd4',
@@ -363,7 +369,7 @@ export function useSignalR() {
         })
 
         connection.on('newTradeExchange', (data: any) => {
-          console.log('newTradeExchange received:', data)
+          // console.log('newTradeExchange received:', data)
           const alert: Alert = {
             id: crypto.randomUUID(),
             symbol: data.symbol || data.Symbol || '',
@@ -378,7 +384,7 @@ export function useSignalR() {
         })
 
         connection.on('newCatalystScanner', (data: any) => {
-          console.log('newCatalystScanner received:', data)
+          // console.log('newCatalystScanner received:', data)
           const symbol = (data.symbol || data.Symbol || data.s || '').toUpperCase()
           // Use title (same field as polling) so dedup catches duplicates
           const title = data.title || data.Title || data.description || data.Description || data.msg || ''
@@ -398,7 +404,7 @@ export function useSignalR() {
 
         // Real-time PR/headline alerts from Azure Function CatalystScannerService
         connection.on('BroadcastNews', (data: any) => {
-          console.log('BroadcastNews received:', data)
+          // console.log('BroadcastNews received:', data)
           const symbol = data.symbol || data.Symbol || ''
           const headline = data.headline || data.title || data.Title || ''
           const storyId = data.story_id || data.storyId || data.resource_id || ''
@@ -442,7 +448,7 @@ export function useSignalR() {
         })
 
         connection.on('tradingViewAlertRaw', (data: any) => {
-          console.log('tradingViewAlertRaw received:', data)
+          // console.log('tradingViewAlertRaw received:', data)
 
           // Dedup by alert ID (prevents replay on reconnect/backfill)
           const alertId = data.id || data.Id || ''
