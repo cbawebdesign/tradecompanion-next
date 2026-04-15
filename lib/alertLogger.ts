@@ -2,8 +2,8 @@
 // Alert Integrity Agent can compare against backend ground truth.
 //
 // Logs to:
-// 1. localStorage (for local agent to read)
-// 2. Azure Function endpoint (for remote agent / dashboard)
+// 1. localStorage (for local debugging)
+// 2. Azure Function /tcadmin/alert-log endpoint (for cloud-based integrity agent)
 
 import type { Alert } from '@/types'
 
@@ -39,12 +39,10 @@ function loadLog(): AlertLogEntry[] {
 }
 
 function saveLog(log: AlertLogEntry[]) {
-  // Cap size
   const trimmed = log.length > MAX_LOG_ENTRIES ? log.slice(-MAX_LOG_ENTRIES) : log
   try {
     localStorage.setItem(getStorageKey(), JSON.stringify(trimmed))
   } catch {
-    // localStorage full — clear old days
     cleanOldLogs()
     try {
       localStorage.setItem(getStorageKey(), JSON.stringify(trimmed))
@@ -79,7 +77,7 @@ export function logAlert(alert: Alert, source: string) {
   log.push(entry)
   saveLog(log)
 
-  // Fire-and-forget POST to Azure Function (for remote agent)
+  // Fire-and-forget POST to Azure Function alert-log endpoint (Cosmos DB)
   // Only during market hours to avoid noise
   const now = new Date()
   const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }))
@@ -87,23 +85,26 @@ export function logAlert(alert: Alert, source: string) {
   const day = et.getDay()
   if (day >= 1 && day <= 5 && hour >= 4 && hour < 20) {
     try {
-      // POST to tcadmin endpoint — fire and forget
-      const baseUrl = localStorage.getItem('tc-hub-url') || 'https://tradecompanion3.azurewebsites.net/api'
-      fetch(`${baseUrl.replace(/\/api\/?$/, '')}/api/tcadmin/client-metrics`, {
+      fetch('https://tradecompanion3.azurewebsites.net/api/tcadmin/alert-log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'alert-log', entry }),
+        body: JSON.stringify({
+          symbol: entry.symbol,
+          type: entry.type,
+          message: entry.message,
+          timestamp: entry.timestamp,
+          receivedAt: entry.receivedAt,
+          source: 'web',
+          hookName: source,
+          url: entry.url,
+          date: getTodayKey(),
+        }),
       }).catch(() => {})
     } catch { /* ignore */ }
   }
 }
 
-// Get the full log for today (used by Alert Integrity Agent)
+// Get the full log for today
 export function getAlertLog(): AlertLogEntry[] {
   return loadLog()
-}
-
-// Export for the agent to read via file system
-export function exportLogToFile(): string {
-  return JSON.stringify(loadLog(), null, 2)
 }
