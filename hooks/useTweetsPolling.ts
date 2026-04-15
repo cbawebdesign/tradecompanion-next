@@ -44,7 +44,7 @@ export function useTweetsPolling() {
         const sinceId = lastTweetIdRef.current ?? 0
         const url = `${tweetsUrl}?since=${sinceId}`
 
-        console.log('Tweets: fetching from', url)
+        // console.log('Tweets: fetching from', url)
         const response = await fetch(proxyUrl(url))
         if (!response.ok) {
           const text = await response.text()
@@ -53,7 +53,7 @@ export function useTweetsPolling() {
         }
 
         const tweets: Tweet[] = await response.json()
-        console.log('Tweets: got', tweets.length, 'tweets, sinceId was', sinceId)
+        if (tweets.length > 0 && sinceId > 0) console.log('Tweets:', tweets.length, 'new')
 
         if (tweets.length === 0) return
 

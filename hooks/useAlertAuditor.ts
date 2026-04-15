@@ -17,7 +17,7 @@ const seenAlertKeys = new Set<string>()
 let hasRun = false
 
 const AUDIT_INTERVAL_MS = 60_000  // 60 seconds
-const INITIAL_DELAY_MS = 15_000   // wait 15s for other hooks to populate first
+const INITIAL_DELAY_MS = 90_000   // wait 90s for all other hooks to finish backfill first
 
 // Check if we're in US market hours (Mon-Fri, 4am-8pm ET)
 function isMarketHours(): boolean {
@@ -34,7 +34,7 @@ function alertKey(symbol: string, type: string, message: string): string {
 }
 
 export function useAlertAuditor() {
-  const { config, addAlert, watchlists, alerts } = useStore()
+  const { config, addAlert, addAlerts, watchlists, alerts } = useStore()
   const watchlistsRef = useRef(watchlists)
   const alertsRef = useRef(alerts)
   watchlistsRef.current = watchlists
@@ -67,7 +67,7 @@ export function useAlertAuditor() {
       const since = lastAuditTime || new Date(new Date().setHours(0, 0, 0, 0)) // today at midnight
       const sinceStr = since.toISOString()
 
-      let recoveredCount = 0
+      const recoveredBatch: Alert[] = []
 
       // Audit each symbol (sequentially to avoid hammering the API)
       for (const symbol of symbols) {
@@ -79,8 +79,6 @@ export function useAlertAuditor() {
 
           const data = await response.json()
 
-          // AlertsBySymbol returns an object with arrays per type:
-          // { tweets: [...], filings: [...], tradeExchange: [...], tradingView: [...], catalysts: [...] }
           const typeMap: Record<string, { items: any[]; alertType: Alert['type']; color: string }> = {
             filings: { items: data.filings || [], alertType: 'filing', color: '#00bcd4' },
             tweets: { items: data.tweets || [], alertType: 'tweet', color: '#1da1f2' },
@@ -98,11 +96,7 @@ export function useAlertAuditor() {
               existingKeys.add(key)
               seenAlertKeys.add(key)
 
-              // This alert exists in the backend but NOT in the web app — recover it
-              console.log(`AlertAuditor: RECOVERED missed alert — ${symbol} ${alertType}: ${msg.substring(0, 50)}`)
-              recoveredCount++
-
-              addAlert({
+              recoveredBatch.push({
                 id: crypto.randomUUID(),
                 symbol,
                 message: msg,
@@ -121,8 +115,10 @@ export function useAlertAuditor() {
 
       lastAuditTime = new Date()
 
-      if (recoveredCount > 0) {
-        console.log(`AlertAuditor: recovered ${recoveredCount} missed alerts`)
+      // Single batch store update instead of N individual addAlert calls
+      if (recoveredBatch.length > 0) {
+        console.log(`AlertAuditor: recovered ${recoveredBatch.length} missed alerts`)
+        addAlerts(recoveredBatch)
       }
 
       // Cap seen keys to prevent memory growth

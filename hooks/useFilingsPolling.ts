@@ -85,7 +85,7 @@ export function useFilingsPolling() {
           return symbols.some(s => watchlistSymbols.has(s))
         })
 
-        console.log('Fetched', filings.length, 'filings,', watchlistFilings.length, 'match watchlist', isInitialFetch ? '(initial)' : '(poll)')
+        if (watchlistFilings.length > 0) console.log('Filings:', watchlistFilings.length, 'match watchlist', isInitialFetch ? '(initial)' : '(poll)')
 
         if (watchlistFilings.length === 0) return
 
