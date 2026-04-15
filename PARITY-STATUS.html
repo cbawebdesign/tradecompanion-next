@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TC Web — Feature Parity &amp; New Infrastructure</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#040810;--bg2:#080e1c;--bg3:#0c1428;--bg4:#101a34;--bg5:#142040;--bd:#182050;--bd2:#203068;--t:#d0d8f0;--t2:#8090b8;--t3:#506088;--tb:#eef2ff;--grn:#00ff88;--grn2:#00cc66;--blu:#4488ff;--cyn:#00ddee;--ylw:#ffcc22;--org:#ff8844;--red:#ff3366;--pur:#aa66ff;--pnk:#ff66aa}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--t);line-height:1.6}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 20% 0%,rgba(68,136,255,.04) 0%,transparent 60%),radial-gradient(ellipse at 80% 100%,rgba(0,255,136,.03) 0%,transparent 60%);pointer-events:none;z-index:0}
+.c{max-width:1300px;margin:0 auto;padding:2.5rem 2rem 5rem;position:relative;z-index:1}
+.hdr{text-align:center;padding:3rem 2rem;margin-bottom:2.5rem;border:1px solid var(--bd);border-radius:16px;background:linear-gradient(160deg,var(--bg3) 0%,var(--bg) 100%);position:relative;overflow:hidden}
+.hdr::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--grn),var(--blu),var(--pur),var(--pnk));border-radius:16px 16px 0 0}
+.hdr .tag{font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:700;letter-spacing:.35em;text-transform:uppercase;color:var(--grn);margin-bottom:.75rem}
+.hdr h1{font-family:'JetBrains Mono',monospace;font-size:2.2rem;font-weight:800;color:var(--tb);letter-spacing:-.02em}
+.hdr h1 em{color:var(--grn);font-style:normal}
+.hdr .sub{font-size:.9rem;color:var(--t2);margin-top:.5rem}
+.hdr .meta{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--t3);margin-top:1.2rem;display:flex;justify-content:center;gap:2rem;flex-wrap:wrap}
+
+/* Score cards */
+.scores{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:2.5rem}
+.sc{text-align:center;padding:1.25rem .75rem;border-radius:10px;border:1px solid var(--bd);background:var(--bg2)}
+.sc .num{font-family:'JetBrains Mono',monospace;font-size:2rem;font-weight:800;line-height:1}
+.sc .lbl{font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:600;text-transform:uppercase;letter-spacing:.12em;color:var(--t3);margin-top:.4rem}
+.sc.green .num{color:var(--grn)}.sc.blue .num{color:var(--blu)}.sc.yellow .num{color:var(--ylw)}.sc.red .num{color:var(--red)}
+
+/* Sections */
+details.s{margin-bottom:1.25rem;border:1px solid var(--bd);border-radius:10px;overflow:hidden;background:var(--bg2)}
+details.s>summary{font-family:'JetBrains Mono',monospace;font-size:.78rem;font-weight:700;padding:.8rem 1.2rem;background:var(--bg3);border-bottom:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;gap:.7rem;list-style:none;color:var(--t)}
+details.s>summary::-webkit-details-marker{display:none}
+details.s>summary::before{content:'▸';font-size:.65rem;color:var(--blu);transition:transform .15s}
+details.s[open]>summary::before{transform:rotate(90deg)}
+.sb{padding:1.2rem}
+.sn{font-size:.55rem;font-weight:800;padding:2px 7px;border-radius:4px;letter-spacing:.08em}
+
+/* Tables */
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:.73rem;margin-bottom:.75rem}
+thead th{font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:.55rem .65rem;background:var(--bg4);color:var(--t3);border-bottom:1px solid var(--bd2);text-align:left;white-space:nowrap}
+tbody td{padding:.5rem .65rem;border-bottom:1px solid rgba(24,32,80,.5);vertical-align:top;color:var(--t2)}
+tbody tr:hover td{background:rgba(68,136,255,.02)}
+tbody td:first-child{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--t)}
+code{font-family:'JetBrains Mono',monospace;font-size:.64rem;background:rgba(68,136,255,.08);padding:1px 5px;border-radius:3px;color:var(--cyn)}
+
+/* Badges */
+.b{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.54rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.b-done{background:rgba(0,255,136,.1);color:var(--grn);border:1px solid rgba(0,255,136,.2)}
+.b-new{background:rgba(0,221,238,.1);color:var(--cyn);border:1px solid rgba(0,221,238,.2)}
+.b-fix{background:rgba(68,136,255,.1);color:var(--blu);border:1px solid rgba(68,136,255,.2)}
+.b-part{background:rgba(255,204,34,.08);color:var(--ylw);border:1px solid rgba(255,204,34,.15)}
+.b-miss{background:rgba(255,51,102,.08);color:var(--red);border:1px solid rgba(255,51,102,.15)}
+.b-dead{background:rgba(80,96,136,.1);color:var(--t3);border:1px solid rgba(80,96,136,.2)}
+.b-wait{background:rgba(170,102,255,.08);color:var(--pur);border:1px solid rgba(170,102,255,.15)}
+.b-perf{background:rgba(255,102,170,.08);color:var(--pnk);border:1px solid rgba(255,102,170,.15)}
+
+/* Row highlights */
+tr.rg td{border-left:3px solid var(--grn2)}
+tr.ry td{border-left:3px solid var(--ylw)}
+tr.rr td{border-left:3px solid var(--red)}
+tr.rd td{border-left:3px solid #445;opacity:.55}
+tr.rn td{border-left:3px solid var(--cyn)}
+tr.rf td{border-left:3px solid var(--pnk)}
+
+/* Infra cards */
+.infra{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem}
+.ic{background:var(--bg3);border:1px solid var(--bd);border-radius:8px;padding:1rem;position:relative;overflow:hidden}
+.ic::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.ic.ic-grn::before{background:var(--grn)}.ic.ic-blu::before{background:var(--blu)}.ic.ic-cyn::before{background:var(--cyn)}.ic.ic-org::before{background:var(--org)}.ic.ic-pur::before{background:var(--pur)}.ic.ic-pnk::before{background:var(--pnk)}.ic.ic-ylw::before{background:var(--ylw)}.ic.ic-red::before{background:var(--red)}
+.ic h4{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:700;margin-bottom:.5rem}
+.ic.ic-grn h4{color:var(--grn)}.ic.ic-blu h4{color:var(--blu)}.ic.ic-cyn h4{color:var(--cyn)}.ic.ic-org h4{color:var(--org)}.ic.ic-pur h4{color:var(--pur)}.ic.ic-pnk h4{color:var(--pnk)}.ic.ic-ylw h4{color:var(--ylw)}.ic.ic-red h4{color:var(--red)}
+.ic p,.ic li{font-size:.75rem;color:var(--t2);line-height:1.55}
+.ic ul{padding-left:1.1rem;margin-top:.3rem}
+.ic li{margin-bottom:.15rem}
+.ic code{font-size:.62rem}
+
+.ft{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.58rem;color:var(--t3);padding:2rem 0;border-top:1px solid var(--bd);margin-top:3rem}
+@media(max-width:800px){.scores{grid-template-columns:1fr 1fr}.infra{grid-template-columns:1fr}}
+@media print{body{background:#fff!important;color:#111!important}body::before{display:none!important}.sc .num{color:#111!important}}
+</style>
+</head>
+<body>
+<div class="c">
+
+<div class="hdr">
+  <div class="tag">Live on Vercel &mdash; Deployed 2026-04-09</div>
+  <h1>Trade Companion <em>Web</em></h1>
+  <h1 style="font-size:1.2rem;font-weight:400;color:var(--t2);margin-top:.2rem">Feature Parity &amp; New Infrastructure Report</h1>
+  <div class="sub">Complete status of every feature, alert type, data source, and system built in this sprint</div>
+  <div class="meta">
+    <span>Commits: e8e397b, 58f4d02, fe0435f</span>
+    <span>Production: trade-companion-next.vercel.app</span>
+    <span>13 new files &middot; 42 modified</span>
+  </div>
+</div>
+
+<!-- ═══ SCORE CARDS ═══ -->
+<div class="scores">
+  <div class="sc green"><div class="num">13</div><div class="lbl">Full Parity</div></div>
+  <div class="sc blue"><div class="num">6</div><div class="lbl">New (Web Only)</div></div>
+  <div class="sc yellow"><div class="num">1</div><div class="lbl">Waiting</div></div>
+  <div class="sc red"><div class="num">6</div><div class="lbl">Dead (Both)</div></div>
+</div>
+
+<!-- ═══ SECTION 1: ALERT PARITY ═══ -->
+<details class="s" open>
+<summary><span class="sn" style="background:rgba(0,255,136,.12);color:var(--grn)">01</span> Alert Type Parity &mdash; All 18 Types</summary>
+<div class="sb">
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Alert Type</th><th>Legacy</th><th>Web</th><th>Status</th><th>What Changed Today</th></tr></thead>
+<tbody>
+<tr class="rg"><td>1</td><td>PRs (Press Releases)</td><td>News Hub + Azure SignalR + REST poll</td><td><code>useNewsHub</code> + <code>useSignalR</code> + backfill</td><td><span class="b b-done">Parity</span></td><td>Already working. Added per-type sound + TTS</td></tr>
+<tr class="rn"><td>2</td><td>FilteredPRs</td><td>Same as PRs + keyword regex</td><td><code>isFilteredPrMatch()</code> in BroadcastNews handler</td><td><span class="b b-new">New</span></td><td><strong>Built.</strong> Ported full regex logic from FilteredPR.cs (comma=OR, &amp;=AND, !=NOT, *=wildcard). Fires green/red tagged alert alongside regular PR</td></tr>
+<tr class="rg"><td>3</td><td>Filings (SEC)</td><td>Azure SignalR + REST poll + ExcludeFilings</td><td><code>newFiling</code> SignalR + <code>useFilingsPolling</code></td><td><span class="b b-done">Parity</span></td><td><strong>Fixed in this sprint.</strong> Added ExcludeFilings config to both SignalR handler and polling hook</td></tr>
+<tr class="rg"><td>4</td><td>X / Twitter</td><td>XService poll (1s) + $CASHTAG match</td><td><code>useTweetsPolling</code> (30s) + multi-symbol</td><td><span class="b b-done">Parity</span></td><td><strong>Fixed in this sprint.</strong> Multi-symbol bug fixed &mdash; fires alert for EACH watchlisted symbol in tweet (legacy only fires first)</td></tr>
+<tr class="rg"><td>5</td><td>TradingView</td><td>Azure SignalR + backfill</td><td><code>useSignalR</code> + backfill dedup</td><td><span class="b b-done">Parity</span></td><td>Already working</td></tr>
+<tr class="rg"><td>6</td><td>TradeExchange</td><td>Azure SignalR + REST + symbol lookup</td><td><code>newTradeExchange</code> SignalR + <code>useTradeExchangePolling</code></td><td><span class="b b-done">Parity</span></td><td>Verified working</td></tr>
+<tr class="rn"><td>7</td><td>TradeExchangeFiltered</td><td>Fires ALL posts unfiltered</td><td><code>showAllTradeExchange</code> config toggle</td><td><span class="b b-new">New</span></td><td><strong>Built.</strong> Config field added, toggle shows all TX posts</td></tr>
+<tr class="rg"><td>8</td><td>CatalystScan</td><td>SignalR + REST + bar tracking</td><td><code>newCatalystScanner</code> SignalR + <code>useCatalystPolling</code></td><td><span class="b b-done">Parity*</span></td><td>Raw catalyst display. No bar tracking (needs Polygon bars &mdash; same limitation on legacy)</td></tr>
+<tr class="rg"><td>9</td><td>Price Alerts</td><td>L1 quotes + upper/lower thresholds</td><td><code>usePriceAlerts</code> (Zustand subscribe)</td><td><span class="b b-done">Parity</span></td><td><strong>Rewritten in this sprint.</strong> Now uses non-React subscription (no more 250ms re-renders)</td></tr>
+<tr class="ry"><td>10</td><td>RSS Feed (Substack)</td><td>miniextensions RSS poll</td><td>&mdash;</td><td><span class="b b-wait">Waiting</span></td><td>Waiting for Airtable API access. Will replace miniextensions with direct Airtable connection</td></tr>
+<tr class="ry"><td>11</td><td>MAIL Feed (Grok Emails)</td><td>miniextensions RSS poll</td><td>&mdash;</td><td><span class="b b-wait">Waiting</span></td><td>Same &mdash; waiting for Airtable access</td></tr>
+<tr class="rd"><td>12</td><td>AfternoonBreakout</td><td>HODbreak.cs (COMMENTED OUT)</td><td>&mdash;</td><td><span class="b b-dead">Dead</span></td><td><code>return;</code> on line 98. Dead on both</td></tr>
+<tr class="rd"><td>13</td><td>dol_vol_100M</td><td>Needs VWAP from L1</td><td>&mdash;</td><td><span class="b b-dead">Dead</span></td><td>No VWAP in web quote data</td></tr>
+<tr class="rd"><td>14</td><td>Halt</td><td>Fully commented out</td><td>&mdash;</td><td><span class="b b-dead">Dead</span></td><td>Dead code</td></tr>
+<tr class="rd"><td>15</td><td>Bullish_VWAP</td><td>Needs bar data + VWAP</td><td>&mdash;</td><td><span class="b b-dead">Dead</span></td><td>No data feed</td></tr>
+<tr class="rd"><td>16</td><td>GapNCrap / PMlows / Highs4am</td><td>Need bar data</td><td>&mdash;</td><td><span class="b b-dead">Dead</span></td><td>No data feed. Dead on legacy too</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</details>
+
+<!-- ═══ SECTION 2: NEW INFRASTRUCTURE ═══ -->
+<details class="s" open>
+<summary><span class="sn" style="background:rgba(0,221,238,.12);color:var(--cyn)">02</span> Data Infrastructure &mdash; How Everything Flows In</summary>
+<div class="sb">
+
+<!-- MASTER DATA FLOW DIAGRAM -->
+<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden">
+<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--org),var(--cyn),var(--grn))"></div>
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--cyn);margin-bottom:.75rem">Complete Data Flow &mdash; External Sources &rarr; Azure Backend &rarr; Web Client</h4>
+<pre style="font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.75;color:var(--t2);overflow-x:auto">
+<span style="color:var(--t3)">╔═══════════════════════════════════════════════════════════════════════════════╗</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--org);font-weight:700">EXTERNAL DATA SOURCES</span>                                                       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">╠═══════════════════════════════════════════════════════════════════════════════╣</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--ylw)">Polygon WebSocket</span>          <span style="color:var(--ylw)">SEC EDGAR</span>             <span style="color:var(--ylw)">Twitter/X API</span>            <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  wss://socket.polygon.io    ATOM feed (150ms poll)  v2 timeline (3min poll)  <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  Real-time L1 quotes         SEC filings             Tweets                   <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  1s/1m bars                  CIK &rarr; ticker mapping                            <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  Prev closes                                                                 <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--ylw)">Scanzzers (Jon's Server)</span>   <span style="color:var(--ylw)">TradingView</span>           <span style="color:var(--ylw)">Airtable (Justin)</span>        <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  stage.scanzzers.com         Webhook POST            RSS.app &rarr; n8n &rarr;         <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  &bull; /TC/headlines (PRs)        &bull; Custom indicators      Airtable views          <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  &bull; /auth/machine-login       &bull; User webhook keys      (YouTube, Substack,     <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  &bull; News Hub SignalR                                     Articles)              <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--ylw)">Trade Exchange</span>                                                              <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  Webhook POST &rarr; chat posts                                                   <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  Symbol lookup table                                                          <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">╚════════════════╤══════════════════════════╤═══════════════════════╤════════════╝</span>
+                 <span style="color:var(--t3)">│</span>                          <span style="color:var(--t3)">│</span>                       <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">╔════════════════╧══════════════════════════╧═══════════════════════╧════════════╗</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--blu);font-weight:700">AZURE FUNCTION BACKEND</span> (tradecompanion3.azurewebsites.net)                   <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">╠═══════════════════════════════════════════════════════════════════════════════╣</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--blu)">QuoteManager</span>        <span style="color:var(--blu)">FilingRssService</span>     <span style="color:var(--blu)">CatalystScannerService</span>       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  Polygon WS &rarr;          SEC EDGAR &rarr;            Polls scanzzers/TC/         <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  L1 quotes, bars        Parse ATOM feed          headlines every 15s         <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  &rarr; Cosmos (cached)      &rarr; Cosmos SEC             &rarr; Cosmos Headlines          <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--blu)">xService</span>             <span style="color:var(--blu)">TradingViewService</span>   <span style="color:var(--blu)">TradeExchangeService</span>         <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  Twitter API &rarr;          Webhook ingest &rarr;        Webhook ingest &rarr;              <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  &rarr; Cosmos X              &rarr; Cosmos TradingView     &rarr; Cosmos TradeExchange       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--t3)">───── Cosmos DB (10 containers) ─────────────────────────────────────</span>       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  X | SEC | TradeExchange | TradingView | Headlines | StockData              <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  Users | AppUsers | ScannerConfig | AdminTracker                             <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">╠═══════════════════════════════════════════════════════════════════════════════╣</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn);font-weight:700">SignalR Broadcasts</span> (hub: tchub)            <span style="color:var(--grn);font-weight:700">REST API Endpoints</span>               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">BroadcastQuotes</span>     per-client, 250ms    GET /api/tweets?since=           <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">Broadcast1sBar</span>      per-client           GET /api/Filings?since=          <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">tradingViewAlertRaw</span> all clients          GET /api/Catalyst?since=         <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">newTradeExchange</span>    all clients          GET /api/TradeExchangeGet        <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">newFiling</span>           all clients          GET /api/PrevCloses              <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">newCatalystScanner</span>  all clients          GET /api/StockData?symbol=       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">BroadcastNews</span>       all clients          GET /api/AlertsBySymbol          <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">ScannerAlert</span>        all (disabled)       GET /api/tv/alerts?userid=       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                            PUT /api/user/{userKey}          <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">╚════════════════╤══════════════════════════╤═══════════════════════════════════╝</span>
+                 <span style="color:var(--t3)">│</span>                          <span style="color:var(--t3)">│</span>
+                 <span style="color:var(--t3)">│</span> <span style="color:var(--grn)">Real-time push</span>           <span style="color:var(--t3)">│</span> <span style="color:var(--blu)">Polling (30-60s)</span>
+                 <span style="color:var(--t3)">│</span>                          <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">+ News Hub (separate SignalR)</span>                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  stage.news.scanzzers.com/newshub                                             <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  JWT auth &rarr; BroadcastNews event (PRs)                                        <span style="color:var(--t3)">║</span>
+                 <span style="color:var(--t3)">│</span>                          <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">╔════════════════╧══════════════════════════╧═══════════════════════════════════╗</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn);font-weight:700">WEB CLIENT</span> (Next.js on Vercel)                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">╠═══════════════════════════════════════════════════════════════════════════════╣</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useSignalR</span>          8 real-time events &rarr; Zustand store                      <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useNewsHub</span>          BroadcastNews &rarr; addAlert() + FilteredPR check            <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useFilingsPolling</span>   REST 60s &rarr; addAlert() (ExcludeFilings applied)            <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useTweetsPolling</span>    REST 30s &rarr; addAlert() (multi-symbol per tweet)            <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useCatalystPolling</span>  REST 60s &rarr; addAlert()                                    <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useTradeExchPolling</span> REST 30s &rarr; addAlert()                                    <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">usePriceAlerts</span>      Zustand subscribe (outside React) &rarr; addAlert()           <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useAlertAuditor</span>     REST 60s &rarr; AlertsBySymbol &rarr; recover missed alerts         <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">usePrevCloses</span>       REST hourly &rarr; setPrevCloses()                             <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--cyn)">useCosmosSync</span>       PUT debounced 3s &rarr; save watchlists to cloud               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                                                                               <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--t3)">───── Zustand Store ─────────────────────────────────────────────────</span>       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  quotes{} | alerts[] (500 max) | watchlists[] | config{}                     <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  prevCloses{} | flaggedSymbols | triggeredPriceAlerts                         <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  scannerAlerts[] | alertSubscriptions[] | hiddenAlertIds                      <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>                         <span style="color:var(--t3)">│</span>                                                     <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>           <span style="color:var(--t3)">┌──────────────┼───────────────────┐</span>                              <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>           <span style="color:var(--t3)">▼</span>              <span style="color:var(--t3)">▼</span>                   <span style="color:var(--t3)">▼</span>                              <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  <span style="color:var(--grn)">Watchlist</span>       <span style="color:var(--grn)">AlertBar</span>            <span style="color:var(--grn)">Pop-out Windows</span>                     <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  + StockDataRibbon  + Grok AI summaries   BroadcastChannel                    <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  + Price alerts     + Audio/TTS            + localStorage sync                 <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">║</span>  + AHK trigger      + FilteredPR badges                                       <span style="color:var(--t3)">║</span>
+<span style="color:var(--t3)">╚═══════════════════════════════════════════════════════════════════════════════╝</span>
+</pre>
+</div>
+
+<!-- DATA SOURCE TABLE -->
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--cyn);margin:1rem 0 .5rem">Every Data Stream Into the Web Client</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Source</th><th>Transport</th><th>Freq</th><th>Hook</th><th>Processes Into</th><th>Persisted?</th></tr></thead>
+<tbody>
+<tr><td>L1 Quotes</td><td><span class="b b-done">SignalR push</span></td><td>250ms batch</td><td><code>useSignalR</code></td><td><code>store.quotes{}</code></td><td>No (ephemeral)</td></tr>
+<tr><td>1s Bars</td><td><span class="b b-done">SignalR push</span></td><td>Real-time</td><td><code>useSignalR</code></td><td><code>store.quotes{}</code> (last/vol)</td><td>No</td></tr>
+<tr><td>TradingView alerts</td><td><span class="b b-done">SignalR push</span></td><td>Real-time</td><td><code>useSignalR</code></td><td><code>store.alerts[]</code></td><td>localStorage</td></tr>
+<tr><td>Trade Exchange posts</td><td><span class="b b-done">SignalR push</span> + <span class="b b-fix">REST 30s</span></td><td>RT + poll</td><td><code>useSignalR</code> + <code>useTradeExchPolling</code></td><td><code>store.alerts[]</code></td><td>localStorage</td></tr>
+<tr><td>SEC Filings</td><td><span class="b b-done">SignalR push</span> + <span class="b b-fix">REST 60s</span></td><td>RT + poll</td><td><code>useSignalR</code> + <code>useFilingsPolling</code></td><td><code>store.alerts[]</code></td><td>localStorage</td></tr>
+<tr><td>Catalyst headlines</td><td><span class="b b-done">SignalR push</span> + <span class="b b-fix">REST 60s</span></td><td>RT + poll</td><td><code>useSignalR</code> + <code>useCatalystPolling</code></td><td><code>store.alerts[]</code></td><td>localStorage</td></tr>
+<tr><td>Press Releases</td><td><span class="b b-done">SignalR push</span> (2 hubs)</td><td>Real-time</td><td><code>useSignalR</code> + <code>useNewsHub</code></td><td><code>store.alerts[]</code> + FilteredPR check</td><td>localStorage</td></tr>
+<tr><td>X / Twitter</td><td><span class="b b-fix">REST 30s</span></td><td>Poll</td><td><code>useTweetsPolling</code></td><td><code>store.alerts[]</code> (multi-symbol)</td><td>localStorage</td></tr>
+<tr><td>Scanner movers</td><td><span class="b b-done">SignalR push</span></td><td>Real-time (disabled)</td><td><code>useSignalR</code></td><td><code>store.scannerAlerts[]</code></td><td>localStorage</td></tr>
+<tr><td>Previous closes</td><td><span class="b b-fix">REST hourly</span></td><td>1hr</td><td><code>usePrevCloses</code></td><td><code>store.prevCloses{}</code></td><td>No</td></tr>
+<tr><td>Stock fundamentals</td><td><span class="b b-fix">REST once</span></td><td>On click + preload</td><td><code>useStockDataPreload</code></td><td>Module cache (not store)</td><td>In-memory</td></tr>
+<tr><td>Price thresholds</td><td><span class="b b-new">Client-side</span></td><td>On quote change</td><td><code>usePriceAlerts</code></td><td><code>store.alerts[]</code></td><td>localStorage</td></tr>
+<tr><td>Alert recovery</td><td><span class="b b-fix">REST 60s</span></td><td>Market hours</td><td><code>useAlertAuditor</code></td><td><code>store.alerts[]</code> (recovered)</td><td>localStorage</td></tr>
+<tr><td>Watchlist cloud sync</td><td><span class="b b-fix">REST debounced</span></td><td>3s after change</td><td><code>useCosmosSync</code></td><td>Cosmos DB &harr; <code>store.watchlists[]</code></td><td>Cosmos + localStorage</td></tr>
+<tr><td>Cross-window sync</td><td><span class="b b-new">localStorage event</span></td><td>On change</td><td><code>useCrossWindowSync</code></td><td>Watchlists, alerts, config</td><td>localStorage</td></tr>
+<tr><td>Quote broadcast</td><td><span class="b b-new">BroadcastChannel</span></td><td>500ms throttle</td><td><code>useQuoteBroadcast</code></td><td>Pop-out window quotes</td><td>No</td></tr>
+</tbody>
+</table>
+</div>
+
+<!-- ALERT TAGGING SYSTEM -->
+<div style="background:var(--bg3);border:1px solid rgba(255,136,68,.2);border-radius:10px;padding:1.5rem;margin:1.25rem 0;position:relative;overflow:hidden">
+<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--org)"></div>
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--org);margin-bottom:.5rem">Alert Tagging System <span class="b b-wait" style="margin-left:.5rem">Planned</span></h4>
+<p style="font-size:.78rem;color:var(--t2);margin-bottom:.75rem">Justin wants alerts tagged on the backend so they arrive structured and filterable by symbol, type, source, and metadata. Currently alerts are loosely structured &mdash; each source builds its own alert shape. The tagging system standardizes this.</p>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t);margin:.75rem 0 .3rem">Current State (Unstructured)</h5>
+<pre style="font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.7;color:var(--t2)">
+<span style="color:var(--red)">Problem:</span> Each alert source builds its own shape independently.
+SignalR <span style="color:var(--cyn)">BroadcastNews</span> arrives as: { symbol, headline, story_id, savetime_et }
+SignalR <span style="color:var(--cyn)">newFiling</span> arrives as:     { symbol, form, url, title, dcn, cik }
+SignalR <span style="color:var(--cyn)">tradingViewAlertRaw</span>:      { id, raw_text, received_utc }
+REST    <span style="color:var(--blu)">/api/tweets</span>:              { username, text, id_long, created_at }
+
+Each hook maps these differently into <span style="color:var(--grn)">Alert { symbol, message, type, color, url }</span>
+Dedup happens at the store level on symbol + type + first 40 chars = fragile
+No standardized metadata = can't filter by source, provider, or confidence
+</pre>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t);margin:.75rem 0 .3rem">Target State (Tagged)</h5>
+<pre style="font-family:'JetBrains Mono',monospace;font-size:.58rem;line-height:1.7;color:var(--t2)">
+<span style="color:var(--grn)">Solution:</span> Standardized alert envelope with rich tags.
+
+<span style="color:var(--grn)">TaggedAlert</span> {
+  id:           string          <span style="color:var(--t3)">// unique UUID</span>
+  symbol:       string          <span style="color:var(--t3)">// primary symbol (uppercase)</span>
+  symbols:      string[]        <span style="color:var(--t3)">// ALL mentioned symbols (multi-symbol tweets)</span>
+  type:         AlertType       <span style="color:var(--t3)">// news | filing | tweet | catalyst | trade_exchange | tradingview | price</span>
+  source:       AlertSource     <span style="color:var(--t3)">// signalr_azure | signalr_news | rest_poll | client_computed | auditor_recovery</span>
+  provider:     string          <span style="color:var(--t3)">// TIGER | AMPS | SEC | X | TradingView | TradeExchange</span>
+  message:      string          <span style="color:var(--t3)">// display text</span>
+  rawPayload:   any             <span style="color:var(--t3)">// original untouched data from the source</span>
+  url:          string | null   <span style="color:var(--t3)">// clickable link</span>
+  timestamp:    Date            <span style="color:var(--t3)">// event time (ET)</span>
+  receivedAt:   Date            <span style="color:var(--t3)">// when web client received it</span>
+  tags: {
+    watchlist:  string | null   <span style="color:var(--t3)">// which watchlist the symbol is on</span>
+    isFiltered: boolean         <span style="color:var(--t3)">// matched FilteredPR keyword?</span>
+    filterType: 'positive' | 'negative' | null
+    formType:   string | null   <span style="color:var(--t3)">// SEC form type (4, SC 13G, etc.)</span>
+    priority:   'high' | 'normal' | 'low'  <span style="color:var(--t3)">// FilteredPR match = high, etc.</span>
+    isRecovered: boolean        <span style="color:var(--t3)">// came from AlertAuditor?</span>
+    dedupKey:   string          <span style="color:var(--t3)">// explicit dedup key (replaces fragile 40-char match)</span>
+  }
+  color:        string          <span style="color:var(--t3)">// computed from type + tags</span>
+  audio:        { frequency: number, duration: number } | null
+}
+</pre>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t);margin:.75rem 0 .3rem">What This Enables</h5>
+<ul style="font-size:.76rem;color:var(--t2);padding-left:1.25rem">
+<li><strong>Filter by source:</strong> &ldquo;Show me only SignalR real-time alerts&rdquo; vs &ldquo;only polling backfill&rdquo;</li>
+<li><strong>Filter by watchlist:</strong> &ldquo;Only alerts for symbols on my 'Day Trade' watchlist&rdquo;</li>
+<li><strong>Priority sorting:</strong> FilteredPR keyword matches float to top, routine filings sink down</li>
+<li><strong>Better dedup:</strong> Explicit dedupKey per source instead of fragile message substring matching</li>
+<li><strong>Audit trail:</strong> rawPayload preserved &mdash; debug exactly what the backend sent</li>
+<li><strong>Latency tracking:</strong> timestamp vs receivedAt shows delivery lag per source</li>
+<li><strong>Recovery visibility:</strong> isRecovered flag shows which alerts the Auditor caught</li>
+<li><strong>Backend integration:</strong> Tags can be applied server-side (Azure Function tags before broadcast) or client-side (hooks tag on receipt)</li>
+</ul>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t);margin:.75rem 0 .3rem">Implementation Approach</h5>
+<ul style="font-size:.76rem;color:var(--t2);padding-left:1.25rem">
+<li><strong>Phase A (Client-side):</strong> Extend the Alert type to TaggedAlert. Each hook tags on receipt. Store dedup uses dedupKey. No backend changes needed</li>
+<li><strong>Phase B (Backend-side):</strong> Azure Function adds tags before SignalR broadcast. Standardized alert envelope across all events. Clients receive pre-tagged alerts</li>
+<li><strong>Phase C (UI):</strong> AlertBar gains filter/sort controls. Filter by type, source, watchlist, priority. Saved filter presets per user</li>
+</ul>
+</div>
+
+<!-- SEPARATOR BEFORE EXISTING INFRA CARDS -->
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--cyn);margin:1.25rem 0 .75rem">New Systems Built</h4>
+
+<div class="infra">
+  <div class="ic ic-grn">
+    <h4>Alert Auditor (Self-Healing)</h4>
+    <p><code>hooks/useAlertAuditor.ts</code></p>
+    <ul>
+      <li>Polls <code>/api/AlertsBySymbol</code> for each watchlisted symbol every 60 seconds</li>
+      <li>Compares backend data against what the web app displayed</li>
+      <li>If backend has an alert the web missed &rarr; <strong>fires it immediately as a recovered alert</strong></li>
+      <li>Only runs during market hours (Mon-Fri 4am-8pm ET)</li>
+      <li>Catches the exact bugs Justin reported (HCTI PR missing, etc.)</li>
+      <li>Logs: <code>AlertAuditor: RECOVERED missed alert &mdash; HCTI news: ...</code></li>
+    </ul>
+  </div>
+
+  <div class="ic ic-blu">
+    <h4>FilteredPR Keyword Matching</h4>
+    <p><code>lib/filteredPr.ts</code></p>
+    <ul>
+      <li>Full port of <code>FilteredPR.cs</code> regex logic</li>
+      <li>Syntax: <strong>comma = OR</strong>, <strong>&amp; = AND</strong>, <strong>! = NOT</strong>, <strong>* = wildcard</strong></li>
+      <li>Runs on every <code>BroadcastNews</code> event in <code>useSignalR</code></li>
+      <li>Fires additional color-coded alert: green for positive match, red for negative</li>
+      <li>Config: <code>filteredPrPositive</code> and <code>filteredPrNegative</code> in Settings</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-cyn">
+    <h4>Per-Type Alert Sounds + TTS</h4>
+    <p><code>lib/alertAudio.ts</code></p>
+    <ul>
+      <li>Replaces single 800Hz beep with configurable frequency + duration per alert type</li>
+      <li>Default sounds: PRs 800Hz, Filings 600Hz, Tweets 900Hz, Catalyst 700Hz, TradingView 1000Hz, Price 1200Hz</li>
+      <li><strong>Text-to-Speech</strong> via Web Speech API (female voice, matches legacy SpeechService.cs)</li>
+      <li>30-second dedup (same text not spoken twice within 30s &mdash; same as legacy)</li>
+      <li>Config: <code>ttsEnabled</code> toggle + per-type <code>alertSounds</code> object</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-org">
+    <h4>AHK Companion Server</h4>
+    <p><code>companion/ahk-server.js</code> + <code>lib/ahk.ts</code></p>
+    <ul>
+      <li>~80 line Node.js server that runs on Justin's Windows machine</li>
+      <li>Web calls <code>http://localhost:9876/run?symbol=AAPL</code></li>
+      <li>Companion launches AHK script via <code>child_process.exec()</code></li>
+      <li>Matches legacy <code>ScriptsController.cs</code> &rarr; <code>Process.Start()</code> behavior</li>
+      <li>Falls back to clipboard copy if companion not running</li>
+      <li>Config: <code>ahkEnabled</code>, <code>ahkUrl</code> in Settings</li>
+      <li>Also has <code>/health</code> endpoint for status checks</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-pur">
+    <h4>Cosmos DB Watchlist Sync</h4>
+    <p><code>hooks/useCosmosSync.ts</code></p>
+    <ul>
+      <li>Saves watchlists + config to Cosmos DB via <code>PUT /api/user/{userKey}</code></li>
+      <li>3-second debounce after last change (won't hammer the API)</li>
+      <li>On load: if localStorage has default empty watchlist, restores from cloud</li>
+      <li>Syncs: watchlists, flagged symbols, alert subscriptions, theme, filter configs</li>
+      <li>Browser clear / new device = data recovered from cloud</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-ylw">
+    <h4>ExcludeFilings Config</h4>
+    <p><code>useSignalR.ts</code> + <code>useFilingsPolling.ts</code></p>
+    <ul>
+      <li>Pipe-separated form types to skip (e.g., <code>SC 13G|4|D</code>)</li>
+      <li>Applied in BOTH SignalR real-time handler AND REST polling hook</li>
+      <li>Matches legacy <code>Filings.cs</code> ExcludeFilings behavior</li>
+      <li>Config: <code>excludeFilings</code> in Settings</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-red">
+    <h4>Multi-Symbol Tweet Fix</h4>
+    <p><code>hooks/useTweetsPolling.ts</code></p>
+    <ul>
+      <li>Legacy X.cs has <code>break</code> after first symbol match = only 1 alert per tweet</li>
+      <li><strong>Web version fixed</strong>: fires separate alert for EACH watchlisted symbol in a tweet</li>
+      <li>Tweet mentions $AAPL, $TSLA, $NVDA and all 3 are on watchlist &rarr; 3 alerts</li>
+      <li>Non-watchlisted symbols still show with first extracted symbol</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-pnk">
+    <h4>New Config Fields</h4>
+    <p><code>types/index.ts</code> + <code>store/useStore.ts</code></p>
+    <ul>
+      <li><code>ttsEnabled</code> &mdash; Text-to-speech toggle</li>
+      <li><code>excludeFilings</code> &mdash; Pipe-separated form type exclusions</li>
+      <li><code>filteredPrPositive</code> / <code>filteredPrNegative</code> &mdash; PR keyword filters</li>
+      <li><code>showAllTradeExchange</code> &mdash; Show unfiltered TX posts</li>
+      <li><code>ahkEnabled</code> / <code>ahkUrl</code> &mdash; AHK companion toggle + URL</li>
+      <li><code>alertSounds</code> &mdash; Per-type frequency + duration + enabled</li>
+    </ul>
+  </div>
+</div>
+</div>
+</details>
+
+<!-- ═══ SECTION 3: PERFORMANCE FIXES ═══ -->
+<details class="s" open>
+<summary><span class="sn" style="background:rgba(255,102,170,.12);color:var(--pnk)">03</span> Performance Fixes (Critical Bugs Resolved)</summary>
+<div class="sb">
+
+<table>
+<thead><tr><th>Bug</th><th>Root Cause</th><th>Impact</th><th>Fix</th></tr></thead>
+<tbody>
+<tr class="rf"><td>localStorage thrashing</td><td><code>quotes</code> was in Zustand <code>partialize</code> &mdash; JSON.stringify on hundreds of symbols every 250ms</td><td>Main thread blocked, UI freezes</td><td>Removed <code>quotes</code> from persist. Quotes are ephemeral real-time data</td></tr>
+<tr class="rf"><td>Re-render cascade</td><td>All 13 hooks in single <code>SignalRProvider</code> &mdash; any hook state change re-rendered ALL hooks</td><td>Every 250ms ALL hooks re-executed</td><td>Split into 4 isolated components: <code>RealTimeConnection</code>, <code>QuoteProcessor</code>, <code>AlertPolling</code>, <code>DataSync</code></td></tr>
+<tr class="rf"><td>usePriceAlerts thrashing</td><td><code>useEffect</code> with <code>[quotes]</code> dependency &mdash; fired every 250ms, iterated all symbols</td><td>200+ iterations/second, potential alert storms</td><td>Rewritten to use <code>useStore.subscribe()</code> outside React render cycle. Only checks symbols with alerts set</td></tr>
+</tbody>
+</table>
+
+<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:8px;padding:1rem;margin-top:.75rem">
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--pnk);margin-bottom:.5rem">The Cascade (Before Fix)</h4>
+<pre style="font-family:'JetBrains Mono',monospace;font-size:.6rem;line-height:1.7;color:var(--t2)">
+Every 250ms: quotes update
+  <span style="color:var(--red)">&rarr;</span> persist serializes EVERYTHING to localStorage (including quotes!)
+    <span style="color:var(--red)">&rarr;</span> triggers cross-window storage events
+      <span style="color:var(--red)">&rarr;</span> usePriceAlerts effect fires (iterates ALL symbols)
+        <span style="color:var(--red)">&rarr;</span> may call addAlert &rarr; triggers AlertBar + Watchlist re-render
+          <span style="color:var(--red)">&rarr;</span> persist fires again <span style="color:var(--red)">&larr; LOOP</span>
+
+<span style="color:var(--grn)">After fix: quotes update &rarr; Zustand store updates &rarr; only QuoteProcessor re-renders
+  Everything else is isolated. No localStorage writes. No cascade.</span>
+</pre>
+</div>
+</div>
+</details>
+
+<!-- ═══ SECTION 4: FULL FEATURE MATRIX ═══ -->
+<details class="s" open>
+<summary><span class="sn" style="background:rgba(68,136,255,.12);color:var(--blu)">04</span> Full Feature Matrix &mdash; Legacy vs Web</summary>
+<div class="sb">
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--blu);margin-bottom:.5rem">Watchlist</h4>
+<table>
+<thead><tr><th>Feature</th><th>Legacy</th><th>Web</th><th>Status</th></tr></thead>
+<tbody>
+<tr class="rg"><td>Add / remove symbols</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Multiple watchlists</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Create / delete watchlists</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Move / copy symbol between lists</td><td>&#10003;</td><td>&#10003; (right-click menu)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Arrow key navigation</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Left/Right switch watchlists</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Space = flag + clipboard</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Inline symbol replacement</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Sorting (price, % change)</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Upper / lower price alerts</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Notes per symbol</td><td>&#10003;</td><td>&#10003; (3 note fields)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rn"><td>Cloud watchlist sync</td><td>&#10003; (Cosmos via UserSyncService)</td><td>&#10003; (<strong>NEW</strong> useCosmosSync)</td><td><span class="b b-new">New</span></td></tr>
+</tbody>
+</table>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--blu);margin:1rem 0 .5rem">Data Ribbon</h4>
+<table>
+<thead><tr><th>Feature</th><th>Legacy</th><th>Web</th><th>Status</th></tr></thead>
+<tbody>
+<tr class="rg"><td>Float / O/S / Market Cap</td><td>&#10003;</td><td>&#10003; (double-click editable)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Sector / Country / Exchange</td><td>&#10003;</td><td>&#10003; (China = red)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Theme / Type fields</td><td>&#10003;</td><td>&#10003; (double-click editable)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Quick links (Finviz, Dilution, X, Options, Filings)</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Website / Notes URL</td><td>&#10003;</td><td>&#10003; (double-click to add/edit)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>General / Dilution / Trade Plan notes</td><td>&#10003;</td><td>&#10003; (3 rows, double-click)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Per-user notes (userKey)</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rn"><td>Insider / Institutional Ownership</td><td>&mdash;</td><td>&#10003;</td><td><span class="b b-new">Web Only</span></td></tr>
+<tr class="rn"><td>Short Float / Avg Volume</td><td>&mdash;</td><td>&#10003;</td><td><span class="b b-new">Web Only</span></td></tr>
+<tr class="ry"><td>FVOL (Volume &divide; Float)</td><td>Shows &mdash; (placeholder)</td><td>Shows &mdash; (placeholder)</td><td><span class="b b-part">Both placeholder</span></td></tr>
+<tr class="ry"><td>MVPHS (Float &times; midpoint)</td><td>Shows &mdash; (placeholder)</td><td>Shows &mdash; (placeholder)</td><td><span class="b b-part">Both placeholder</span></td></tr>
+</tbody>
+</table>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--blu);margin:1rem 0 .5rem">Audio / Alerts UX</h4>
+<table>
+<thead><tr><th>Feature</th><th>Legacy</th><th>Web</th><th>Status</th></tr></thead>
+<tbody>
+<tr class="rg"><td>Alert beep sound</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rn"><td>Per-type alert sounds</td><td>&mdash; (same for all)</td><td>&#10003; (<strong>NEW</strong> configurable frequencies)</td><td><span class="b b-new">New</span></td></tr>
+<tr class="rn"><td>Text-to-Speech</td><td>&#10003; (System.Speech.Synthesis)</td><td>&#10003; (<strong>NEW</strong> Web Speech API)</td><td><span class="b b-new">New</span></td></tr>
+<tr class="rg"><td>Clickable URLs on alerts</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Color-coded type badges</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Alert hiding / dismissal</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Copy alert text (context menu)</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Per-symbol alert history</td><td>&#10003;</td><td>&#10003; (via AlertsBySymbol)</td><td><span class="b b-done">Parity</span></td></tr>
+</tbody>
+</table>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.68rem;color:var(--blu);margin:1rem 0 .5rem">Integration / System</h4>
+<table>
+<thead><tr><th>Feature</th><th>Legacy</th><th>Web</th><th>Status</th></tr></thead>
+<tbody>
+<tr class="rg"><td>Azure SignalR (quotes + alerts)</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>News Hub direct (real-time PRs)</td><td>&#10003;</td><td>&#10003;</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rn"><td>AHK script execution</td><td>&#10003; (ScriptsController.cs)</td><td>&#10003; (<strong>NEW</strong> companion server)</td><td><span class="b b-new">New</span></td></tr>
+<tr class="rn"><td>Cosmos DB data sync</td><td>&#10003; (UserSyncService)</td><td>&#10003; (<strong>NEW</strong> useCosmosSync)</td><td><span class="b b-new">New</span></td></tr>
+<tr class="rn"><td>Alert safety net / self-healing</td><td>&mdash;</td><td>&#10003; (<strong>NEW</strong> useAlertAuditor)</td><td><span class="b b-new">New</span></td></tr>
+<tr class="rn"><td>FilteredPR keyword matching</td><td>&#10003;</td><td>&#10003; (<strong>NEW</strong> lib/filteredPr.ts)</td><td><span class="b b-new">New</span></td></tr>
+<tr class="rg"><td>Grok AI summaries</td><td>&#10003; (GrokButton.tsx, GrokSummary.tsx)</td><td>&#10003; (GrokButton.tsx, ContentViewer.tsx)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rg"><td>Scanner page (PRE/MKT/AH movers)</td><td>&#10003; (ScannerLeaderboard.tsx)</td><td>&#10003; (ScannerPage.tsx)</td><td><span class="b b-done">Parity</span></td></tr>
+<tr class="rn"><td>Pop-out windows</td><td>&mdash;</td><td>&#10003; (alerts, watchlist, scanner, mascot)</td><td><span class="b b-new">Web Only</span></td></tr>
+<tr class="rn"><td>5 color themes</td><td>&mdash;</td><td>&#10003;</td><td><span class="b b-new">Web Only</span></td></tr>
+<tr class="rg"><td>Auto-deploy</td><td>Manual (.NET publish)</td><td>Vercel (instant)</td><td><span class="b b-done">Better</span></td></tr>
+</tbody>
+</table>
+
+</div>
+</details>
+
+<!-- ═══ SECTION 5: FILE INVENTORY ═══ -->
+<details class="s">
+<summary><span class="sn" style="background:rgba(170,102,255,.12);color:var(--pur)">05</span> New Files Created</summary>
+<div class="sb">
+<table>
+<thead><tr><th>File</th><th>Purpose</th><th>Lines</th></tr></thead>
+<tbody>
+<tr><td><code>lib/alertAudio.ts</code></td><td>Per-type sounds + TTS engine (Web Speech API, 30s dedup)</td><td>~100</td></tr>
+<tr><td><code>lib/filteredPr.ts</code></td><td>FilteredPR keyword regex matching (ported from FilteredPR.cs)</td><td>~65</td></tr>
+<tr><td><code>lib/ahk.ts</code></td><td>AHK companion client (fetch to local server, clipboard fallback)</td><td>~25</td></tr>
+<tr><td><code>hooks/useAlertAuditor.ts</code></td><td>Self-healing alert safety net (polls AlertsBySymbol every 60s)</td><td>~120</td></tr>
+<tr><td><code>hooks/useCosmosSync.ts</code></td><td>Watchlist + config sync to Cosmos DB (debounced save/load)</td><td>~110</td></tr>
+<tr><td><code>companion/ahk-server.js</code></td><td>Node.js local server for Justin's Windows machine</td><td>~95</td></tr>
+<tr><td><code>companion/ahk-config.json</code></td><td>AHK script path + args config</td><td>~5</td></tr>
+<tr><td><code>CUTOVER-PLAN.html</code></td><td>Master cutover plan (all 18 alerts, 5 phases)</td><td>~450</td></tr>
+<tr><td><code>DATA-SOURCE-MAP.html</code></td><td>Complete data source map (52 endpoints, 9 SignalR events)</td><td>~550</td></tr>
+</tbody>
+</table>
+</div>
+</details>
+
+<!-- ═══ SECTION 6: TESTING FRAMEWORK ═══ -->
+<details class="s" open>
+<summary><span class="sn" style="background:rgba(0,255,136,.12);color:var(--grn)">06</span> Automated Testing Framework &mdash; Claude Computer Use + Managed Agents</summary>
+<div class="sb">
+
+<div style="background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:1.5rem;margin-bottom:1.25rem;position:relative;overflow:hidden">
+<div style="position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--grn),var(--cyn),var(--blu))"></div>
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--grn);margin-bottom:.75rem">Architecture Overview</h4>
+<pre style="font-family:'JetBrains Mono',monospace;font-size:.6rem;line-height:1.8;color:var(--t2)">
+<span style="color:var(--t3)">┌─────────────────────────────────────────────────────────────────────────┐</span>
+<span style="color:var(--t3)">│</span>                    <span style="color:var(--grn);font-weight:700">TC CONTEXT LAYER</span>                                    <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   Shared knowledge base for all agents:                               <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   &bull; Complete data source map (52 endpoints, 9 SignalR events)         <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   &bull; Alert taxonomy (18 types, dedup rules, expected behavior)         <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   &bull; UI component tree + Zustand store schema                         <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   &bull; Justin's watchlist symbols + config (live from Cosmos)            <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   &bull; Known issues log + performance baselines                         <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">└───────────────────────────┬─────────────────────────────────────────────┘</span>
+                            <span style="color:var(--t3)">│</span>
+          <span style="color:var(--t3)">┌─────────────────┼──────────────────┐</span>
+          <span style="color:var(--t3)">│</span>                 <span style="color:var(--t3)">│</span>                  <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">┌─────────▼──────────┐ ┌────▼────────────┐ ┌───▼────────────────┐</span>
+<span style="color:var(--t3)">│</span> <span style="color:var(--cyn);font-weight:700">VISUAL QA AGENT</span>    <span style="color:var(--t3)">│ │</span> <span style="color:var(--blu);font-weight:700">ALERT INTEGRITY</span>  <span style="color:var(--t3)">│ │</span> <span style="color:var(--pur);font-weight:700">PERF MONITOR</span>      <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span> Claude Computer    <span style="color:var(--t3)">│ │</span> <span style="color:var(--blu)">AGENT</span>            <span style="color:var(--t3)">│ │</span> <span style="color:var(--pur)">AGENT</span>             <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span> Use                <span style="color:var(--t3)">│ │</span>                  <span style="color:var(--t3)">│ │</span>                   <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span> <span style="color:var(--t2)">Opens browser</span>      <span style="color:var(--t3)">│ │</span> <span style="color:var(--t2)">Queries backend</span>  <span style="color:var(--t3)">│ │</span> <span style="color:var(--t2)">Monitors runtime</span>  <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span> <span style="color:var(--t2)">Watches UI</span>         <span style="color:var(--t3)">│ │</span> <span style="color:var(--t2)">APIs directly</span>    <span style="color:var(--t3)">│ │</span> <span style="color:var(--t2)">metrics via</span>       <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span> <span style="color:var(--t2)">Clicks, scrolls</span>    <span style="color:var(--t3)">│ │</span> <span style="color:var(--t2)">Compares against</span> <span style="color:var(--t3)">│ │</span> <span style="color:var(--t2)">browser devtools</span>  <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span> <span style="color:var(--t2)">Screenshots</span>        <span style="color:var(--t3)">│ │</span> <span style="color:var(--t2)">web alert log</span>    <span style="color:var(--t3)">│ │</span>                   <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">└─────────┬──────────┘ └────┬────────────┘ └───┬────────────────┘</span>
+          <span style="color:var(--t3)">│</span>                 <span style="color:var(--t3)">│</span>                  <span style="color:var(--t3)">│</span>
+          <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">┌─────────────┼──────────────────┤</span>
+          <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span>             <span style="color:var(--t3)">│</span>                  <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">┌─────────▼───▼─────────────▼──────────────────▼────────────────┐</span>
+<span style="color:var(--t3)">│</span>                   <span style="color:var(--org);font-weight:700">REPORT AGGREGATOR</span>                            <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>                                                                <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   Combines findings from all 3 agents into daily report:       <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   <span style="color:var(--grn)">&check;</span> Alerts matched: 47/52                                    <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   <span style="color:var(--red)">&cross;</span> Alerts missed: HCTI PR 1:13pm, NVDA Filing 2:45pm         <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   <span style="color:var(--pnk)">!</span> Visual bugs: AlertBar row 12 duplicated at 10:23am          <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   <span style="color:var(--ylw)">~</span> Perf: memory +42MB over 4hrs, 3 frames dropped at 11:15     <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">│</span>   <span style="color:var(--cyn)">&gt;</span> Auto-generated fix PRs for deterministic issues              <span style="color:var(--t3)">│</span>
+<span style="color:var(--t3)">└───────────────────────────────────────────────────────────────┘</span>
+</pre>
+</div>
+
+<div class="infra">
+  <div class="ic ic-cyn">
+    <h4>Visual QA Agent (Claude Computer Use)</h4>
+    <ul>
+      <li><strong>What:</strong> Claude opens TC web in a real browser during market hours</li>
+      <li><strong>Watches:</strong> Alert bar for new alerts, quote prices updating, UI responsiveness</li>
+      <li><strong>Tests:</strong> Click symbol &rarr; verify ribbon loads. Click alert &rarr; verify URL opens. Scroll &rarr; smooth?</li>
+      <li><strong>Detects:</strong> Duplicate alert rows, frozen UI, flickering components, broken layouts</li>
+      <li><strong>Screenshots:</strong> Captures anomalies with timestamps for review</li>
+      <li><strong>Frequency:</strong> Runs autonomously during market hours (9:30am&ndash;4pm ET), checks every 5 minutes</li>
+      <li><strong>Output:</strong> Timestamped log of every interaction + screenshots of any issues found</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-blu">
+    <h4>Alert Integrity Agent</h4>
+    <ul>
+      <li><strong>What:</strong> Queries the Azure Function APIs directly to get the ground truth of what alerts SHOULD exist</li>
+      <li><strong>Queries:</strong> <code>/api/AlertsBySymbol</code> for each watchlisted symbol every 60s</li>
+      <li><strong>Compares:</strong> Backend data vs what the web app's alert log recorded</li>
+      <li><strong>Reports:</strong>
+        <ul>
+          <li><span style="color:var(--red)">MISSED</span> &mdash; Backend has it, web didn't fire it</li>
+          <li><span style="color:var(--org)">DELAYED</span> &mdash; Web fired it &gt;30s after backend received it</li>
+          <li><span style="color:var(--ylw)">DUPLICATE</span> &mdash; Web fired same alert more than once</li>
+          <li><span style="color:var(--grn)">MATCHED</span> &mdash; Confirmed correct delivery</li>
+        </ul>
+      </li>
+      <li><strong>Note:</strong> Works alongside <code>useAlertAuditor</code> which already recovers missed alerts in real-time. This agent validates that the auditor is doing its job.</li>
+    </ul>
+  </div>
+
+  <div class="ic ic-pur">
+    <h4>Performance Monitor Agent</h4>
+    <ul>
+      <li><strong>What:</strong> Monitors browser performance metrics during a trading session</li>
+      <li><strong>Tracks:</strong> Memory usage trend (heap size over time), frame drops, long tasks (&gt;50ms), DOM node count</li>
+      <li><strong>Detects:</strong> Memory leaks (heap growing unbounded), jank (frames &gt;16ms), excessive DOM mutations</li>
+      <li><strong>Baselines:</strong> Establishes normal operating metrics (e.g., &ldquo;steady state is 120MB heap, 800 DOM nodes&rdquo;)</li>
+      <li><strong>Alerts:</strong> If memory exceeds 2&times; baseline or frame budget exceeded for &gt;5s</li>
+      <li><strong>Uses:</strong> Chrome DevTools Protocol via headless browser, or <code>performance.measureUserAgentSpecificMemory()</code></li>
+    </ul>
+  </div>
+
+  <div class="ic ic-org">
+    <h4>Report Aggregator</h4>
+    <ul>
+      <li><strong>What:</strong> Combines output from all 3 agents into a single daily report</li>
+      <li><strong>Runs:</strong> Automatically at market close (4:30pm ET)</li>
+      <li><strong>Contains:</strong>
+        <ul>
+          <li>Alert delivery score (matched / total)</li>
+          <li>List of missed alerts with root cause analysis</li>
+          <li>Visual bugs found (with screenshots)</li>
+          <li>Performance trend chart (memory, frame rate)</li>
+          <li>Comparison to previous day's report</li>
+        </ul>
+      </li>
+      <li><strong>Action:</strong> For deterministic bugs (e.g., dedup logic failing for a specific alert type), auto-generates a code fix and opens a PR</li>
+      <li><strong>Delivery:</strong> HTML report + optional Slack/email notification</li>
+    </ul>
+  </div>
+</div>
+
+<div style="background:linear-gradient(160deg,#0a1a10 0%,var(--bg3) 100%);border:1px solid rgba(0,255,136,.2);border-radius:12px;padding:1.75rem;margin-top:.75rem;position:relative;overflow:hidden">
+<div style="position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--grn),var(--cyn),var(--grn))"></div>
+<div style="position:absolute;top:0;right:0;width:200px;height:200px;background:radial-gradient(circle,rgba(0,255,136,.06) 0%,transparent 70%);pointer-events:none"></div>
+
+<div style="text-align:center;margin-bottom:1.25rem">
+  <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:700;letter-spacing:.3em;text-transform:uppercase;color:var(--grn);margin-bottom:.4rem">Shared Intelligence</div>
+  <div style="font-family:'JetBrains Mono',monospace;font-size:1.1rem;font-weight:800;color:var(--tb)">TC Context Layer</div>
+  <p style="font-size:.78rem;color:var(--t2);max-width:700px;margin:.5rem auto 0">The brain behind the agents. A persistent, structured knowledge base that gives each agent deep understanding of Trade Companion &mdash; not just what to test, but <em>why</em> something is wrong and <em>how</em> to fix it.</p>
+</div>
+
+<pre style="font-family:'JetBrains Mono',monospace;font-size:.56rem;line-height:1.8;color:var(--t2);text-align:center;margin-bottom:1.25rem">
+                          <span style="color:var(--grn)">&#9679;</span> <span style="color:var(--grn);font-weight:700">TC CONTEXT LAYER</span> <span style="color:var(--grn)">&#9679;</span>
+                    <span style="color:var(--t3)">persistent across sessions</span>
+
+    <span style="color:var(--t3)">┌─────────┐</span>   <span style="color:var(--t3)">┌─────────┐</span>   <span style="color:var(--t3)">┌─────────┐</span>   <span style="color:var(--t3)">┌─────────┐</span>   <span style="color:var(--t3)">┌─────────┐</span>   <span style="color:var(--t3)">┌─────────┐</span>
+    <span style="color:var(--t3)">│</span> <span style="color:var(--org)">DATA</span>    <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--cyn)">ALERT</span>   <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--blu)">UI</span>      <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--ylw)">LIVE</span>    <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pnk)">PERF</span>    <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pur)">ISSUE</span>   <span style="color:var(--t3)">│</span>
+    <span style="color:var(--t3)">│</span> <span style="color:var(--org)">SOURCE</span>  <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--cyn)">TAXON-</span>  <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--blu)">COMP-</span>   <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--ylw)">CONFIG</span>  <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pnk)">BASE-</span>   <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pur)">HIST-</span>   <span style="color:var(--t3)">│</span>
+    <span style="color:var(--t3)">│</span> <span style="color:var(--org)">MAP</span>     <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--cyn)">OMY</span>     <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--blu)">ONENT</span>   <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span>         <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pnk)">LINES</span>   <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pur)">ORY</span>     <span style="color:var(--t3)">│</span>
+    <span style="color:var(--t3)">│</span>         <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span>         <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--blu)">MAP</span>     <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span>         <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span>         <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span>         <span style="color:var(--t3)">│</span>
+    <span style="color:var(--t3)">└────┬────┘</span>   <span style="color:var(--t3)">└────┬────┘</span>   <span style="color:var(--t3)">└────┬────┘</span>   <span style="color:var(--t3)">└────┬────┘</span>   <span style="color:var(--t3)">└────┬────┘</span>   <span style="color:var(--t3)">└────┬────┘</span>
+         <span style="color:var(--t3)">│</span>            <span style="color:var(--t3)">│</span>            <span style="color:var(--t3)">│</span>            <span style="color:var(--t3)">│</span>            <span style="color:var(--t3)">│</span>            <span style="color:var(--t3)">│</span>
+         <span style="color:var(--t3)">└────────────┴────────────┴──────┬─────┴────────────┴────────────┘</span>
+                                          <span style="color:var(--t3)">│</span>
+                    <span style="color:var(--t3)">┌─────────────────────┼──────────────────────┐</span>
+                    <span style="color:var(--t3)">│</span>                     <span style="color:var(--t3)">│</span>                      <span style="color:var(--t3)">│</span>
+              <span style="color:var(--t3)">┌─────▼──────┐</span>    <span style="color:var(--t3)">┌────▼─────────┐</span>   <span style="color:var(--t3)">┌────▼──────────┐</span>
+              <span style="color:var(--t3)">│</span> <span style="color:var(--cyn)">Visual QA</span>  <span style="color:var(--t3)">│</span>    <span style="color:var(--t3)">│</span> <span style="color:var(--blu)">Alert</span>        <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pur)">Performance</span>  <span style="color:var(--t3)">│</span>
+              <span style="color:var(--t3)">│</span> <span style="color:var(--cyn)">Agent</span>      <span style="color:var(--t3)">│</span>    <span style="color:var(--t3)">│</span> <span style="color:var(--blu)">Integrity</span>    <span style="color:var(--t3)">│</span>   <span style="color:var(--t3)">│</span> <span style="color:var(--pur)">Monitor</span>      <span style="color:var(--t3)">│</span>
+              <span style="color:var(--t3)">└────────────┘</span>    <span style="color:var(--t3)">└──────────────┘</span>   <span style="color:var(--t3)">└───────────────┘</span>
+</pre>
+
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:.6rem;margin-bottom:.75rem">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:.6rem;grid-column:span 3">
+
+    <div style="background:rgba(255,136,68,.06);border:1px solid rgba(255,136,68,.15);border-radius:8px;padding:.85rem;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--org);border-radius:8px 8px 0 0"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;color:var(--org);margin-bottom:.35rem">&#9632; DATA SOURCE MAP</div>
+      <ul style="font-size:.7rem;color:var(--t2);padding-left:1rem;margin:0;line-height:1.6">
+        <li><strong style="color:var(--t)">52</strong> Azure Function endpoints</li>
+        <li><strong style="color:var(--t)">9</strong> SignalR broadcast events</li>
+        <li><strong style="color:var(--t)">14</strong> external APIs (Polygon, SEC, Twitter, Scanzzers)</li>
+        <li>Auth methods, poll intervals, payload schemas</li>
+      </ul>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--t3);margin-top:.4rem">Feeds &rarr; Alert Integrity Agent (knows where to query for ground truth)</div>
+    </div>
+
+    <div style="background:rgba(0,221,238,.06);border:1px solid rgba(0,221,238,.15);border-radius:8px;padding:.85rem;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--cyn);border-radius:8px 8px 0 0"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;color:var(--cyn);margin-bottom:.35rem">&#9632; ALERT TAXONOMY</div>
+      <ul style="font-size:.7rem;color:var(--t2);padding-left:1rem;margin:0;line-height:1.6">
+        <li><strong style="color:var(--t)">18</strong> alert types with dedup rules per type</li>
+        <li>Expected fields: symbol, message, URL, color, timing</li>
+        <li>Source mapping: which hook fires which alert type</li>
+        <li>Latency expectations: RT &lt;5s, polling &lt;60s</li>
+      </ul>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--t3);margin-top:.4rem">Feeds &rarr; All agents (defines what &ldquo;correct&rdquo; looks like)</div>
+    </div>
+
+    <div style="background:rgba(68,136,255,.06);border:1px solid rgba(68,136,255,.15);border-radius:8px;padding:.85rem;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--blu);border-radius:8px 8px 0 0"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;color:var(--blu);margin-bottom:.35rem">&#9632; UI COMPONENT MAP</div>
+      <ul style="font-size:.7rem;color:var(--t2);padding-left:1rem;margin:0;line-height:1.6">
+        <li>Full component tree (Watchlist, AlertBar, Ribbon, Scanner, Pop-outs)</li>
+        <li>Zustand store schema + selector patterns</li>
+        <li>Expected DOM structure per component</li>
+        <li>Which component renders which data stream</li>
+      </ul>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--t3);margin-top:.4rem">Feeds &rarr; Visual QA Agent (knows what correct UI looks like)</div>
+    </div>
+
+    <div style="background:rgba(255,204,34,.06);border:1px solid rgba(255,204,34,.15);border-radius:8px;padding:.85rem;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--ylw);border-radius:8px 8px 0 0"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;color:var(--ylw);margin-bottom:.35rem">&#9632; LIVE CONFIG</div>
+      <ul style="font-size:.7rem;color:var(--t2);padding-left:1rem;margin:0;line-height:1.6">
+        <li>Justin's watchlist symbols (pulled from Cosmos at session start)</li>
+        <li>Hub URL, API keys, TradingView ID</li>
+        <li>Filter settings (ExcludeFilings, FilteredPR keywords)</li>
+        <li>Alert sound + TTS preferences</li>
+      </ul>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--t3);margin-top:.4rem">Feeds &rarr; Alert Integrity Agent (knows which symbols to audit)</div>
+    </div>
+
+    <div style="background:rgba(255,102,170,.06);border:1px solid rgba(255,102,170,.15);border-radius:8px;padding:.85rem;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--pnk);border-radius:8px 8px 0 0"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;color:var(--pnk);margin-bottom:.35rem">&#9632; PERFORMANCE BASELINES</div>
+      <ul style="font-size:.7rem;color:var(--t2);padding-left:1rem;margin:0;line-height:1.6">
+        <li>Normal heap: ~120MB steady state</li>
+        <li>Normal DOM nodes: ~800</li>
+        <li>Quote throughput: ~50 symbols at 250ms</li>
+        <li>Frame budget: 16ms (60fps target)</li>
+      </ul>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--t3);margin-top:.4rem">Feeds &rarr; Perf Monitor Agent (knows what&rsquo;s abnormal)</div>
+    </div>
+
+    <div style="background:rgba(170,102,255,.06);border:1px solid rgba(170,102,255,.15);border-radius:8px;padding:.85rem;position:relative">
+      <div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--pur);border-radius:8px 8px 0 0"></div>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.62rem;font-weight:700;color:var(--pur);margin-bottom:.35rem">&#9632; ISSUE HISTORY</div>
+      <ul style="font-size:.7rem;color:var(--t2);padding-left:1rem;margin:0;line-height:1.6">
+        <li>Past bugs found + root causes</li>
+        <li>Fixes applied + commit hashes</li>
+        <li>Regression patterns (e.g., &ldquo;PRs drop after reconnect&rdquo;)</li>
+        <li>Builds over time &mdash; agents get smarter each session</li>
+      </ul>
+      <div style="font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--t3);margin-top:.4rem">Feeds &rarr; Report Aggregator (spots regressions, avoids re-reporting)</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;font-size:.72rem;color:var(--t2);padding:.5rem;border-top:1px solid rgba(0,255,136,.1);margin-top:.5rem">
+  <span style="color:var(--grn);font-weight:600">Key insight:</span> The context layer is what makes these agents <em>intelligent</em> rather than just scripts. A script checks &ldquo;did alert appear.&rdquo; An agent with context checks &ldquo;did the right alert appear, from the right source, with the right fields, within the right latency, for symbols on the right watchlist, without duplicating a previous alert from a different source.&rdquo;
+</div>
+
+</div>
+
+<div style="background:var(--bg3);border:1px solid rgba(0,221,238,.15);border-radius:10px;padding:1.5rem;margin-top:.75rem;position:relative;overflow:hidden">
+<div style="position:absolute;top:0;left:0;right:0;height:2px;background:var(--cyn)"></div>
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.72rem;color:var(--cyn);margin-bottom:.75rem">How It Runs</h4>
+<table>
+<thead><tr><th>Time</th><th>What Happens</th></tr></thead>
+<tbody>
+<tr><td style="white-space:nowrap"><code>4:00 AM ET</code></td><td>Context layer refreshes: pulls latest watchlist from Cosmos, checks for code changes since last run</td></tr>
+<tr><td style="white-space:nowrap"><code>9:25 AM ET</code></td><td>All 3 agents spin up. Visual QA opens browser. Alert Integrity starts querying APIs. Perf Monitor begins baseline capture</td></tr>
+<tr><td style="white-space:nowrap"><code>9:30 AM - 4:00 PM</code></td><td>Continuous monitoring. Visual QA checks every 5 min. Alert Integrity audits every 60s. Perf captures every 30s</td></tr>
+<tr><td style="white-space:nowrap"><code>4:30 PM ET</code></td><td>Report Aggregator runs. Compiles findings. Generates daily HTML report. Posts summary to notification channel</td></tr>
+<tr><td style="white-space:nowrap"><code>4:45 PM ET</code></td><td>If deterministic bugs found: auto-generates fix, creates branch, opens PR for review</td></tr>
+<tr><td style="white-space:nowrap"><code>Overnight</code></td><td>Agents sleep. Context layer persists. Issue history updated with new findings</td></tr>
+</tbody>
+</table>
+</div>
+
+</div>
+</details>
+
+<!-- ═══ SECTION 7: REMAINING ═══ -->
+<details class="s" open>
+<summary><span class="sn" style="background:rgba(255,204,34,.1);color:var(--ylw)">07</span> Remaining Work</summary>
+<div class="sb">
+<table>
+<thead><tr><th>Item</th><th>Status</th><th>Blocker</th></tr></thead>
+<tbody>
+<tr class="ry"><td>Airtable direct API (replaces RSS/MAIL miniextensions feeds)</td><td><span class="b b-wait">Waiting</span></td><td>Chris needs Airtable account access</td></tr>
+<tr class="ry"><td>Settings UI for new config fields (TTS, ExcludeFilings, FilteredPR, AHK, alert sounds)</td><td><span class="b b-part">Not built</span></td><td>None &mdash; can build anytime</td></tr>
+<tr class="ry"><td>FVOL / MVPHS live calculations in ribbon</td><td><span class="b b-part">Partial</span></td><td>Need to wire quote data into StockDataRibbon</td></tr>
+<tr class="ry"><td>Component memoization (Watchlist rows, AlertBar rows)</td><td><span class="b b-part">P1 perf</span></td><td>None &mdash; optimization pass</td></tr>
+<tr class="ry"><td>Justin's UI requests (flagged page cleanup, symbol alias table)</td><td><span class="b b-part">Not started</span></td><td>None</td></tr>
+</tbody>
+</table>
+</div>
+</details>
+
+<div class="ft">
+  Trade Companion Web &mdash; Feature Parity Report &nbsp;&middot;&nbsp; Generated 2026-04-09 &nbsp;&middot;&nbsp; Claude Code
+</div>
+
+</div>
+</body>
+</html>

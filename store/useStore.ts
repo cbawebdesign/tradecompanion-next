@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert, AlertSubscription, AlertType } from '@/types'
+import { logAlert } from '@/lib/alertLogger'
 
 // Pane identifiers for focus management
 export type PaneId = 'watchlist' | 'alertbar' | 'alerts' | 'scanner' | null
@@ -153,17 +154,17 @@ export const useStore = create<AppState>()(
         // Deduplication: check if same symbol + type already exists with similar message
         const isDuplicate = state.alerts.some(existing => {
           if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
-          // Exact message match
           if (existing.message === alert.message) return true
-          // Fuzzy match: same symbol+type and messages share first 40 chars (handles slight formatting diffs)
           const existFirst = (existing.message || '').slice(0, 40).toLowerCase()
           const newFirst = (alert.message || '').slice(0, 40).toLowerCase()
           if (existFirst.length > 10 && existFirst === newFirst) return true
           return false
         })
         if (isDuplicate) {
-          return state // Don't add duplicate
+          return state
         }
+        // Log for Alert Integrity Agent comparison
+        try { logAlert(alert, 'addAlert') } catch {}
         return { alerts: [alert, ...state.alerts].slice(0, 500) }
       }),
       addAlerts: (newAlerts) => set((state) => {
