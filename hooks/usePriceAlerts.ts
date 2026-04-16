@@ -38,6 +38,8 @@ export function usePriceAlerts() {
               console.log(`PRICE ALERT: ${item.symbol} hit upper $${item.upperAlert} (now $${currentLast})`)
               addAlert({
                 id: crypto.randomUUID(),
+                dedupKey: alertKey,
+                source: 'usePriceAlerts',
                 symbol: item.symbol,
                 message: `Price hit upper alert $${item.upperAlert!.toFixed(2)} (now $${currentLast.toFixed(2)})`,
                 type: 'price',
@@ -56,6 +58,8 @@ export function usePriceAlerts() {
               console.log(`PRICE ALERT: ${item.symbol} hit lower $${item.lowerAlert} (now $${currentLast})`)
               addAlert({
                 id: crypto.randomUUID(),
+                dedupKey: alertKey,
+                source: 'usePriceAlerts',
                 symbol: item.symbol,
                 message: `Price hit lower alert $${item.lowerAlert!.toFixed(2)} (now $${currentLast.toFixed(2)})`,
                 type: 'price',

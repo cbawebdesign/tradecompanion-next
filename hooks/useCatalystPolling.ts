@@ -80,6 +80,8 @@ export function useCatalystPolling() {
 
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: `cat:${item.symbol}-${item.saveTime_et}`,
+            source: 'useCatalystPolling',
             symbol: item.symbol.toUpperCase(),
             message: `${item.title}${item.startPrice ? ` ($${item.startPrice.toFixed(2)})` : ''}`,
             type: 'catalyst',

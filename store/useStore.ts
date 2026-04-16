@@ -151,26 +151,39 @@ export const useStore = create<AppState>()(
       // Alerts
       alerts: [],
       addAlert: (alert) => set((state) => {
-        // Deduplication: check if same symbol + type already exists with similar message
+        // Dedup: prefer dedupKey (exact, from source), fall back to fuzzy message match
         const isDuplicate = state.alerts.some(existing => {
+          // If both have dedupKeys, use those (guaranteed accurate)
+          if (alert.dedupKey && existing.dedupKey) {
+            return alert.dedupKey === existing.dedupKey
+          }
+          // Fall back to symbol+type+message matching
           if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
           if (existing.message === alert.message) return true
+          // Fuzzy: same first 40 chars
           const existFirst = (existing.message || '').slice(0, 40).toLowerCase()
           const newFirst = (alert.message || '').slice(0, 40).toLowerCase()
           if (existFirst.length > 10 && existFirst === newFirst) return true
           return false
         })
-        if (isDuplicate) {
-          return state
+        if (isDuplicate) return state
+        if (typeof window !== 'undefined') {
+          try { logAlert(alert, 'addAlert') } catch {}
         }
-        // Log for Alert Integrity Agent comparison
-        try { logAlert(alert, 'addAlert') } catch {}
         return { alerts: [alert, ...state.alerts].slice(0, 500) }
       }),
       addAlerts: (newAlerts) => set((state) => {
-        // Batch add with dedup — single store update for many alerts
-        const existing = new Set(state.alerts.map(a => `${a.symbol}|${a.message}|${a.type}`))
-        const unique = newAlerts.filter(a => !existing.has(`${a.symbol}|${a.message}|${a.type}`))
+        // Batch dedup: use dedupKey when available, fall back to message key
+        const existingDedupKeys = new Set<string>()
+        const existingMsgKeys = new Set<string>()
+        for (const a of state.alerts) {
+          if (a.dedupKey) existingDedupKeys.add(a.dedupKey)
+          existingMsgKeys.add(`${a.symbol}|${a.message}|${a.type}`)
+        }
+        const unique = newAlerts.filter(a => {
+          if (a.dedupKey) return !existingDedupKeys.has(a.dedupKey)
+          return !existingMsgKeys.has(`${a.symbol}|${a.message}|${a.type}`)
+        })
         if (unique.length === 0) return state
         return { alerts: [...unique.reverse(), ...state.alerts].slice(0, 500) }
       }),

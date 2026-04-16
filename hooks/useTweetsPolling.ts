@@ -90,6 +90,8 @@ export function useTweetsPolling() {
             for (const sym of matchedSymbols) {
               batch.push({
                 id: crypto.randomUUID(),
+                dedupKey: `tweet:${tweet.id_long}:${sym}`,
+                source: 'useTweetsPolling',
                 symbol: sym,
                 message: tweetText,
                 type: 'tweet',
@@ -103,6 +105,8 @@ export function useTweetsPolling() {
             // No watchlist match — still show with first symbol (or empty)
             batch.push({
               id: crypto.randomUUID(),
+              dedupKey: `tweet:${tweet.id_long}`,
+              source: 'useTweetsPolling',
               symbol: symbols[0] || '',
               message: tweetText,
               type: 'tweet',

@@ -305,6 +305,8 @@ export function useSignalR() {
 
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: `legacy:${data.symbol}-${alertName}-${data.time}`,
+            source: 'useSignalR:BroadcastAlertTrigger',
             symbol: data.symbol || '',
             message,
             type: alertType,
@@ -354,8 +356,12 @@ export function useSignalR() {
             message = data.title || data.Title || (formType ? `Filing form ${formType}` : alertStr) || 'New Filing'
           }
 
+          const dcn = data.dcn || data.Dcn || ''
+          const cik = data.cik || data.Cik || ''
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: dcn ? `filing:${cik}-${dcn}` : `filing:${matchedSymbol}-${formType}-${Date.now()}`,
+            source: 'useSignalR:newFiling',
             symbol: matchedSymbol,
             message,
             type: 'filing',
@@ -372,6 +378,8 @@ export function useSignalR() {
           // console.log('newTradeExchange received:', data)
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: `tx:${data.id || data.Id || Date.now()}`,
+            source: 'useSignalR:newTradeExchange',
             symbol: data.symbol || data.Symbol || '',
             message: data.content || data.message || data.Message || '',
             type: 'trade_exchange',
@@ -389,8 +397,11 @@ export function useSignalR() {
           // Use title (same field as polling) so dedup catches duplicates
           const title = data.title || data.Title || data.description || data.Description || data.msg || ''
           const price = data.startPrice || data.StartPrice || 0
+          const saveTime = data.saveTime_et || data.SaveTime_et || ''
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: `cat:${symbol}-${saveTime}`,
+            source: 'useSignalR:newCatalystScanner',
             symbol,
             message: `${title}${price ? ` ($${Number(price).toFixed(2)})` : ''}`,
             type: 'catalyst',
@@ -414,6 +425,8 @@ export function useSignalR() {
           // Standard PR alert
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: storyId ? `pr:${storyId}` : `pr:${symbol}-${(headline || '').slice(0, 40)}`,
+            source: 'useSignalR:BroadcastNews',
             symbol,
             message: headline || `Press Release ${symbol}`,
             type: 'news',
@@ -432,6 +445,8 @@ export function useSignalR() {
             if (matched) {
               const filteredAlert: Alert = {
                 id: crypto.randomUUID(),
+                dedupKey: `fpr:${storyId || symbol + '-' + (headline || '').slice(0, 40)}`,
+                source: 'useSignalR:FilteredPR',
                 symbol,
                 message: `[${isPositive ? '+' : ''}${isNegative ? '-' : ''}] ${headline}`,
                 type: 'news',
@@ -472,6 +487,8 @@ export function useSignalR() {
           const symbol = /^[A-Z]{1,5}$/.test(firstWord) ? firstWord : ''
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: `tv:${alertId || Date.now()}`,
+            source: 'useSignalR:tradingViewAlertRaw',
             symbol,
             message: rawText || JSON.stringify(data),
             type: 'tradingview',

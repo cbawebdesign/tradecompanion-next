@@ -96,8 +96,18 @@ export function useAlertAuditor() {
               existingKeys.add(key)
               seenAlertKeys.add(key)
 
+              // Build dedupKey from source data
+              const itemId = item.dcn ? `filing:${item.cik}-${item.dcn}`
+                : item.id_long ? `tweet:${item.id_long}`
+                : item.id ? `tx:${item.id}`
+                : item.saveTime_et ? `cat:${symbol}-${item.saveTime_et}`
+                : item.story_id ? `pr:${item.story_id}`
+                : `audit:${symbol}-${alertType}-${(msg || '').slice(0, 40)}`
+
               recoveredBatch.push({
                 id: crypto.randomUUID(),
+                dedupKey: itemId,
+                source: 'useAlertAuditor',
                 symbol,
                 message: msg,
                 type: alertType,
@@ -119,11 +129,17 @@ export function useAlertAuditor() {
       // This prevents "recovering" alerts that other hooks added while we were querying
       if (recoveredBatch.length > 0) {
         const freshAlerts = useStore.getState().alerts
-        const freshKeys = new Set<string>()
+        const freshDedupKeys = new Set<string>()
+        const freshMsgKeys = new Set<string>()
         for (const a of freshAlerts) {
-          freshKeys.add(alertKey(a.symbol, a.type, a.message))
+          if (a.dedupKey) freshDedupKeys.add(a.dedupKey)
+          freshMsgKeys.add(alertKey(a.symbol, a.type, a.message))
         }
-        const trulyMissed = recoveredBatch.filter(a => !freshKeys.has(alertKey(a.symbol, a.type, a.message)))
+        const trulyMissed = recoveredBatch.filter(a => {
+          if (a.dedupKey && freshDedupKeys.has(a.dedupKey)) return false
+          if (freshMsgKeys.has(alertKey(a.symbol, a.type, a.message))) return false
+          return true
+        })
 
         if (trulyMissed.length > 0) {
           console.log(`AlertAuditor: recovered ${trulyMissed.length} missed alerts (filtered from ${recoveredBatch.length} candidates)`)

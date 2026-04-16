@@ -118,6 +118,8 @@ export function useFilingsPolling() {
 
           batch.push({
             id: crypto.randomUUID(),
+            dedupKey: `filing:${filingId}`,
+            source: 'useFilingsPolling',
             symbol: matchedSymbol,
             message: `${filing.form}${filing.title ? ': ' + filing.title : ''}`,
             type: 'filing',

@@ -19,7 +19,9 @@ export interface Alert {
   color: string
   timestamp: Date
   read: boolean
-  url?: string  // URL for filings/PRs/tweets
+  url?: string
+  dedupKey?: string  // explicit dedup key from source (e.g., filing dcn, tweet id, catalyst saveTime)
+  source?: string    // which hook/source created this alert
 }
 
 export interface PriceAlert {

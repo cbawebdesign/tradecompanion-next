@@ -110,6 +110,8 @@ export function useTradeExchangePolling() {
 
           const alert: Alert = {
             id: crypto.randomUUID(),
+            dedupKey: `tx:${post.id}`,
+            source: 'useTradeExchangePolling',
             symbol: alertSymbol.toUpperCase(),
             message: `[${post.source}] ${post.content}`,
             type: 'trade_exchange',

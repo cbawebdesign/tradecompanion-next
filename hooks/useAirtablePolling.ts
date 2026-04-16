@@ -86,6 +86,8 @@ export function useAirtablePolling() {
 
           batch.push({
             id: crypto.randomUUID(),
+            dedupKey: `at:${guid}`,
+            source: 'useAirtablePolling',
             symbol: view.alertSymbol,
             message: creator ? `${creator}: ${title}` : title,
             type: view.type,
