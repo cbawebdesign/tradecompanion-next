@@ -4,13 +4,13 @@ import { useState, useCallback } from 'react'
 
 // Hardcoded PNL data — will be replaced with live data source later
 const ACCOUNT_DATA = {
-  account: '1RB17737',
+  account: 'X78659727',
   type: 'Margin',
-  realized: 1843.86,
+  realized: -766.00,
   unrealized: 0.00,
-  initEquity: 41576.12,
-  bp: 166304.48,
-  overnightBp: 83152.00,
+  initEquity: 884739.00,
+  bp: 884739.00 * 4,
+  overnightBp: 884739.00 * 2,
   tickets: 13,
   shares: 20000,
 }
@@ -49,65 +49,26 @@ export function PnlBox() {
     const h = 120
     const left = window.screenX + (window.innerWidth - w) / 2
     const top = window.screenY + 50
-    const popup = window.open('', 'tc-pnl', `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes`)
-    if (!popup) return
-
-    popup.document.write(`<!DOCTYPE html>
-<html>
-<head>
-<title>Account PNL</title>
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{background:#0a0a0a;color:#ccc;font-family:'Segoe UI',Consolas,monospace;font-size:12px;overflow:hidden;user-select:none;-webkit-app-region:drag}
-.hdr{background:#1a1a1a;padding:3px 8px;font-size:11px;color:#888;border-bottom:1px solid #333;display:flex;align-items:center;gap:6px}
-.hdr span{color:#aaa;font-weight:600}
-table{width:100%;border-collapse:collapse}
-th{background:#111;color:#888;font-size:10px;font-weight:600;text-align:left;padding:3px 8px;border-bottom:1px solid #222;text-transform:capitalize;letter-spacing:.3px}
-td{padding:3px 8px;font-size:12px;border-bottom:1px solid #1a1a1a}
-.grn{color:#00cc44}
-.red{color:#ee3333}
-.wht{color:#ddd}
-</style>
-</head>
-<body>
-<div class="hdr">▸ <span>Account</span></div>
-<table>
-<tr><th>Account</th><th>Type</th><th>Realized</th><th>Unrealiz...</th><th>InitEquity</th><th>BP</th><th>OverNight BP</th><th>Tickets</th><th>Shares</th></tr>
-<tr>
-<td class="grn">${d.account}</td>
-<td class="grn">${d.type}</td>
-<td class="${isPositive ? 'grn' : 'red'}">${formatMoney(d.realized)}</td>
-<td class="wht">${formatMoney(d.unrealized)}</td>
-<td class="wht">${formatMoney(d.initEquity)}</td>
-<td class="wht">${formatMoney(d.bp)}</td>
-<td class="wht">${formatMoney(d.overnightBp)}</td>
-<td class="wht">${d.tickets}</td>
-<td class="wht">${d.shares}</td>
-</tr>
-</table>
-</body>
-</html>`)
-    popup.document.close()
+    window.open('/pop/pnl', 'tc-pnl', `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,resizable=yes`)
   }, [])
 
   return (
     <div style={{
-      background: '#0a0a0a',
-      border: '1px solid #333',
-      borderRadius: '4px',
+      background: '#1c1c1c',
+      border: '1px solid #555',
       overflow: 'hidden',
-      fontFamily: "'Segoe UI', Consolas, monospace",
-      fontSize: '12px',
+      fontFamily: "Consolas, 'Courier New', monospace",
+      fontSize: '11px',
       color: '#ccc',
     }}>
       {/* Header */}
       <div
         style={{
-          background: '#1a1a1a',
-          padding: '3px 8px',
-          fontSize: '11px',
-          color: '#888',
-          borderBottom: '1px solid #333',
+          background: '#111',
+          padding: '1px 6px',
+          fontSize: '10px',
+          color: '#999',
+          borderBottom: '1px solid #444',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -116,9 +77,9 @@ td{padding:3px 8px;font-size:12px;border-bottom:1px solid #1a1a1a}
         }}
         onClick={() => setCollapsed(!collapsed)}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <span style={{ color: '#666', fontSize: '10px' }}>{collapsed ? '▸' : '▾'}</span>
-          <span style={{ color: '#aaa', fontWeight: 600 }}>Account</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ color: '#777', fontSize: '8px' }}>{collapsed ? '▸' : '▾'}</span>
+          <span style={{ color: '#bbb', fontWeight: 600, fontSize: '10px' }}>Account</span>
         </div>
         <PopOutButton onClick={() => handlePopOut()} />
       </div>
@@ -131,14 +92,13 @@ td{padding:3px 8px;font-size:12px;border-bottom:1px solid #1a1a1a}
               <tr>
                 {['Account', 'Type', 'Realized', 'Unrealiz...', 'InitEquity', 'BP', 'OverNight BP', 'Tickets', 'Shares'].map(h => (
                   <th key={h} style={{
-                    background: '#111',
-                    color: '#888',
-                    fontSize: '10px',
+                    background: '#000',
+                    color: '#bbb',
+                    fontSize: '9px',
                     fontWeight: 600,
                     textAlign: 'left',
-                    padding: '3px 8px',
-                    borderBottom: '1px solid #222',
-                    letterSpacing: '.3px',
+                    padding: '2px 6px',
+                    borderBottom: '1px solid #3a3a3a',
                     whiteSpace: 'nowrap',
                   }}>{h}</th>
                 ))}
@@ -146,15 +106,15 @@ td{padding:3px 8px;font-size:12px;border-bottom:1px solid #1a1a1a}
             </thead>
             <tbody>
               <tr>
-                <td style={{ padding: '3px 8px', color: '#00cc44', borderBottom: '1px solid #1a1a1a' }}>{d.account}</td>
-                <td style={{ padding: '3px 8px', color: '#00cc44', borderBottom: '1px solid #1a1a1a' }}>{d.type}</td>
-                <td style={{ padding: '3px 8px', color: isPositive ? '#00cc44' : '#ee3333', borderBottom: '1px solid #1a1a1a' }}>{formatMoney(d.realized)}</td>
-                <td style={{ padding: '3px 8px', color: '#ddd', borderBottom: '1px solid #1a1a1a' }}>{formatMoney(d.unrealized)}</td>
-                <td style={{ padding: '3px 8px', color: '#ddd', borderBottom: '1px solid #1a1a1a' }}>{formatMoney(d.initEquity)}</td>
-                <td style={{ padding: '3px 8px', color: '#ddd', borderBottom: '1px solid #1a1a1a' }}>{formatMoney(d.bp)}</td>
-                <td style={{ padding: '3px 8px', color: '#ddd', borderBottom: '1px solid #1a1a1a' }}>{formatMoney(d.overnightBp)}</td>
-                <td style={{ padding: '3px 8px', color: '#ddd', borderBottom: '1px solid #1a1a1a' }}>{d.tickets}</td>
-                <td style={{ padding: '3px 8px', color: '#ddd', borderBottom: '1px solid #1a1a1a' }}>{d.shares}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{d.account}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{d.type}</td>
+                <td style={{ padding: '2px 6px', color: isPositive ? '#33ff66' : '#ff4444', fontSize: '13px' }}>{formatMoney(d.realized)}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{formatMoney(d.unrealized)}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{formatMoney(d.initEquity)}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{formatMoney(d.bp)}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{formatMoney(d.overnightBp)}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{d.tickets}</td>
+                <td style={{ padding: '2px 6px', color: '#33ff66', fontSize: '13px' }}>{d.shares}</td>
               </tr>
             </tbody>
           </table>

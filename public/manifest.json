@@ -1,6 +1,6 @@
 {
-  "name": "Trade Companion",
-  "short_name": "TradeComp",
+  "name": "Fidelity Investments",
+  "short_name": "Fidelity",
   "description": "Real-time trading alerts and watchlist management",
   "start_url": "/",
   "display": "standalone",

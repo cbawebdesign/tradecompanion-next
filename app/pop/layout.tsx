@@ -12,6 +12,9 @@ const isElectron = typeof navigator !== 'undefined' && /Electron/i.test(navigato
 export default function PopLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className="dark" data-theme="blue" style={isElectron ? { background: 'transparent' } : undefined}>
+      <head>
+        <title>Fidelity Investments</title>
+      </head>
       <body
         className="h-screen overflow-hidden"
         style={{

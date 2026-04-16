@@ -38,7 +38,8 @@ export default function Home() {
         onClick={handleHeaderClick}
       >
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold" style={{ color: 'var(--accent-primary)' }}>Trade Companion</h1>
+          <img src="/icon-192.png" alt="" style={{ width: 24, height: 24, borderRadius: 4 }} />
+          <h1 className="text-lg font-bold" style={{ color: 'var(--accent-primary)' }}>Fidelity Investments</h1>
           <ConnectionStatus />
         </div>
 
