@@ -561,24 +561,170 @@ export function SettingsPage() {
         {/* Filter Settings */}
         <section className="glass-panel rounded-lg p-4">
           <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Filters</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Min Market Cap</label>
+                <input
+                  type="number"
+                  value={config.marketCapMin}
+                  onChange={(e) => updateConfig({ marketCapMin: parseInt(e.target.value) || 0 })}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Max Market Cap</label>
+                <input
+                  type="number"
+                  value={config.marketCapMax}
+                  onChange={(e) => updateConfig({ marketCapMax: parseInt(e.target.value) || 999999999999 })}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
             <div>
-              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Min Market Cap</label>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Exclude Filing Types</label>
               <input
-                type="number"
-                value={config.marketCapMin}
-                onChange={(e) => updateConfig({ marketCapMin: parseInt(e.target.value) || 0 })}
+                type="text"
+                value={config.excludeFilings || ''}
+                onChange={(e) => updateConfig({ excludeFilings: e.target.value })}
+                placeholder="SC 13G|4|D"
                 className="w-full"
               />
+              <p className="text-xs text-gray-500 mt-1">Pipe-separated SEC form types to skip (e.g., SC 13G|4|D)</p>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>FilteredPR — Positive Keywords</label>
+              <input
+                type="text"
+                value={config.filteredPrPositive || ''}
+                onChange={(e) => updateConfig({ filteredPrPositive: e.target.value })}
+                placeholder="offering,merger,acquisition&FDA"
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">Comma = OR, &amp; = AND, ! = NOT, * = wildcard. Headlines matching these get a green tag.</p>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>FilteredPR — Negative Keywords</label>
+              <input
+                type="text"
+                value={config.filteredPrNegative || ''}
+                onChange={(e) => updateConfig({ filteredPrNegative: e.target.value })}
+                placeholder="dilution,shelf,ATM"
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">Headlines matching these get a red tag.</p>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm" style={{ color: 'var(--text-primary)' }}>Show All Trade Exchange</label>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Show all TX posts, not just watchlisted symbols</p>
+              </div>
+              <button
+                onClick={() => updateConfig({ showAllTradeExchange: !config.showAllTradeExchange })}
+                className={`w-12 h-6 rounded-full transition-colors ${config.showAllTradeExchange ? 'bg-blue-600' : 'bg-gray-600'}`}
+              >
+                <span className={`block w-5 h-5 rounded-full bg-white transform transition-transform ${config.showAllTradeExchange ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Audio & TTS */}
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>Audio & Speech</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm" style={{ color: 'var(--text-primary)' }}>Text-to-Speech</label>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Speak alert messages aloud (Web Speech API)</p>
+              </div>
+              <button
+                onClick={() => updateConfig({ ttsEnabled: !config.ttsEnabled })}
+                className={`w-12 h-6 rounded-full transition-colors ${config.ttsEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+              >
+                <span className={`block w-5 h-5 rounded-full bg-white transform transition-transform ${config.ttsEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-2" style={{ color: 'var(--text-muted)' }}>Per-Type Alert Sounds</label>
+              <div className="space-y-2">
+                {Object.entries(config.alertSounds || {}).map(([type, sound]) => (
+                  <div key={type} className="flex items-center gap-3 text-xs">
+                    <span className="w-24 font-mono" style={{ color: 'var(--text-primary)' }}>{type}</span>
+                    <label className="flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+                      <input
+                        type="checkbox"
+                        checked={sound.enabled}
+                        onChange={() => {
+                          const updated = { ...config.alertSounds, [type]: { ...sound, enabled: !sound.enabled } }
+                          updateConfig({ alertSounds: updated })
+                        }}
+                      />
+                      On
+                    </label>
+                    <label style={{ color: 'var(--text-muted)' }}>Hz:</label>
+                    <input
+                      type="number"
+                      value={sound.frequency}
+                      onChange={(e) => {
+                        const updated = { ...config.alertSounds, [type]: { ...sound, frequency: parseInt(e.target.value) || 800 } }
+                        updateConfig({ alertSounds: updated })
+                      }}
+                      className="w-16 text-xs"
+                      style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', padding: '2px 4px', borderRadius: '4px' }}
+                    />
+                    <label style={{ color: 'var(--text-muted)' }}>ms:</label>
+                    <input
+                      type="number"
+                      value={sound.duration}
+                      onChange={(e) => {
+                        const updated = { ...config.alertSounds, [type]: { ...sound, duration: parseInt(e.target.value) || 150 } }
+                        updateConfig({ alertSounds: updated })
+                      }}
+                      className="w-16 text-xs"
+                      style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-primary)', padding: '2px 4px', borderRadius: '4px' }}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* AHK / Script Execution */}
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-4" style={{ color: 'var(--text-secondary)' }}>AutoHotKey (AHK)</h3>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="text-sm" style={{ color: 'var(--text-primary)' }}>Enable AHK</label>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>Execute AHK script on symbol click via companion server</p>
+              </div>
+              <button
+                onClick={() => updateConfig({ ahkEnabled: !config.ahkEnabled })}
+                className={`w-12 h-6 rounded-full transition-colors ${config.ahkEnabled ? 'bg-blue-600' : 'bg-gray-600'}`}
+              >
+                <span className={`block w-5 h-5 rounded-full bg-white transform transition-transform ${config.ahkEnabled ? 'translate-x-6' : 'translate-x-0.5'}`} />
+              </button>
             </div>
             <div>
-              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Max Market Cap</label>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Companion Server URL</label>
               <input
-                type="number"
-                value={config.marketCapMax}
-                onChange={(e) => updateConfig({ marketCapMax: parseInt(e.target.value) || 999999999999 })}
+                type="text"
+                value={config.ahkUrl || 'http://localhost:9876'}
+                onChange={(e) => updateConfig({ ahkUrl: e.target.value })}
+                placeholder="http://localhost:9876"
                 className="w-full"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Run <code style={{ color: 'var(--accent-primary)' }}>node companion/ahk-server.js</code> on your Windows machine
+              </p>
             </div>
           </div>
         </section>
