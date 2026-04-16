@@ -10,6 +10,7 @@ interface CatalystItem {
   saveTime_et: string   // DateTime as ISO string
   startPrice: number
   title: string
+  resource_id?: string
 }
 
 let hasInitiallyFetched = false
@@ -88,6 +89,7 @@ export function useCatalystPolling() {
             color: '#f97316',
             timestamp: new Date(item.saveTime_et),
             read: false,
+            url: item.resource_id ? `/api/pr?id=${item.resource_id}` : undefined,
           }
 
           addAlert(alert)

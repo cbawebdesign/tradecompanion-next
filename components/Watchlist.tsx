@@ -105,19 +105,23 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       .then(data => {
         const mapped: Alert[] = []
         data.tweets?.forEach((t: any) => {
-          mapped.push({ id: `db-tweet-${t.time}-${t.source}`, symbol: selectedSymbol, message: t.text, type: 'news', color: '', timestamp: new Date(t.time), read: false })
+          // Build tweet URL from source (username) — AlertsBySymbol returns source=username
+          const tweetUrl = t.id_long ? `https://x.com/${t.source}/status/${t.id_long}` : undefined
+          mapped.push({ id: `db-tweet-${t.time}-${t.source}`, symbol: selectedSymbol, message: `@${t.source}: ${t.text}`, type: 'tweet', color: '#1da1f2', timestamp: new Date(t.time), read: false, url: tweetUrl })
         })
         data.filings?.forEach((f: any) => {
-          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: selectedSymbol, message: f.text, type: 'filing', color: '', timestamp: new Date(f.time), read: false, url: f.url })
+          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: selectedSymbol, message: f.text, type: 'filing', color: '#00bcd4', timestamp: new Date(f.time), read: false, url: f.url })
         })
         data.tradeExchange?.forEach((tx: any) => {
-          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: selectedSymbol, message: tx.text, type: 'trade_exchange', color: '', timestamp: new Date(tx.time), read: false })
+          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: selectedSymbol, message: `[${tx.source}] ${tx.text}`, type: 'trade_exchange', color: '#eab308', timestamp: new Date(tx.time), read: false })
         })
         data.tradingView?.forEach((tv: any) => {
-          mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'news', color: '', timestamp: new Date(tv.time), read: false })
+          mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'tradingview', color: '#4caf50', timestamp: new Date(tv.time), read: false })
         })
         data.catalysts?.forEach((c: any) => {
-          mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: selectedSymbol, message: c.text, type: 'catalyst', color: '', timestamp: new Date(c.time), read: false })
+          // Build PR URL from resource_id if available
+          const catUrl = c.resource_id ? `/api/pr?id=${c.resource_id}` : undefined
+          mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: selectedSymbol, message: c.text, type: 'catalyst', color: '#9c27b0', timestamp: new Date(c.time), read: false, url: catUrl })
         })
         dbAlertsCache[selectedSymbol.toUpperCase()] = mapped
         setDbAlerts(mapped)

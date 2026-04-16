@@ -398,6 +398,8 @@ export function useSignalR() {
           const title = data.title || data.Title || data.description || data.Description || data.msg || ''
           const price = data.startPrice || data.StartPrice || 0
           const saveTime = data.saveTime_et || data.SaveTime_et || ''
+          const resId = data.resource_id || data.Resource_id || ''
+          const catUrl = resId ? `/api/pr?id=${resId}` : undefined
           const alert: Alert = {
             id: crypto.randomUUID(),
             dedupKey: `cat:${symbol}-${saveTime}`,
@@ -408,6 +410,7 @@ export function useSignalR() {
             color: '#9c27b0',
             timestamp: data.saveTime_et ? new Date(data.saveTime_et) : new Date(),
             read: false,
+            url: catUrl,
           }
           addAlert(alert)
           handleAlertAudio('catalyst', alert.message, configRef.current)

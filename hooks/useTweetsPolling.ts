@@ -73,8 +73,10 @@ export function useTweetsPolling() {
           seenTweetIdsRef.current.add(tweet.id_long)
 
           const symbols = extractSymbols(tweet.text)
-          const tweetUrl = tweet.username && tweet.id_long
-            ? `https://x.com/${tweet.username}/status/${tweet.id_long}`
+          // Always build URL if we have username + any ID
+          const tweetId = tweet.id_long || tweet.id || ''
+          const tweetUrl = (tweet.username && tweetId)
+            ? `https://x.com/${tweet.username}/status/${tweetId}`
             : undefined
           const tweetText = `@${tweet.username}: ${tweet.text}`
           const tweetTime = new Date(tweet.created_at)
