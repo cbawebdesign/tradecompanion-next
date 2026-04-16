@@ -17,7 +17,7 @@ const seenAlertKeys = new Set<string>()
 let hasRun = false
 
 const AUDIT_INTERVAL_MS = 60_000  // 60 seconds
-const INITIAL_DELAY_MS = 90_000   // wait 90s for all other hooks to finish backfill first
+const INITIAL_DELAY_MS = 5 * 60_000  // wait 5 MINUTES before first audit — let all hooks fully settle
 
 // Check if we're in US market hours (Mon-Fri, 4am-8pm ET)
 function isMarketHours(): boolean {
@@ -115,10 +115,20 @@ export function useAlertAuditor() {
 
       lastAuditTime = new Date()
 
-      // Single batch store update instead of N individual addAlert calls
+      // Re-check against CURRENT store state (not stale ref from start of audit)
+      // This prevents "recovering" alerts that other hooks added while we were querying
       if (recoveredBatch.length > 0) {
-        console.log(`AlertAuditor: recovered ${recoveredBatch.length} missed alerts`)
-        addAlerts(recoveredBatch)
+        const freshAlerts = useStore.getState().alerts
+        const freshKeys = new Set<string>()
+        for (const a of freshAlerts) {
+          freshKeys.add(alertKey(a.symbol, a.type, a.message))
+        }
+        const trulyMissed = recoveredBatch.filter(a => !freshKeys.has(alertKey(a.symbol, a.type, a.message)))
+
+        if (trulyMissed.length > 0) {
+          console.log(`AlertAuditor: recovered ${trulyMissed.length} missed alerts (filtered from ${recoveredBatch.length} candidates)`)
+          addAlerts(trulyMissed)
+        }
       }
 
       // Cap seen keys to prevent memory growth
