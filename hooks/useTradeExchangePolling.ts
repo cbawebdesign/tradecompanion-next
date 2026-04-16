@@ -29,7 +29,7 @@ function parseLeadingTicker(text: string): string | null {
 let hasInitiallyFetched = false
 
 export function useTradeExchangePolling() {
-  const { config, addAlert, watchlists } = useStore()
+  const { config, addAlert, addAlerts, watchlists } = useStore()
   const lastTimeRef = useRef<string | null>(null)
   const seenIdsRef = useRef<Set<string>>(new Set())
   // Use ref so watchlist changes don't restart the polling effect
@@ -77,8 +77,17 @@ export function useTradeExchangePolling() {
           new Date(a.save_time_utc).getTime() - new Date(b.save_time_utc).getTime()
         )
 
+        // On initial load, only show the most recent 20 (not 700+)
+        const toProcess = isInitialFetch ? sorted.slice(-20) : sorted
+
+        // Still mark ALL as seen so they don't re-appear on subsequent polls
+        if (isInitialFetch) {
+          for (const post of sorted) seenIdsRef.current.add(post.id)
+        }
+
+        const batch: Alert[] = []
         let newCount = 0
-        for (const post of sorted) {
+        for (const post of toProcess) {
           if (seenIdsRef.current.has(post.id)) continue
           seenIdsRef.current.add(post.id)
 
@@ -109,10 +118,14 @@ export function useTradeExchangePolling() {
             read: false,
           }
 
-          addAlert(alert)
+          batch.push(alert)
           newCount++
         }
 
+        if (batch.length > 0) {
+          if (isInitialFetch) addAlerts(batch)
+          else batch.forEach(a => addAlert(a))
+        }
         if (newCount > 0) {
           console.log('TradeExchange:', newCount, 'new posts', isInitialFetch ? '(initial)' : '(poll)')
         }
