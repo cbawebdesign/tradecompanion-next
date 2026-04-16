@@ -30,15 +30,18 @@ const INITIAL_DELAY_MS = 8_000  // wait for other hooks to finish
 const seenGuids = new Set<string>()
 let hasInitiallyFetched = false
 
-// Airtable token — set via NEXT_PUBLIC_AIRTABLE_TOKEN env var or in TC Settings
-const FALLBACK_TOKEN = process.env.NEXT_PUBLIC_AIRTABLE_TOKEN || ''
+// Airtable token — baked in at build time via NEXT_PUBLIC_AIRTABLE_TOKEN env var
+const AIRTABLE_TOKEN = process.env.NEXT_PUBLIC_AIRTABLE_TOKEN || ''
 
 export function useAirtablePolling() {
-  const { config, addAlert, addAlerts } = useStore()
-  const token = config.apiKey || FALLBACK_TOKEN  // reuse apiKey field or fallback
+  const { addAlert, addAlerts } = useStore()
 
   useEffect(() => {
-    if (!token) return
+    if (!AIRTABLE_TOKEN) {
+      console.log('Airtable: no token set (NEXT_PUBLIC_AIRTABLE_TOKEN)')
+      return
+    }
+    const token = AIRTABLE_TOKEN
 
     let cancelled = false
 
@@ -129,5 +132,5 @@ export function useAirtablePolling() {
       clearTimeout(initTimer)
       clearInterval(interval)
     }
-  }, [token, addAlert, addAlerts])
+  }, [addAlert, addAlerts])
 }
