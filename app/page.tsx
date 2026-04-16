@@ -10,7 +10,6 @@ import { AdminPage } from '@/components/AdminPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
 import { AlertMascot } from '@/components/AlertMascot'
-import { PnlBox } from '@/components/PnlBox'
 import { clsx } from 'clsx'
 
 const TABS = [
@@ -70,9 +69,6 @@ export default function Home() {
         {activeTab === 4 && <AdminPage />}
         {activeTab === 5 && <SettingsPage />}
       </main>
-
-      {/* PNL Box */}
-      <PnlBox />
 
       {/* Alert Bar - at bottom */}
       <AlertBar />
