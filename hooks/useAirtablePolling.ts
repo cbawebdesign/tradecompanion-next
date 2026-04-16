@@ -51,10 +51,9 @@ export function useAirtablePolling() {
 
         const params = new URLSearchParams({
           view: view.viewId,
-          maxRecords: '50',
+          maxRecords: isInitial ? '5' : '20',  // only show last 5 on first load to avoid spam
           'sort[0][field]': 'pubDate',
           'sort[0][direction]': 'desc',
-          [`filterByFormula`]: `IS_AFTER({pubDate}, '${sinceISO}')`,
         })
 
         const response = await fetch(`${AIRTABLE_API}?${params}`, {
