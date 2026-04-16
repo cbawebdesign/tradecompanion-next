@@ -68,20 +68,29 @@ export function useCosmosSync() {
     if (!userKey || !baseUrl) return
 
     const state = useStore.getState()
+
+    // Convert Zustand watchlist format to backend format:
+    // Backend expects: { "WatchlistName": ["SYM1", "SYM2"] }
+    // Zustand has: [{ id, name, symbols: [{ symbol, upperAlert, ... }] }]
+    const watchlistsForBackend: Record<string, string[]> = {}
+    for (const wl of state.watchlists) {
+      watchlistsForBackend[wl.name] = wl.symbols.map(s => s.symbol)
+    }
+
     const payload = {
-      watchlists: state.watchlists,
-      flaggedSymbols: Array.from(state.flaggedSymbols),
-      alertSubscriptions: state.alertSubscriptions,
-      config: {
+      watchlists: watchlistsForBackend,
+      configs: {
         tradingViewId: state.config.tradingViewId,
-        audioEnabled: state.config.audioEnabled,
-        ttsEnabled: state.config.ttsEnabled,
+        audioEnabled: String(state.config.audioEnabled),
+        ttsEnabled: String(state.config.ttsEnabled),
         theme: state.config.theme,
-        excludeFilings: state.config.excludeFilings,
-        filteredPrPositive: state.config.filteredPrPositive,
-        filteredPrNegative: state.config.filteredPrNegative,
-        showAllTradeExchange: state.config.showAllTradeExchange,
-        alertSounds: state.config.alertSounds,
+        excludeFilings: state.config.excludeFilings || '',
+        filteredPrPositive: state.config.filteredPrPositive || '',
+        filteredPrNegative: state.config.filteredPrNegative || '',
+        showAllTradeExchange: String(state.config.showAllTradeExchange),
+        hubUrl: state.config.hubUrl,
+        marketCapMin: String(state.config.marketCapMin),
+        marketCapMax: String(state.config.marketCapMax),
       },
     }
 
