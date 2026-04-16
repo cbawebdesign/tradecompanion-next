@@ -14,6 +14,7 @@ import { useCatalystPolling } from '@/hooks/useCatalystPolling'
 import { useNewsHub } from '@/hooks/useNewsHub'
 import { useStockDataPreload } from '@/hooks/useStockDataPreload'
 import { useAlertAuditor } from '@/hooks/useAlertAuditor'
+import { useAirtablePolling } from '@/hooks/useAirtablePolling'
 import { useCosmosSync } from '@/hooks/useCosmosSync'
 import { useStore } from '@/store/useStore'
 import { LoginGate } from '@/components/LoginGate'
@@ -64,6 +65,7 @@ function AlertPolling() {
   useTradeExchangePolling()
   useCatalystPolling()
   useAlertAuditor()
+  useAirtablePolling()
   return null
 }
 

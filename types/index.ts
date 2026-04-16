@@ -15,7 +15,7 @@ export interface Alert {
   id: string
   symbol: string
   message: string
-  type: 'price' | 'filing' | 'news' | 'catalyst' | 'trade_exchange' | 'scanner' | 'tweet' | 'tradingview'
+  type: 'price' | 'filing' | 'news' | 'catalyst' | 'trade_exchange' | 'scanner' | 'tweet' | 'tradingview' | 'rss' | 'mail'
   color: string
   timestamp: Date
   read: boolean
