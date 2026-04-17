@@ -62,13 +62,16 @@ function cleanOldLogs() {
 
 // Log an alert — called from addAlert() in the store
 export function logAlert(alert: Alert, source: string) {
+  // Prefer the alert's own source field (from hooks) over the generic 'addAlert' caller
+  const actualSource = alert.source || source
+
   const entry: AlertLogEntry = {
     symbol: alert.symbol,
     type: alert.type,
     message: (alert.message || '').substring(0, 200),
     timestamp: alert.timestamp instanceof Date ? alert.timestamp.toISOString() : String(alert.timestamp),
     receivedAt: new Date().toISOString(),
-    source,
+    source: actualSource,
     url: alert.url,
   }
 
@@ -95,7 +98,7 @@ export function logAlert(alert: Alert, source: string) {
           timestamp: entry.timestamp,
           receivedAt: entry.receivedAt,
           source: 'web',
-          hookName: source,
+          hookName: actualSource,
           url: entry.url,
           date: getTodayKey(),
         }),
