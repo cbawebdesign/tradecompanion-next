@@ -722,8 +722,19 @@ export function SettingsPage() {
                 placeholder="http://localhost:9876"
                 className="w-full"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                Run <code style={{ color: 'var(--accent-primary)' }}>node companion/ahk-server.js</code> on your Windows machine
+            </div>
+
+            <div style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', borderRadius: 6, padding: '.75rem' }}>
+              <div style={{ fontSize: '.7rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '.4rem' }}>Setup Instructions</div>
+              <ol style={{ fontSize: '.7rem', color: 'var(--text-secondary)', lineHeight: 1.7, paddingLeft: '1.2rem', margin: 0 }}>
+                <li>Download <code style={{ color: 'var(--accent-primary)' }}>companion/ahk-server.js</code> and <code style={{ color: 'var(--accent-primary)' }}>companion/ahk-config.json</code> from the repo</li>
+                <li>Edit <code style={{ color: 'var(--accent-primary)' }}>ahk-config.json</code> and set <code>scriptPath</code> to your AHK script location (e.g. <code>C:\Scripts\TC.ahk</code>)</li>
+                <li>On Windows, open a terminal in the companion folder and run: <code style={{ color: 'var(--accent-primary)' }}>node ahk-server.js</code></li>
+                <li>Verify it&apos;s running by visiting <a href={`${config.ahkUrl || 'http://localhost:9876'}/health`} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-primary)' }}>{config.ahkUrl || 'http://localhost:9876'}/health</a></li>
+                <li>Toggle &quot;Enable AHK&quot; above — now clicking a symbol in the Watchlist or Alert Bar will fire your AHK script with the symbol as argument</li>
+              </ol>
+              <p style={{ fontSize: '.65rem', color: 'var(--text-muted)', marginTop: '.5rem', fontStyle: 'italic' }}>
+                If the companion server isn&apos;t running, clicks fall back to clipboard copy.
               </p>
             </div>
           </div>

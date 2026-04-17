@@ -6,6 +6,7 @@ import { clsx } from 'clsx'
 import type { Alert } from '@/types'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
+import { fireAhk } from '@/lib/ahk'
 
 // Check if alert should show Grok button (any alert with a URL worth summarizing)
 const shouldShowGrok = (alert: Alert): boolean => {
@@ -102,10 +103,15 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     const text = `${alert.symbol}: ${(alert.message || '').replace(/^Catalyst PR\s*/i, '')}`
     navigator.clipboard.writeText(text)
 
+    // Fire AHK companion script if enabled (skip for synthetic symbols like RSS/MAIL/N/A)
+    if (config.ahkEnabled && config.ahkUrl && alert.symbol && !['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A'].includes(alert.symbol)) {
+      fireAhk(alert.symbol, config.ahkUrl)
+    }
+
     // Set selected symbol and go to watchlist tab
     setSelectedSymbol(alert.symbol)
     setActiveTab(2) // Watchlist tab
-  }, [setSelectedSymbol, setActiveTab])
+  }, [setSelectedSymbol, setActiveTab, config.ahkEnabled, config.ahkUrl])
 
   // Handle clicking on alert message - opens URL for filings/PRs
   const handleAlertMessageClick = useCallback((e: React.MouseEvent, alert: Alert) => {
@@ -161,6 +167,9 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         if (alert) {
           toggleFlag(alert.symbol)
           navigator.clipboard.writeText(alert.symbol).catch(() => {})
+          if (config.ahkEnabled && config.ahkUrl && !['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A'].includes(alert.symbol)) {
+            fireAhk(alert.symbol, config.ahkUrl)
+          }
         }
       } else if (e.key === 'Enter' && selectedAlertIndex >= 0) {
         // Enter to select and go to watchlist

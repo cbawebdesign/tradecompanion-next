@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { fireAhk } from '@/lib/ahk'
 import { GrokButton } from './GrokButton'
 import { GrokStockButton } from './GrokStockButton'
 import { PopOutButton } from './PopOutButton'
@@ -272,8 +273,12 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       } else if (e.key === ' ' && selectedSymbol) {
         e.preventDefault()
         toggleFlag(selectedSymbol)
-        // Copy symbol to clipboard for AHK/Hammerspoon automation
+        // Copy to clipboard as fallback
         navigator.clipboard.writeText(selectedSymbol).catch(() => {})
+        // Fire AHK companion script if enabled
+        if (config.ahkEnabled && config.ahkUrl) {
+          fireAhk(selectedSymbol, config.ahkUrl)
+        }
       } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSymbol) {
         e.preventDefault()
         removeSymbolFromWatchlist(selectedWatchlistId!, selectedSymbol)
@@ -463,7 +468,12 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                   return (
                     <tr
                       key={item.symbol}
-                      onClick={() => setSelectedSymbol(item.symbol)}
+                      onClick={() => {
+                        setSelectedSymbol(item.symbol)
+                        if (config.ahkEnabled && config.ahkUrl) {
+                          fireAhk(item.symbol, config.ahkUrl)
+                        }
+                      }}
                       onContextMenu={(e) => handleContextMenu(e, item.symbol)}
                       className={clsx(
                         'cursor-pointer',
