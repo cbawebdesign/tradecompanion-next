@@ -116,6 +116,7 @@ const defaultConfig: AppConfig = {
   mascotCharacter: 'classic',
   newsApiKey: '',
   excludeFilings: '',
+  excludePrPatterns: '',
   filteredPrPositive: '',
   filteredPrNegative: '',
   showAllTradeExchange: false,
