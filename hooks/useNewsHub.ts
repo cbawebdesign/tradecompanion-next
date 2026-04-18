@@ -5,6 +5,7 @@ import { HubConnectionBuilder, HubConnectionState, HttpTransportType } from '@mi
 import type { HubConnection } from '@microsoft/signalr'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { buildExcludePrRegex, isBlacklistedPr } from '@/lib/excludePrPatterns'
 import type { Alert } from '@/types'
 
 const NEWS_HUB_URL = 'https://stage.news.scanzzers.com/newshub'
@@ -78,6 +79,13 @@ export function useNewsHub() {
         const headline = data.headline || data.title || data.Title || ''
         const storyId = data.story_id || data.storyId || data.resource_id || ''
         const url = storyId ? `/api/pr?id=${storyId}` : undefined
+
+        // Ambulance-chaser / class-action PR blacklist
+        const blacklistRegex = buildExcludePrRegex(useStore.getState().config.excludePrPatterns)
+        if (isBlacklistedPr(headline, blacklistRegex)) {
+          console.log(`NewsHub PR BLACKLIST skip [${symbol}]: ${(headline || '').slice(0, 80)}`)
+          return
+        }
 
         const alert: Alert = {
           id: crypto.randomUUID(),

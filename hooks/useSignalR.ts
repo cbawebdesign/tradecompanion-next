@@ -6,6 +6,7 @@ import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { handleAlertAudio } from '@/lib/alertAudio'
 import { isFilteredPrMatch } from '@/lib/filteredPr'
+import { buildExcludePrRegex, isBlacklistedPr } from '@/lib/excludePrPatterns'
 import type { Alert, Quote } from '@/types'
 
 interface NegotiateResult {
@@ -424,6 +425,13 @@ export function useSignalR() {
           const storyId = data.story_id || data.storyId || data.resource_id || ''
           const url = storyId ? `/api/pr?id=${storyId}` : undefined
           const ts = data.savetime_et ? new Date(data.savetime_et) : data.time_et ? new Date(data.time_et) : new Date()
+
+          // Ambulance-chaser / class-action PR blacklist
+          const blacklistRegex = buildExcludePrRegex(configRef.current.excludePrPatterns)
+          if (isBlacklistedPr(headline, blacklistRegex)) {
+            console.log(`PR BLACKLIST skip [${symbol}]: ${(headline || '').slice(0, 80)}`)
+            return
+          }
 
           // Standard PR alert
           const alert: Alert = {

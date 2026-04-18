@@ -121,6 +121,7 @@ export interface AppConfig {
   mascotCharacter: MascotCharacter
   newsApiKey: string
   excludeFilings: string  // pipe-separated form types to exclude (e.g. "SC 13G|4|D")
+  excludePrPatterns: string  // pipe-separated regex alternation for ambulance-chaser / class-action PR blacklist (empty = use default)
   filteredPrPositive: string  // comma=OR, &=AND, !=NOT, *=wildcard
   filteredPrNegative: string
   showAllTradeExchange: boolean  // show unfiltered trade exchange posts
