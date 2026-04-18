@@ -596,6 +596,18 @@ export function SettingsPage() {
             </div>
 
             <div>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Exclude PR Patterns (Ambulance-Chaser Filter)</label>
+              <textarea
+                value={config.excludePrPatterns || ''}
+                onChange={(e) => updateConfig({ excludePrPatterns: e.target.value })}
+                placeholder="Leave blank to use the built-in default. Example: Securities Class Action|Pomerantz LLP|..."
+                className="w-full font-mono text-xs"
+                style={{ minHeight: '60px' }}
+              />
+              <p className="text-xs text-gray-500 mt-1">Pipe-separated regex, case-insensitive. Blocks matching PR headlines. Empty = use default (~25 class-action law firms).</p>
+            </div>
+
+            <div>
               <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>FilteredPR — Positive Keywords</label>
               <input
                 type="text"
