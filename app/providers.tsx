@@ -32,14 +32,15 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+// Previously registered a `beforeunload` handler that produced the browser's
+// generic "Leave app? Changes you made may not be saved." dialog. Justin's
+// 4/19 report confirmed what the code already knew — watchlists, flags, and
+// config all persist via Cosmos + localStorage, so there's nothing unsaved to
+// warn about. Modern browsers also don't let us customize that dialog text
+// (for security), so there's no friendly-wording workaround. Dropping the
+// handler entirely is the right call: closing the tab is now silent, and
+// re-opening restores everything as before.
 function CloseConfirmation() {
-  useEffect(() => {
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  }, [])
   return null
 }
 
