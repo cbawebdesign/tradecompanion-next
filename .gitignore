@@ -32,3 +32,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Nested node_modules and build outputs
+**/node_modules/
+/electron/dist/
+/electron/node_modules/

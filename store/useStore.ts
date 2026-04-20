@@ -105,6 +105,7 @@ const defaultConfig: AppConfig = {
   audioEnabled: true,
   ttsEnabled: false,
   alertBarHeight: 200,
+  alertBarHeightPercent: 25,
   watchlistSplitPercent: 50,
   marketCapMin: 0,
   marketCapMax: 999999999999,

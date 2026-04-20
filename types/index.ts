@@ -110,6 +110,7 @@ export interface AppConfig {
   audioEnabled: boolean
   ttsEnabled: boolean
   alertBarHeight: number
+  alertBarHeightPercent: number  // 10-60, % of viewport height; preferred over alertBarHeight
   watchlistSplitPercent: number
   marketCapMin: number
   marketCapMax: number

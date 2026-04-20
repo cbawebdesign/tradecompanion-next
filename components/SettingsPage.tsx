@@ -544,16 +544,19 @@ export function SettingsPage() {
 
             <div>
               <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
-                Alert Bar Height ({config.alertBarHeight}px)
+                Alert Bar Height ({config.alertBarHeightPercent ?? 25}% of screen)
               </label>
               <input
                 type="range"
-                min="100"
-                max="400"
-                value={config.alertBarHeight}
-                onChange={(e) => updateConfig({ alertBarHeight: parseInt(e.target.value) })}
+                min="10"
+                max="60"
+                value={config.alertBarHeightPercent ?? 25}
+                onChange={(e) => updateConfig({ alertBarHeightPercent: parseInt(e.target.value) })}
                 className="w-full"
               />
+              <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+                Scales with your window size — 25% works well on most monitors.
+              </p>
             </div>
           </div>
         </section>
