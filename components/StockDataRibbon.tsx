@@ -31,6 +31,26 @@ const NUMBER_FIELDS = new Set(['SharesFloat', 'MarketCap', 'SharesOutstanding', 
 const NOTE_FIELDS = new Set(['Notes', 'Notes2', 'Notes3'])
 const sharedCache: Record<string, StockDataItem> = {}
 
+// Returns the app-login username that should be used to read/write per-user notes.
+// Must match what legacy desktop sends (legacy reads sessionStorage.tc_user.username).
+// Web's LoginGate stores the same login session under sessionStorage.tc_session, so
+// we prefer tc_session, fall back to tc_user for cross-compat, then null.
+function getNoteUsername(): string | null {
+  try {
+    const sess = sessionStorage.getItem('tc_session')
+    if (sess) {
+      const parsed = JSON.parse(sess)
+      if (parsed?.username) return parsed.username
+    }
+    const legacy = sessionStorage.getItem('tc_user')
+    if (legacy) {
+      const parsed = JSON.parse(legacy)
+      if (parsed?.username) return parsed.username
+    }
+  } catch { /* fall through */ }
+  return null
+}
+
 /** Background-preload StockData for a list of symbols into the shared cache */
 let _preloading = false
 export function preloadStockData(symbols: string[], hubUrl: string) {
@@ -68,15 +88,16 @@ function formatMillions(val: number | null | undefined): string {
 }
 
 /** Normalize API response — some fields (Notes, etc.) may come back as per-user objects like {cbaweb: "text"} */
-function normalizeStockData(raw: any, userKey?: string): any {
+function normalizeStockData(raw: any, user?: string | null): any {
   if (!raw || typeof raw !== 'object') return raw
   const result = { ...raw }
   for (const key of Object.keys(result)) {
     const val = result[key]
     if (val && typeof val === 'object' && !Array.isArray(val) && key !== 'Ticker') {
-      // Per-user object — extract user's value or first value
-      if (userKey && val[userKey] !== undefined) {
-        result[key] = val[userKey]
+      // Per-user object — extract this user's value, falling back to first value
+      // present (matches legacy behavior so visitors without a login still see notes).
+      if (user && val[user] !== undefined) {
+        result[key] = val[user]
       } else {
         const values = Object.values(val)
         result[key] = values.length > 0 ? values[0] : null
@@ -99,7 +120,12 @@ function emptyData(ticker: string): StockDataItem {
 
 export function StockDataRibbon({ symbol }: { symbol: string | null }) {
   const hubUrl = useStore((s) => s.config.hubUrl)
-  const userKey = useStore((s) => s.config.userKey)
+  // Notes are bucketed server-side by whatever identifier we pass as `user`.
+  // Legacy uses the app-login username (e.g. "cbaweb") from sessionStorage.tc_user.
+  // Web was passing config.userKey (TC-XXXXXX) here — that creates a separate
+  // notes bucket, breaking sync. Use the same login username legacy uses so the
+  // two apps see the same per-symbol notes.
+  const noteUser = (typeof window !== 'undefined' ? getNoteUsername() : null)
   const [data, setData] = useState<StockDataItem | null>(null)
   const [loading, setLoading] = useState(false)
   const [editingField, setEditingField] = useState<string | null>(null)
@@ -122,14 +148,14 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
     const controller = new AbortController()
     abortRef.current = controller
 
-    const userParam = userKey ? `&user=${encodeURIComponent(userKey)}` : ''
+    const userParam = noteUser ? `&user=${encodeURIComponent(noteUser)}` : ''
     fetch(proxyUrl(`${baseApi}/StockData?symbol=${encodeURIComponent(upper)}${userParam}`), { signal: controller.signal })
       .then(r => {
         if (!r.ok) { if (r.status === 404) return null; throw new Error(`HTTP ${r.status}`) }
         return r.json()
       })
       .then(json => {
-        const item = json ? normalizeStockData(json, userKey) : emptyData(upper)
+        const item = json ? normalizeStockData(json, noteUser) : emptyData(upper)
         if (json) sharedCache[upper] = item
         setData(item)
         setLoading(false)
@@ -144,7 +170,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
     setEditingField(null)
     setSaveStatus(null)
     return () => controller.abort()
-  }, [symbol, baseApi, userKey])
+  }, [symbol, baseApi, noteUser])
 
   const startEdit = useCallback((field: string, currentValue: string | number | null) => {
     setEditingField(field)
@@ -164,8 +190,8 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
     setSaveStatus(null)
 
     const saveBody: Record<string, any> = { [editingField]: value }
-    if (NOTE_FIELDS.has(editingField) && userKey) {
-      saveBody._user = userKey
+    if (NOTE_FIELDS.has(editingField) && noteUser) {
+      saveBody._user = noteUser
     }
 
     fetch(proxyUrl(`${baseApi}/tcadmin/stockdata/${encodeURIComponent(data.Ticker)}`), {
@@ -190,7 +216,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current)
         saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 3000)
       })
-  }, [data, editingField, fieldDraft, baseApi, userKey])
+  }, [data, editingField, fieldDraft, baseApi, noteUser])
 
   // --- Plain render helpers (NOT components — called as functions to avoid remount) ---
 
