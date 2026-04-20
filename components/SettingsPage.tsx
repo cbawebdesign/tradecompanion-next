@@ -549,7 +549,7 @@ export function SettingsPage() {
               <input
                 type="range"
                 min="10"
-                max="60"
+                max="80"
                 value={config.alertBarHeightPercent ?? 25}
                 onChange={(e) => updateConfig({ alertBarHeightPercent: parseInt(e.target.value) })}
                 className="w-full"
