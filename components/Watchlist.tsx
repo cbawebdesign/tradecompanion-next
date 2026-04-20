@@ -42,6 +42,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     toggleFlag,
     alerts,
     config,
+    updateConfig,
     activePane,
     setActivePane,
   } = useStore()
@@ -57,7 +58,10 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const [isAddingInline, setIsAddingInline] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
   const inlineInputRef = useRef<HTMLInputElement>(null)
-  const [splitPercent, setSplitPercent] = useState(config.watchlistSplitPercent || 60)
+  // Split percent is sourced from config so the Flagged Symbols view (AlertsPage)
+  // shares the same divider position. Dragging here persists + syncs both views.
+  const splitPercent = config.watchlistSplitPercent ?? 60
+  const setSplitPercent = (n: number) => updateConfig({ watchlistSplitPercent: n })
 
   // Auto-select first watchlist if selectedWatchlistId is stale or missing
   useEffect(() => {
