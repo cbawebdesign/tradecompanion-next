@@ -227,7 +227,7 @@ table {
 }
 
 th {
-  @apply sticky top-0 text-left px-3 py-1 text-sm font-semibold border-b;
+  @apply sticky top-0 text-left px-3 py-0.5 text-sm font-semibold border-b;
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -236,9 +236,14 @@ th {
 }
 
 td {
-  @apply px-3 py-1 text-sm;
+  @apply px-3 py-0 text-sm;
   border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-  line-height: 1.35;
+  line-height: 1.2;
+}
+
+/* Keep inline inputs tight so alert-threshold cells don't balloon the row */
+td input {
+  @apply py-0;
 }
 
 tr:hover {
