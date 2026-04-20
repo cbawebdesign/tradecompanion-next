@@ -18,6 +18,7 @@ import { useAirtablePolling } from '@/hooks/useAirtablePolling'
 import { useCosmosSync } from '@/hooks/useCosmosSync'
 import { useStore } from '@/store/useStore'
 import { LoginGate } from '@/components/LoginGate'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 // Apply theme on mount and when it changes
 function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -112,15 +113,17 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <LoginGate>
-          <CloseConfirmation />
-          <SignalRProvider>
-            {children}
-          </SignalRProvider>
-        </LoginGate>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <LoginGate>
+            <CloseConfirmation />
+            <SignalRProvider>
+              {children}
+            </SignalRProvider>
+          </LoginGate>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
