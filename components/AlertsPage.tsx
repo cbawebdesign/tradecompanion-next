@@ -35,12 +35,17 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     activePane,
     setActivePane,
     config,
+    updateConfig,
   } = useStore()
 
   const containerRef = useRef<HTMLDivElement>(null)
   const isActive = activePane === 'alerts'
 
-  const [splitPercent, setSplitPercent] = useState(50)
+  // Flagged-list split shares the same config value as the Watchlist split so
+  // the Settings → Watchlist Split slider controls both views in one place.
+  // Dragging the divider here persists + syncs to the Watchlist view.
+  const splitPercent = config.watchlistSplitPercent ?? 50
+  const setSplitPercent = (n: number) => updateConfig({ watchlistSplitPercent: n })
   const [showConfig, setShowConfig] = useState(false) // Closed by default
 
   // Handle click to set focus
