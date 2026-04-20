@@ -55,6 +55,32 @@ export function useCosmosSync() {
             console.log('CosmosSync: Local watchlists exist, not overwriting from cloud')
           }
         }
+
+        // Restore flagged symbols + alert subscriptions from cloud if local is empty
+        // (handles the incognito/new-browser case). Stored inside `configs` as JSON
+        // strings because that's a free-form dict on the backend.
+        const cloudCfg = (data.configs ?? {}) as Record<string, string | undefined>
+        const localState = useStore.getState()
+
+        if (localState.flaggedSymbols.size === 0 && cloudCfg.flaggedSymbols) {
+          try {
+            const arr = JSON.parse(cloudCfg.flaggedSymbols)
+            if (Array.isArray(arr) && arr.length > 0) {
+              useStore.setState({ flaggedSymbols: new Set(arr) })
+              console.log(`CosmosSync: Restored ${arr.length} flagged symbols from cloud`)
+            }
+          } catch {/* ignore */}
+        }
+
+        if (localState.alertSubscriptions.length === 0 && cloudCfg.alertSubscriptions) {
+          try {
+            const arr = JSON.parse(cloudCfg.alertSubscriptions)
+            if (Array.isArray(arr) && arr.length > 0) {
+              useStore.setState({ alertSubscriptions: arr })
+              console.log(`CosmosSync: Restored ${arr.length} alert subscriptions from cloud`)
+            }
+          } catch {/* ignore */}
+        }
       } catch (err) {
         console.log('CosmosSync: Failed to load cloud data', err)
       }
@@ -91,6 +117,8 @@ export function useCosmosSync() {
         hubUrl: state.config.hubUrl,
         marketCapMin: String(state.config.marketCapMin),
         marketCapMax: String(state.config.marketCapMax),
+        flaggedSymbols: JSON.stringify(Array.from(state.flaggedSymbols)),
+        alertSubscriptions: JSON.stringify(state.alertSubscriptions),
       },
     }
 
