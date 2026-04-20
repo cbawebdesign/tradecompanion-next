@@ -376,16 +376,25 @@ export function useSignalR() {
         })
 
         connection.on('newTradeExchange', (data: any) => {
-          // console.log('newTradeExchange received:', data)
+          // Dedup with useTradeExchangePolling — SAME key format, message format, and
+          // color so if both paths see the same post only one renders. (Previously
+          // the SignalR path used `#ff9800` + raw content and the polling path used
+          // `#eab308` + `[source] content` — dedup compared on dedupKey first so it
+          // usually worked, but the visible fallback — fuzzy first-40-chars match —
+          // would miss across format differences, producing Justin's BIRD 8:01:27
+          // "TradeExchange + blue duplicate" bug.)
+          const id = data.id || data.Id || Date.now()
+          const src = data.source || data.Source || ''
+          const content = data.content || data.message || data.Message || ''
           const alert: Alert = {
             id: crypto.randomUUID(),
-            dedupKey: `tx:${data.id || data.Id || Date.now()}`,
+            dedupKey: `tx:${id}`,
             source: 'useSignalR:newTradeExchange',
             symbol: data.symbol || data.Symbol || '',
-            message: data.content || data.message || data.Message || '',
+            message: src ? `[${src}] ${content}` : content,
             type: 'trade_exchange',
-            color: '#ff9800',
-            timestamp: new Date(),
+            color: '#eab308',
+            timestamp: data.save_time_utc ? new Date(data.save_time_utc) : new Date(),
             read: false,
           }
           addAlert(alert)
