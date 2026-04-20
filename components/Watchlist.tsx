@@ -9,6 +9,7 @@ import { GrokButton } from './GrokButton'
 import { GrokStockButton } from './GrokStockButton'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
+import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
 
 // Check if alert should show Grok button (filings/PRs with URL)
@@ -57,6 +58,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const [inlineAddSymbol, setInlineAddSymbol] = useState('')
   const [isAddingInline, setIsAddingInline] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
+  const [subscriptionsModalFor, setSubscriptionsModalFor] = useState<string | null>(null)
   const inlineInputRef = useRef<HTMLInputElement>(null)
   // Split percent is sourced from config so the Flagged Symbols view (AlertsPage)
   // shares the same divider position. Dragging here persists + syncs both views.
@@ -393,6 +395,18 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
               <option key={wl.id} value={wl.id}>{wl.name}</option>
             ))}
           </select>
+          {selectedWatchlistId && (
+            <button
+              onClick={() => setSubscriptionsModalFor(selectedWatchlistId)}
+              className="text-gray-400 hover:text-blue-400 p-1"
+              title="Edit alert subscriptions for this watchlist"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </button>
+          )}
           {watchlists.length > 1 && selectedWatchlistId && (
             <button
               onClick={() => {
@@ -759,6 +773,13 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
             </>
           )}
         </div>
+      )}
+
+      {subscriptionsModalFor && (
+        <WatchlistSubscriptionsModal
+          watchlistId={subscriptionsModalFor}
+          onClose={() => setSubscriptionsModalFor(null)}
+        />
       )}
     </div>
   )

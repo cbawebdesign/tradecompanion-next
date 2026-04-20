@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert, AlertSubscription, AlertType } from '@/types'
 import { logAlert } from '@/lib/alertLogger'
+import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
 
 // Pane identifiers for focus management
 export type PaneId = 'watchlist' | 'alertbar' | 'alerts' | 'scanner' | null
@@ -153,16 +154,19 @@ export const useStore = create<AppState>()(
       // Alerts
       alerts: [],
       addAlert: (alert) => set((state) => {
+        // Signal/noise gate — unsubscribed alert types for non-flagged symbols
+        // never hit the timeline. Unfiltered types (TradingView/catalyst/rss/mail)
+        // always pass. See lib/alertFilter.ts.
+        if (!shouldShowAlert(alert, state.flaggedSymbols, state.watchlists, state.alertSubscriptions)) {
+          return state
+        }
         // Dedup: prefer dedupKey (exact, from source), fall back to fuzzy message match
         const isDuplicate = state.alerts.some(existing => {
-          // If both have dedupKeys, use those (guaranteed accurate)
           if (alert.dedupKey && existing.dedupKey) {
             return alert.dedupKey === existing.dedupKey
           }
-          // Fall back to symbol+type+message matching
           if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
           if (existing.message === alert.message) return true
-          // Fuzzy: same first 40 chars
           const existFirst = (existing.message || '').slice(0, 40).toLowerCase()
           const newFirst = (alert.message || '').slice(0, 40).toLowerCase()
           if (existFirst.length > 10 && existFirst === newFirst) return true
@@ -175,6 +179,11 @@ export const useStore = create<AppState>()(
         return { alerts: [alert, ...state.alerts].slice(0, 500) }
       }),
       addAlerts: (newAlerts) => set((state) => {
+        // Apply the same subscription gate as addAlert, in bulk.
+        const gated = newAlerts.filter(a =>
+          shouldShowAlert(a, state.flaggedSymbols, state.watchlists, state.alertSubscriptions)
+        )
+        if (gated.length === 0) return state
         // Batch dedup: use dedupKey when available, fall back to message key
         const existingDedupKeys = new Set<string>()
         const existingMsgKeys = new Set<string>()
@@ -182,7 +191,7 @@ export const useStore = create<AppState>()(
           if (a.dedupKey) existingDedupKeys.add(a.dedupKey)
           existingMsgKeys.add(`${a.symbol}|${a.message}|${a.type}`)
         }
-        const unique = newAlerts.filter(a => {
+        const unique = gated.filter(a => {
           if (a.dedupKey) return !existingDedupKeys.has(a.dedupKey)
           return !existingMsgKeys.has(`${a.symbol}|${a.message}|${a.type}`)
         })
@@ -240,12 +249,44 @@ export const useStore = create<AppState>()(
       watchlists: [
         { id: 'default', name: 'Main', symbols: [] }
       ],
-      setWatchlists: (watchlists) => set({ watchlists, selectedWatchlistId: watchlists[0]?.id || null }),
-      addWatchlist: (name) => set((state) => ({
-        watchlists: [...state.watchlists, { id: crypto.randomUUID(), name, symbols: [] }]
-      })),
+      setWatchlists: (watchlists) => set((state) => {
+        // If any incoming watchlist has no subscription row yet, seed it to "all on"
+        // so new/restored watchlists inherit Justin's default behaviour.
+        const existing = new Set(state.alertSubscriptions.map(s => `${s.watchlistId}|${s.alertType}`))
+        const additions: AlertSubscription[] = []
+        for (const wl of watchlists) {
+          for (const key of GATED_SUBSCRIPTION_KEYS) {
+            if (!existing.has(`${wl.id}|${key}`)) {
+              additions.push({ id: crypto.randomUUID(), alertType: key, watchlistId: wl.id, audioEnabled: true })
+            }
+          }
+        }
+        return {
+          watchlists,
+          selectedWatchlistId: watchlists[0]?.id || null,
+          alertSubscriptions: additions.length > 0
+            ? [...state.alertSubscriptions, ...additions]
+            : state.alertSubscriptions,
+        }
+      }),
+      addWatchlist: (name) => set((state) => {
+        const id = crypto.randomUUID()
+        // New watchlists default to subscribed to all gated alert types.
+        const newSubs: AlertSubscription[] = GATED_SUBSCRIPTION_KEYS.map(alertType => ({
+          id: crypto.randomUUID(),
+          alertType,
+          watchlistId: id,
+          audioEnabled: true,
+        }))
+        return {
+          watchlists: [...state.watchlists, { id, name, symbols: [] }],
+          alertSubscriptions: [...state.alertSubscriptions, ...newSubs],
+        }
+      }),
       removeWatchlist: (id) => set((state) => ({
-        watchlists: state.watchlists.filter(w => w.id !== id)
+        watchlists: state.watchlists.filter(w => w.id !== id),
+        // Clean up any subscriptions pointing at the removed watchlist.
+        alertSubscriptions: state.alertSubscriptions.filter(s => s.watchlistId !== id),
       })),
       addSymbolToWatchlist: (watchlistId, symbol) => set((state) => ({
         watchlists: state.watchlists.map(w =>
@@ -362,6 +403,24 @@ export const useStore = create<AppState>()(
         // Convert hiddenAlertIds back to Set after rehydration
         if (state && Array.isArray(state.hiddenAlertIds)) {
           state.hiddenAlertIds = new Set(state.hiddenAlertIds as unknown as string[])
+        }
+        // Migrate pre-Phase-1 users: if we have watchlists but the (watchlist × gated-type)
+        // grid isn't fully populated, seed missing cells as subscribed. Safe no-regression
+        // default — everyone keeps seeing everything they saw before, then can opt out.
+        if (state && Array.isArray(state.watchlists) && state.watchlists.length > 0) {
+          const subs = Array.isArray(state.alertSubscriptions) ? state.alertSubscriptions : []
+          const existing = new Set(subs.map((s: AlertSubscription) => `${s.watchlistId}|${s.alertType}`))
+          const additions: AlertSubscription[] = []
+          for (const wl of state.watchlists) {
+            for (const key of GATED_SUBSCRIPTION_KEYS) {
+              if (!existing.has(`${wl.id}|${key}`)) {
+                additions.push({ id: crypto.randomUUID(), alertType: key, watchlistId: wl.id, audioEnabled: true })
+              }
+            }
+          }
+          if (additions.length > 0) {
+            state.alertSubscriptions = [...subs, ...additions]
+          }
         }
       },
     }
