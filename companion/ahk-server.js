@@ -45,6 +45,9 @@ const server = http.createServer((req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
+  // Private Network Access opt-in — without this, Chrome silently blocks
+  // fetches from HTTPS origins (like vercel.app) to http://localhost.
+  res.setHeader('Access-Control-Allow-Private-Network', 'true')
 
   if (req.method === 'OPTIONS') {
     res.writeHead(204)

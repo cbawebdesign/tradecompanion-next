@@ -7,6 +7,7 @@ import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { AlertConfig } from './AlertConfig'
 import { StockDataRibbon } from './StockDataRibbon'
+import { fireAhk } from '@/lib/ahk'
 import type { Alert } from '@/types'
 
 // Check if alert should show Grok button (filings/PRs with URL)
@@ -260,7 +261,12 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                     return (
                       <tr
                         key={symbol}
-                        onClick={() => setSelectedSymbol(symbol)}
+                        onClick={() => {
+                          setSelectedSymbol(symbol)
+                          if (config.ahkEnabled && config.ahkUrl) {
+                            fireAhk(symbol, config.ahkUrl)
+                          }
+                        }}
                         className={clsx(
                           'cursor-pointer',
                           selectedSymbol === symbol && 'selected'
