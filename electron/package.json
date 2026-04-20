@@ -1,0 +1,26 @@
+{
+  "name": "trade-companion",
+  "version": "1.0.0",
+  "description": "Trade Companion desktop app with floating mascot",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build:mac": "electron-builder --mac",
+    "build:win": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.tradecompanion.mascot",
+    "productName": "TC Mascot",
+    "mac": {
+      "category": "public.app-category.finance",
+      "icon": "../public/icon-512.png"
+    },
+    "win": {
+      "icon": "../public/icon-512.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

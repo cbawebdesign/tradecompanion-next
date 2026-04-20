@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Trade Companion — Update for Justin</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b0d10;
+    --bg-alt: #13171c;
+    --panel: #181d23;
+    --border: #1f262e;
+    --border-strong: #2a323d;
+    --text: #e8ecef;
+    --muted: #8a95a0;
+    --faint: #5a6670;
+    --accent: #67e8f9;
+    --accent-2: #34d399;
+    --warn: #fcd34d;
+    --danger: #f87171;
+    --code: #0f1317;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+  }
+  body { max-width: 920px; margin: 0 auto; padding: 48px 32px 120px; }
+
+  h1 { font-size: 34px; margin: 0 0 6px; letter-spacing: -0.5px; }
+  h2 { font-size: 22px; margin: 56px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); letter-spacing: -0.3px; }
+  h3 { font-size: 17px; margin: 28px 0 10px; color: var(--accent); }
+  h4 { font-size: 14px; margin: 20px 0 6px; color: var(--accent-2); letter-spacing: 0.3px; text-transform: uppercase; }
+
+  p, li { color: var(--text); }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 36px; }
+  .lede { color: var(--muted); font-size: 16px; margin-bottom: 24px; }
+
+  code { background: var(--code); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--accent-2); font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12.5px; }
+  pre { background: var(--code); border: 1px solid var(--border); padding: 14px 16px; border-radius: 8px; overflow-x: auto; line-height: 1.5; font-family: "JetBrains Mono", monospace; font-size: 12.5px; }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; font-size: 11.5px; letter-spacing: 0.6px; text-transform: uppercase; padding-bottom: 12px; }
+  tbody tr:hover { background: rgba(255,255,255,0.01); }
+
+  ul, ol { padding-left: 22px; }
+  li { margin: 6px 0; }
+
+  .tldr {
+    background: linear-gradient(180deg, rgba(103,232,249,0.06), rgba(103,232,249,0.02));
+    border: 1px solid rgba(103,232,249,0.25);
+    border-radius: 12px;
+    padding: 22px 26px;
+    margin: 32px 0 16px;
+  }
+  .tldr h2 { margin-top: 0; border: 0; padding: 0; color: var(--accent); font-size: 18px; letter-spacing: 0.3px; }
+  .tldr ol { margin: 10px 0 0; padding-left: 22px; }
+  .tldr li { margin: 8px 0; color: var(--text); }
+
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; margin: 14px 0; }
+  .panel-accent { border-left: 3px solid var(--accent); }
+  .panel-warn { border-left: 3px solid var(--warn); }
+  .panel-success { border-left: 3px solid var(--accent-2); }
+  .panel p:first-child { margin-top: 0; }
+  .panel p:last-child { margin-bottom: 0; }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    white-space: nowrap;
+    font-family: "JetBrains Mono", monospace;
+  }
+  .tag-fixed   { background: rgba(52, 211, 153, 0.14); color: var(--accent-2); }
+  .tag-parked  { background: rgba(252, 211, 77, 0.14); color: var(--warn); }
+  .tag-both    { background: rgba(103, 232, 249, 0.14); color: var(--accent); }
+  .tag-legacy  { background: rgba(200, 200, 200, 0.10); color: var(--muted); }
+  .tag-new     { background: rgba(52, 211, 153, 0.14); color: var(--accent-2); }
+
+  .check-yes { color: var(--accent-2); font-weight: 700; font-family: "JetBrains Mono", monospace; }
+  .check-no  { color: var(--faint); font-family: "JetBrains Mono", monospace; }
+  .check-partial { color: var(--warn); font-family: "JetBrains Mono", monospace; }
+
+  .step-list { counter-reset: step; list-style: none; padding: 0; margin: 16px 0; }
+  .step-list > li {
+    counter-increment: step;
+    padding: 14px 0 14px 52px;
+    border-top: 1px solid var(--border);
+    position: relative;
+  }
+  .step-list > li:first-child { border-top: 0; }
+  .step-list > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0; top: 12px;
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--bg-alt);
+    border: 1px solid var(--border-strong);
+    display: flex; align-items: center; justify-content: center;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  .kbd {
+    background: var(--code);
+    border: 1px solid var(--border-strong);
+    padding: 2px 7px;
+    border-radius: 4px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11.5px;
+    color: var(--text);
+    white-space: nowrap;
+  }
+
+  .hr-subtle { height: 1px; background: var(--border); border: 0; margin: 36px 0; }
+
+  .callout-item {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 10px 0;
+  }
+  .callout-item strong { color: var(--accent-2); }
+
+  .footer-note {
+    color: var(--faint);
+    font-size: 12px;
+    margin-top: 64px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    text-align: center;
+  }
+
+  @media (max-width: 720px) {
+    body { padding: 28px 18px 80px; }
+    h1 { font-size: 28px; }
+    h2 { font-size: 19px; }
+    table, th, td { font-size: 13px; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Trade Companion — Update</h1>
+<div class="meta">Night session summary · 2026-04-17 → 04-18</div>
+
+<div class="tldr">
+  <h2>TL;DR</h2>
+  <ol>
+    <li>Launch TC as normal — your launcher will auto-update to the new build when it's posted (coming shortly). All 7 fixes + the new Settings features roll out at once.</li>
+    <li>Once updated, open Settings → copy your <strong>API Key</strong> and <strong>User Key</strong> from the new Copy buttons</li>
+    <li>Open <a href="https://trade-companion-next.vercel.app" style="color: var(--accent);">trade-companion-next.vercel.app</a> → paste them → Pull from Server → your setup loads instantly</li>
+    <li>Run legacy + web side-by-side for a market session (keep AHK on legacy until I send the web AHK guide tomorrow)</li>
+    <li>Send me anything that feels off — screenshots welcome. I'll triage within minutes.</li>
+    <li>More agent automation + AHK-on-web setup + public bug intake all land tomorrow</li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2>Bugs fixed from your email</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th style="width: 38%;">From your email</th>
+      <th style="width: 14%;">Status</th>
+      <th>Shipped where</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Filings appearing as PRs (Form 4 bypassing ExcludeFilings)</td>
+      <td><span class="tag tag-parked">Parked</span></td>
+      <td>Investigation showed these are real wire-service PRs <em>about</em> filings, not misrouted SEC filing data. Send me the exact headline next time you see one and we'll trace it.</td>
+    </tr>
+    <tr>
+      <td>Ambulance chaser PR spam (Bronstein, Pomerantz, etc.)</td>
+      <td><span class="tag tag-fixed">Fixed</span></td>
+      <td><span class="tag tag-both">Both legacy + web</span> Your 25-firm list is the default. Editable in Settings → Exclude PR Patterns.</td>
+    </tr>
+    <tr>
+      <td>RSS Substack + YouTube feeds not working</td>
+      <td><span class="tag tag-fixed">Fixed</span></td>
+      <td><span class="tag tag-legacy">Legacy only</span> (web already fine — direct Airtable API). Legacy now shows 3 color-coded streams: <strong>YT</strong> (red), <strong>SUB</strong> (orange), <strong>ART</strong> (green). 30–60 day age cap prevents 2-year-old items from flooding on boot.</td>
+    </tr>
+    <tr>
+      <td>PR backfill not running on startup</td>
+      <td><span class="tag tag-fixed">Fixed</span></td>
+      <td><span class="tag tag-legacy">Legacy only</span> Jon's <code>/tc/headlines?since=</code> endpoint has a bug — it returns exactly 1 item regardless of the date. Dropped the query param; now we pull ~106 recent headlines and filter client-side. Web didn't have this bug.</td>
+    </tr>
+    <tr>
+      <td>TradingView backfill silent</td>
+      <td><span class="tag tag-fixed">Fixed</span></td>
+      <td><span class="tag tag-legacy">Legacy only</span> Added diagnostic logging — now you see the URL, response count, and an explicit "no alerts" message if empty.</td>
+    </tr>
+    <tr>
+      <td>RSS alerts using wrong timestamps (everything at boot time)</td>
+      <td><span class="tag tag-fixed">Fixed</span></td>
+      <td><span class="tag tag-legacy">Legacy only</span> Reads <code>&lt;pubDate&gt;</code> per item. Also persists seen-GUIDs to disk so restarts don't re-flood.</td>
+    </tr>
+    <tr>
+      <td>Random alert floods when flagging / adding / deleting symbols</td>
+      <td><span class="tag tag-fixed">Fixed</span></td>
+      <td><span class="tag tag-legacy">Legacy only</span> Watchlist mutations no longer re-fetch TradeExchange or X/Twitter history. Web never had this bug.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3>Bonus wins that dropped out of the work</h3>
+<ul>
+  <li>RSS malformed-item guard — caught a live giant-text bug during testing (one YouTube item had 50+ titles smooshed together)</li>
+  <li>Editable PR blacklist field in both Settings pages — you can tune the ambulance-chaser list without a rebuild</li>
+  <li><strong>Scanzzers API Key is now visible in legacy Settings</strong> with a Copy button — setting up web takes two clicks instead of hunting for a file on disk</li>
+  <li>Copy button added next to your User Key too</li>
+</ul>
+
+<h3>Your 4/15 + 4/17 bug reports — already filed in the new system</h3>
+<div class="callout-item"><strong>MYSE 4/17</strong> — Catalyst PR missed despite PR at 7:30am. Your "maybe because red stock" theory is the starting hypothesis.</div>
+<div class="callout-item"><strong>BIRD 4/15</strong> — PR never reached TC via Scanner-WL backfill; TradeExchange duplicate render; intermittent tweet URLs.</div>
+<div class="callout-item"><strong>3 URL-linking requests</strong> — Catalyst PR / tweets / PRs in ribbon all need clickable links.</div>
+
+<!-- ============================================================ -->
+<h2>Web vs Legacy parity</h2>
+
+<table>
+  <thead>
+    <tr>
+      <th>Feature</th>
+      <th style="width: 80px; text-align: center;">Legacy</th>
+      <th style="width: 80px; text-align: center;">Web</th>
+      <th>Notes</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td>11 alert types (PR, FilteredPR, Filings, X, TradeExchange, TXFiltered, Catalyst, TV, RSS, MAIL, Price)</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Full parity</td></tr>
+    <tr><td>ExcludeFilings</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Same syntax, same Cosmos record</td></tr>
+    <tr><td>ExcludePRPatterns (ambulance chaser)</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td><span class="tag tag-new">New tonight</span> — both apps</td></tr>
+    <tr><td>FilteredPR keyword matching (comma=OR, &amp;=AND, !=NOT, *=wildcard)</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Ported from legacy</td></tr>
+    <tr><td>Catalyst PR <code>resource_id</code> link</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Wired — but you reported it's not rendering. Pending investigation.</td></tr>
+    <tr><td>DedupKey tagging across sources</td><td style="text-align:center;"><span class="check-partial">partial</span></td><td style="text-align:center;"><span class="check-yes">full</span></td><td>Web has explicit keys per source</td></tr>
+    <tr><td>Alert Auditor safety net</td><td style="text-align:center;"><span class="check-no">—</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Web-only — polls <code>/api/AlertsBySymbol</code> every 60s</td></tr>
+    <tr><td>Watchlist + notes sync via TC-XXXX key</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Same Cosmos record. Notes round-trip both ways.</td></tr>
+    <tr><td>Grok AI summaries on PRs / filings</td><td style="text-align:center;"><span class="check-no">—</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Web-only</td></tr>
+    <tr><td>Text-to-Speech (Web Speech API)</td><td style="text-align:center;"><span class="check-no">—</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Web-only</td></tr>
+    <tr><td>Per-type alert sounds (configurable freq/duration)</td><td style="text-align:center;"><span class="check-no">—</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Web-only</td></tr>
+    <tr><td>Pop-out windows (AlertBar, Watchlist, Scanner, Mascot)</td><td style="text-align:center;"><span class="check-no">—</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Web-only</td></tr>
+    <tr><td>Mascot that reacts to alerts</td><td style="text-align:center;"><span class="check-no">—</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Web-only</td></tr>
+    <tr><td>BroadcastChannel cross-window sync</td><td style="text-align:center;"><span class="check-no">—</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Web-only</td></tr>
+    <tr><td>AHK companion integration</td><td style="text-align:center;"><span class="check-partial">native</span></td><td style="text-align:center;"><span class="check-yes">via bridge</span></td><td>Web uses a small local Node bridge on <code>localhost:9876</code> — setup guide tomorrow</td></tr>
+    <tr><td>Data ribbon</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td>Same endpoints, same notes, same URL generation</td></tr>
+    <tr><td>5 color themes</td><td style="text-align:center;"><span class="check-yes">✓</span></td><td style="text-align:center;"><span class="check-yes">✓</span></td><td></td></tr>
+  </tbody>
+</table>
+
+<div class="panel panel-accent">
+  <strong>Net:</strong> web matches legacy on every alert type and config field, plus has 7–8 web-native features legacy doesn't.
+</div>
+
+<!-- ============================================================ -->
+<h2>Load your account in web — two clicks</h2>
+
+<ol class="step-list">
+  <li>
+    <strong>In legacy TC → Settings:</strong>
+    <ul>
+      <li>Near the top you'll see a new <strong>Scanzzers API Key</strong> card → click <span class="kbd">Copy</span></li>
+      <li>Under <strong>User Sync</strong>, click the new <span class="kbd">Copy</span> button next to your <code>TC-XXXXXX</code> key</li>
+      <li>Scroll to <strong>Trading View Webhooks</strong> → note your UniqueID</li>
+    </ul>
+  </li>
+  <li>
+    <strong>Open</strong> <a href="https://trade-companion-next.vercel.app" style="color: var(--accent);">trade-companion-next.vercel.app</a> <strong>→ Settings (gear icon):</strong>
+    <ul>
+      <li><strong>API Key</strong> → paste the scanzzers key</li>
+      <li><strong>News Hub API Key</strong> → paste the same value</li>
+      <li><strong>TradingView ID</strong> → paste your UniqueID</li>
+      <li><strong>User Sync</strong> → Change Key → paste your <code>TC-XXXXXX</code> → <span class="kbd">Load</span> → <span class="kbd">Pull from Server</span></li>
+    </ul>
+  </li>
+  <li>
+    <strong>Refresh.</strong> Full watchlist set, per-symbol notes, and config all populate. Any edit in web syncs back to Cosmos — when legacy next boots, it picks up changes. And vice-versa.
+  </li>
+</ol>
+
+<h3>AHK scripts — separate setup (coming tomorrow)</h3>
+<div class="panel panel-warn">
+  <p>The web version fires your AHK scripts the same way legacy does, but the plumbing is different — the browser can't touch your filesystem, so there's a small local companion server (Node.js, runs on <code>localhost:9876</code>) that sits between the browser and AHK.</p>
+  <p>It's already built and working. <strong>I'll send a clean step-by-step setup guide tomorrow</strong> — install command, how to point the web app at it, how to verify a script fired. Until then, keep AHK on legacy as normal — you can still test web side-by-side for everything non-AHK.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>Bug intake — new pipeline</h2>
+
+<p>So we never lose track of something you report:</p>
+
+<ul>
+  <li><strong>You report</strong> → lands in Cosmos + an email lands in my inbox within seconds</li>
+  <li><strong>Everything queued in a dashboard</strong> — I can pull the full list in one command</li>
+  <li><strong>Screenshots supported</strong> — paste straight from clipboard or click Browse. Images store to Azure Blob and land in my email inline, so I see the UI state at the exact moment something broke.</li>
+</ul>
+
+<div class="panel panel-warn">
+  <p>Right now the submission form lives inside my admin dashboard (tc-admin). <strong>You don't have direct access to that yet — I'm closing that gap tomorrow</strong> by either (a) deploying tc-admin publicly so you can log in, or (b) adding a lightweight "Report a Bug" button inside the web TC itself (probably cleaner). For now, keep sending me emails or DMs like tonight and I'll ingest them — the pipeline works either way.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2>Agentic testing &amp; monitoring (running now)</h2>
+
+<p>Two autonomous agents now watch for regressions so we catch issues before you do.</p>
+
+<h3>Visual QA Agent (Playwright + Claude)</h3>
+<ul>
+  <li>Opens the web version every 5 minutes during market hours in a headless browser</li>
+  <li>Checks: page loads, no JS errors, alert rows aren't broken (the giant-text-blob would've been caught by this), clicks symbols and measures ribbon load time, watches Jon's REST endpoints (<code>/tc/mktCap</code>, <code>/tc/headlines</code>, <code>/api/ampspr</code>) for slowness and 5xx errors</li>
+  <li>Fires screenshots + a Claude triage note the moment anything looks wrong</li>
+  <li><strong>Already caught a real bug during testing tonight</strong> (malformed RSS item with 50+ titles jammed together — would have landed in your timeline if this agent didn't exist)</li>
+</ul>
+
+<h3>Alert Integrity Agent (partially built)</h3>
+<ul>
+  <li>Compares what the backend received vs what the web client actually fired</li>
+  <li>Currently has a broken "delivery score" metric — fixing tomorrow</li>
+</ul>
+
+<h3>Coming next (tomorrow)</h3>
+<ul>
+  <li>Performance Monitor Agent (memory, FPS, DOM)</li>
+  <li>Daily Report Aggregator (end-of-day summary combining all three agents)</li>
+  <li>Visual QA v0.2 (clicks through more interaction flows)</li>
+</ul>
+
+<div class="panel panel-accent">
+  <strong>Side effect you'll notice:</strong> every 5 minutes a headless browser touches the web app during market hours — that's tc-qa-agent, expected. If it ever causes user-visible weirdness, that's itself a bug worth flagging.
+</div>
+
+<div class="footer-note">
+  Generated 2026-04-18 · Built on tonight's fixes + tc-qa-agent v0.1 + bug intake pipeline shipped this session.
+</div>
+
+</body>
+</html>

@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Companion — Web Cutover Master Plan</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-abyss: #050810;
+    --bg-deep: #0a0e1a;
+    --bg-panel: #0e1225;
+    --bg-card: #111730;
+    --bg-elevated: #151b38;
+    --bg-hover: #1a2245;
+    --border-dim: #1a2040;
+    --border-med: #252d55;
+    --border-bright: #3344aa;
+    --text-primary: #d4daf0;
+    --text-secondary: #8892b8;
+    --text-dim: #5a6488;
+    --text-bright: #eef0fa;
+    --accent-blue: #4488ff;
+    --accent-cyan: #22ddee;
+    --accent-green: #00ee88;
+    --accent-green-dim: #00aa55;
+    --accent-yellow: #ffcc22;
+    --accent-orange: #ff8844;
+    --accent-red: #ff4466;
+    --accent-purple: #aa66ff;
+    --glow-blue: 0 0 30px rgba(68,136,255,0.15);
+    --glow-green: 0 0 30px rgba(0,238,136,0.12);
+    --glow-red: 0 0 20px rgba(255,68,102,0.1);
+    --status-green: #00cc66;
+    --status-yellow: #eeaa00;
+    --status-red: #ee3355;
+    --status-gray: #556;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  @media print {
+    body { background: #fff !important; color: #111 !important; }
+    .scanline, body::before, body::after { display: none !important; }
+    .phase-track, .section { break-inside: avoid; }
+    details { open: true; }
+    details[open] summary { page-break-after: avoid; }
+  }
+
+  body {
+    font-family: 'IBM Plex Sans', sans-serif;
+    background: var(--bg-abyss);
+    color: var(--text-primary);
+    line-height: 1.65;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(68,136,255,0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(68,136,255,0.018) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Scanline overlay */
+  .scanline {
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  .container {
+    max-width: 1360px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 6rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ── HEADER ── */
+  .header {
+    text-align: center;
+    padding: 3rem 2rem 2.5rem;
+    margin-bottom: 2rem;
+    position: relative;
+    border: 1px solid var(--border-dim);
+    border-radius: 12px;
+    background: linear-gradient(180deg, var(--bg-panel) 0%, var(--bg-abyss) 100%);
+    overflow: hidden;
+  }
+
+  .header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent 5%, var(--accent-blue) 30%, var(--accent-cyan) 50%, var(--accent-green) 70%, transparent 95%);
+  }
+
+  .header-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--accent-cyan);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+  }
+
+  .header-label::before, .header-label::after {
+    content: '';
+    width: 40px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-cyan));
+  }
+  .header-label::after {
+    background: linear-gradient(90deg, var(--accent-cyan), transparent);
+  }
+
+  .header h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    color: var(--text-bright);
+    margin-bottom: 0.4rem;
+  }
+
+  .header h1 .em { color: var(--accent-green); }
+
+  .header .subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .header-meta {
+    display: flex;
+    justify-content: center;
+    gap: 2rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    letter-spacing: 0.05em;
+  }
+
+  .header-meta span {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+
+  .header-meta .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent-green);
+    box-shadow: 0 0 6px var(--accent-green);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ── PHASE TRACKER ── */
+  .phase-tracker {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 0.5rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .phase-track {
+    background: var(--bg-panel);
+    border: 1px solid var(--border-dim);
+    border-radius: 8px;
+    padding: 1rem 0.75rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .phase-track::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0;
+    height: 3px;
+    border-radius: 0 0 8px 8px;
+    transition: width 0.6s ease;
+  }
+
+  .phase-track.p1::after { width: 15%; background: var(--accent-red); }
+  .phase-track.p2::after { width: 0%; background: var(--accent-orange); }
+  .phase-track.p3::after { width: 0%; background: var(--accent-yellow); }
+  .phase-track.p4::after { width: 0%; background: var(--accent-blue); }
+  .phase-track.p5::after { width: 0%; background: var(--accent-purple); }
+
+  .phase-track .phase-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.3rem;
+  }
+
+  .phase-track.p1 .phase-num { color: var(--accent-red); }
+  .phase-track.p2 .phase-num { color: var(--accent-orange); }
+  .phase-track.p3 .phase-num { color: var(--accent-yellow); }
+  .phase-track.p4 .phase-num { color: var(--accent-blue); }
+  .phase-track.p5 .phase-num { color: var(--accent-purple); }
+
+  .phase-track .phase-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.4rem;
+    line-height: 1.3;
+  }
+
+  .phase-track .phase-pct {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 800;
+    color: var(--text-dim);
+  }
+
+  .phase-track.p1 .phase-pct { color: var(--accent-red); }
+
+  /* ── SECTIONS ── */
+  .section {
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--border-dim);
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-deep);
+  }
+
+  .section > summary,
+  .section-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.82rem;
+    font-weight: 700;
+    padding: 0.85rem 1.25rem;
+    background: var(--bg-panel);
+    border-bottom: 1px solid var(--border-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    user-select: none;
+    list-style: none;
+    color: var(--text-primary);
+  }
+
+  .section > summary::-webkit-details-marker { display: none; }
+
+  .section > summary::before {
+    content: '▸';
+    font-size: 0.7rem;
+    color: var(--accent-blue);
+    transition: transform 0.2s;
+  }
+
+  .section[open] > summary::before {
+    transform: rotate(90deg);
+  }
+
+  .section > summary .sec-num {
+    font-size: 0.6rem;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+  }
+
+  .sec-num.s1 { background: rgba(68,136,255,0.15); color: var(--accent-blue); }
+  .sec-num.s2 { background: rgba(34,221,238,0.12); color: var(--accent-cyan); }
+  .sec-num.s3 { background: rgba(0,238,136,0.12); color: var(--accent-green); }
+  .sec-num.s4 { background: rgba(255,136,68,0.12); color: var(--accent-orange); }
+  .sec-num.s5 { background: rgba(170,102,255,0.12); color: var(--accent-purple); }
+
+  .section-body {
+    padding: 1.25rem;
+  }
+
+  /* ── TABLES ── */
+  .data-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    font-size: 0.76rem;
+    margin-bottom: 1rem;
+  }
+
+  .data-table thead th {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    padding: 0.6rem 0.75rem;
+    background: var(--bg-elevated);
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border-med);
+    text-align: left;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .data-table tbody td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid rgba(26,32,64,0.6);
+    vertical-align: top;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .data-table tbody tr:hover td {
+    background: rgba(68,136,255,0.03);
+  }
+
+  .data-table tbody td:first-child {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+  }
+
+  .data-table code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    background: rgba(68,136,255,0.08);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--accent-cyan);
+  }
+
+  /* ── STATUS BADGES ── */
+  .badge {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+
+  .badge-working { background: rgba(0,204,102,0.12); color: var(--status-green); border: 1px solid rgba(0,204,102,0.2); }
+  .badge-partial { background: rgba(238,170,0,0.1); color: var(--status-yellow); border: 1px solid rgba(238,170,0,0.2); }
+  .badge-missing { background: rgba(238,51,85,0.1); color: var(--status-red); border: 1px solid rgba(238,51,85,0.2); }
+  .badge-dead { background: rgba(85,85,102,0.15); color: var(--status-gray); border: 1px solid rgba(85,85,102,0.25); }
+  .badge-broken { background: rgba(255,68,102,0.08); color: #ff6688; border: 1px solid rgba(255,68,102,0.15); }
+  .badge-parity { background: rgba(0,238,136,0.1); color: var(--accent-green); border: 1px solid rgba(0,238,136,0.2); }
+  .badge-phase { font-size: 0.55rem; padding: 1px 5px; }
+  .badge-p1 { background: rgba(255,68,102,0.1); color: var(--accent-red); }
+  .badge-p2 { background: rgba(255,136,68,0.1); color: var(--accent-orange); }
+
+  /* ── PARITY ROW COLORS ── */
+  tr.row-green td { border-left: 3px solid var(--status-green); }
+  tr.row-yellow td { border-left: 3px solid var(--status-yellow); }
+  tr.row-red td { border-left: 3px solid var(--status-red); }
+  tr.row-gray td { border-left: 3px solid var(--status-gray); opacity: 0.6; }
+
+  /* ── FLOW DIAGRAMS ── */
+  .flow-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+
+  .flow-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dim);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+  }
+
+  .flow-box h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .flow-box.legacy h4 { color: var(--accent-yellow); }
+  .flow-box.web h4 { color: var(--accent-cyan); }
+
+  .flow-box pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.66rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+    white-space: pre;
+    overflow-x: auto;
+  }
+
+  .flow-box pre .hl-legacy { color: var(--accent-yellow); font-weight: 600; }
+  .flow-box pre .hl-web { color: var(--accent-cyan); font-weight: 600; }
+  .flow-box pre .hl-green { color: var(--accent-green); font-weight: 600; }
+  .flow-box pre .hl-dim { color: var(--text-dim); }
+  .flow-box pre .hl-red { color: var(--accent-red); }
+  .flow-box pre .arrow { color: var(--text-dim); }
+
+  /* ── PHASE CARDS ── */
+  .phase-section {
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--border-dim);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .phase-section .phase-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+    padding: 0.7rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .phase-section.critical .phase-header { background: rgba(255,68,102,0.06); color: var(--accent-red); border-bottom: 1px solid rgba(255,68,102,0.1); }
+  .phase-section.warn .phase-header { background: rgba(255,136,68,0.05); color: var(--accent-orange); border-bottom: 1px solid rgba(255,136,68,0.1); }
+  .phase-section.info .phase-header { background: rgba(238,170,0,0.04); color: var(--accent-yellow); border-bottom: 1px solid rgba(238,170,0,0.08); }
+  .phase-section.cool .phase-header { background: rgba(68,136,255,0.04); color: var(--accent-blue); border-bottom: 1px solid rgba(68,136,255,0.08); }
+  .phase-section.purple .phase-header { background: rgba(170,102,255,0.04); color: var(--accent-purple); border-bottom: 1px solid rgba(170,102,255,0.08); }
+
+  .phase-section .phase-body {
+    padding: 1rem;
+    font-size: 0.8rem;
+  }
+
+  .phase-section .phase-body h5 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.68rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 1rem 0 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .phase-section .phase-body h5:first-child { margin-top: 0; }
+
+  .phase-section .phase-body ul {
+    padding-left: 1.25rem;
+    color: var(--text-secondary);
+  }
+
+  .phase-section .phase-body ul li {
+    margin-bottom: 0.25rem;
+    line-height: 1.5;
+  }
+
+  .phase-section .phase-body ul li strong {
+    color: var(--text-primary);
+  }
+
+  /* ── TEST MATRIX ── */
+  .test-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-dim);
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.76rem;
+  }
+
+  .test-card .tc-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.72rem;
+    color: var(--accent-cyan);
+    margin-bottom: 0.35rem;
+  }
+
+  .test-card .tc-row {
+    display: grid;
+    grid-template-columns: 120px 1fr;
+    gap: 0.25rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+  }
+
+  .test-card .tc-row .tc-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.62rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding-top: 1px;
+  }
+
+  /* ── QUESTIONS ── */
+  .question-list {
+    counter-reset: q;
+    list-style: none;
+    padding: 0;
+  }
+
+  .question-list li {
+    counter-increment: q;
+    padding: 0.6rem 0.75rem 0.6rem 2.5rem;
+    border-bottom: 1px solid var(--border-dim);
+    color: var(--text-secondary);
+    font-size: 0.8rem;
+    position: relative;
+  }
+
+  .question-list li::before {
+    content: counter(q, decimal-leading-zero);
+    position: absolute;
+    left: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--accent-purple);
+  }
+
+  .question-list li strong {
+    color: var(--text-primary);
+  }
+
+  /* ── NOTE BOXES ── */
+  .note {
+    font-size: 0.76rem;
+    padding: 0.65rem 1rem;
+    border-radius: 6px;
+    margin: 0.75rem 0;
+    line-height: 1.5;
+  }
+
+  .note.info {
+    background: rgba(68,136,255,0.06);
+    border: 1px solid rgba(68,136,255,0.12);
+    color: var(--accent-blue);
+  }
+
+  .note.warn {
+    background: rgba(255,136,68,0.05);
+    border: 1px solid rgba(255,136,68,0.1);
+    color: var(--accent-orange);
+  }
+
+  .note.critical {
+    background: rgba(255,68,102,0.05);
+    border: 1px solid rgba(255,68,102,0.1);
+    color: var(--accent-red);
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    padding: 2rem 0;
+    border-top: 1px solid var(--border-dim);
+    margin-top: 3rem;
+    letter-spacing: 0.05em;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .phase-tracker { grid-template-columns: repeat(3, 1fr); }
+    .flow-grid { grid-template-columns: 1fr; }
+    .data-table { font-size: 0.68rem; }
+  }
+
+  @media (max-width: 600px) {
+    .phase-tracker { grid-template-columns: 1fr 1fr; }
+    .container { padding: 1rem; }
+    .header h1 { font-size: 1.4rem; }
+  }
+</style>
+</head>
+<body>
+<div class="scanline"></div>
+<div class="container">
+
+<!-- ═══════════════════════ HEADER ═══════════════════════ -->
+<div class="header">
+  <div class="header-label">Mission Critical</div>
+  <h1>Trade Companion <span class="em">Web Cutover</span></h1>
+  <p class="subtitle">Complete parity plan: Legacy WPF Desktop &rarr; Next.js Web &mdash; Every alert, every feature, every edge case</p>
+  <div class="header-meta">
+    <span><span class="dot"></span> Plan Active</span>
+    <span>Updated: 2026-04-09</span>
+    <span>18 Alert Types &middot; 5 Phases</span>
+    <span>Target: Justin Full Cutover</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════ PHASE TRACKER ═══════════════════════ -->
+<div class="phase-tracker">
+  <div class="phase-track p1">
+    <div class="phase-num">Phase 1</div>
+    <div class="phase-title">Alert Reliability</div>
+    <div class="phase-pct">15%</div>
+  </div>
+  <div class="phase-track p2">
+    <div class="phase-num">Phase 2</div>
+    <div class="phase-title">Missing Alerts</div>
+    <div class="phase-pct">0%</div>
+  </div>
+  <div class="phase-track p3">
+    <div class="phase-num">Phase 3</div>
+    <div class="phase-title">Data Integrity</div>
+    <div class="phase-pct">0%</div>
+  </div>
+  <div class="phase-track p4">
+    <div class="phase-num">Phase 4</div>
+    <div class="phase-title">UX Parity</div>
+    <div class="phase-pct">0%</div>
+  </div>
+  <div class="phase-track p5">
+    <div class="phase-num">Phase 5</div>
+    <div class="phase-title">Test Protocol</div>
+    <div class="phase-pct">0%</div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ SECTION 1 ═══════════════════════ -->
+<details class="section" open>
+  <summary><span class="sec-num s1">SEC 1</span> Legacy Alert System &mdash; Complete Reference (18 Alert Types)</summary>
+  <div class="section-body">
+
+    <div class="note info">Every alert in the legacy C# desktop app documented below. This is the ground truth for what the web version must replicate. Alert classes are in <code>Services/Alerts/</code>, orchestrated by <code>AlertService.cs</code>.</div>
+
+    <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Alert Name</th>
+          <th>Class File</th>
+          <th>Data Source</th>
+          <th>Delivery</th>
+          <th>Dedup</th>
+          <th>WL Filter</th>
+          <th>Audio</th>
+          <th>Status</th>
+          <th>Web Hook</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>PRs</td>
+          <td><code>PRs.cs</code></td>
+          <td>News Hub SignalR (<code>BroadcastNews</code>) + Azure SignalR + REST poll <code>TC/headlines</code> every 5 min</td>
+          <td>Real-time + poll</td>
+          <td>symbol+headline HashSet. TIGER/AMPS story_id upgrade</td>
+          <td>Yes</td>
+          <td>TTS if audio on + &lt;5 min old</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><code>useNewsHub</code> + <code>useSignalR</code></td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>FilteredPRs</td>
+          <td><code>FilteredPR.cs</code></td>
+          <td>Same as PRs</td>
+          <td>Real-time + poll</td>
+          <td>symbol+headline HashSet + keyword regex (comma=OR, &amp;=AND, !=NOT, *=wildcard)</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>Filings</td>
+          <td><code>Filings.cs</code></td>
+          <td>Azure SignalR (<code>OnBroadcastFiling</code>) + REST <code>/api/Filings</code></td>
+          <td>Real-time + poll</td>
+          <td>save_time cursor. ExcludeFilings config skips form types</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><code>useFilingsPolling</code> (REST only)</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>X / Twitter</td>
+          <td><code>X.cs</code></td>
+          <td><code>XService.GetTweets()</code> polled every 1 second</td>
+          <td>Poll (1s !)</td>
+          <td>tweet ID. One alert per tweet (breaks after first symbol match &mdash; known bug)</td>
+          <td>Yes ($CASHTAG / #HASHTAG match). ShowAll mode for specific usernames</td>
+          <td>TTS</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><code>useTweetsPolling</code> (REST 30s)</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>TradingView</td>
+          <td><code>TradingView.cs</code></td>
+          <td>Azure SignalR <code>tradingViewAlertRaw</code></td>
+          <td>Real-time + backfill</td>
+          <td>Cosmos alert ID (web uses tvAlertIds Set)</td>
+          <td>No (fires for all)</td>
+          <td>TTS</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><code>useSignalR</code></td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>TradeExchange</td>
+          <td><code>TradeExchange.cs</code></td>
+          <td>Azure SignalR <code>OnTradeExchangePost</code> + REST <code>/api/TradeExchangeGet</code></td>
+          <td>Real-time + backfill</td>
+          <td>None (alert ID check). Symbol lookup table refreshes every 15 min</td>
+          <td>Yes (symbol lookup + watchlist check)</td>
+          <td>TTS</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><code>useTradeExchangePolling</code></td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>TradeExchFiltered</td>
+          <td><code>TradeExchangeFiltered.cs</code></td>
+          <td>Same as TradeExchange</td>
+          <td>Real-time + backfill</td>
+          <td>None</td>
+          <td>No (fires ALL posts)</td>
+          <td>TTS</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>CatalystScan</td>
+          <td><code>CatalystScan.cs</code></td>
+          <td>Azure SignalR <code>OnBroadcastCatalyst</code> + REST <code>/api/catalyst</code> every 15s</td>
+          <td>Real-time + poll</td>
+          <td>Catalyst object equality. 45-min window. dolVol &gt; $50k + price &ge; multiplier &times; startPrice. MktCap tiers</td>
+          <td>No (global scan)</td>
+          <td>TTS</td>
+          <td><span class="badge badge-partial">Partial</span></td>
+          <td><code>useCatalystPolling</code> (REST only, no bar tracking)</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td>AfternoonBreakout</td>
+          <td><code>HODbreak.cs</code></td>
+          <td>1-second bars from QuoteManager</td>
+          <td>Bar subscription</td>
+          <td>HOD + 6-min cooldown. Volume mult by mktCap tier</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-dead">Commented out</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>10</td>
+          <td>dol_vol_100M</td>
+          <td><code>dol_vol_100M.cs</code></td>
+          <td>L1 quotes (VWAP &times; TotalVol)</td>
+          <td>L1 subscription</td>
+          <td>One-shot per symbol</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-partial">Needs VWAP</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td>RSS Feed</td>
+          <td><code>RssFeed.cs</code></td>
+          <td>miniextensions.com RSS (<code>CZ6qq8...S24s</code>) &mdash; Substack</td>
+          <td>Poll (5 min)</td>
+          <td>GUID HashSet (cap 500)</td>
+          <td>No (symbol="RSS")</td>
+          <td>TTS</td>
+          <td><span class="badge badge-broken">Broken</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td>MAIL Feed</td>
+          <td><code>RssFeed.cs</code></td>
+          <td>miniextensions.com RSS (<code>jnPA4...h0KO</code>) &mdash; Grok Emails</td>
+          <td>Poll (5 min)</td>
+          <td>GUID HashSet. titleOnly mode</td>
+          <td>No (symbol="MAIL")</td>
+          <td>TTS</td>
+          <td><span class="badge badge-broken">Broken</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td>Price Alerts</td>
+          <td><code>AlertPriceService</code></td>
+          <td>L1 quote updates (upper/lower thresholds)</td>
+          <td>L1 subscription</td>
+          <td>Per-symbol, fires once per threshold cross</td>
+          <td>Per-symbol config</td>
+          <td>Always TTS</td>
+          <td><span class="badge badge-working">Working</span></td>
+          <td><code>usePriceAlerts</code></td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td>Halt</td>
+          <td><code>Halt.cs</code></td>
+          <td>LULD bands from QuoteManager</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Dead code</span></td>
+          <td>&mdash;</td>
+        </tr>
+        <tr>
+          <td>15</td>
+          <td>Bullish_VWAP</td>
+          <td><code>Bullish_VWAP.cs</code></td>
+          <td>Bar data + VWAP</td>
+          <td>Bar subscription</td>
+          <td>&mdash;</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-dead">Needs data feed</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>16</td>
+          <td>GapNCrap</td>
+          <td><code>GapNCrap.cs</code></td>
+          <td>Bar data</td>
+          <td>Bar subscription</td>
+          <td>&mdash;</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-dead">Needs data feed</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>17</td>
+          <td>PMlows</td>
+          <td><code>PMlows.cs</code></td>
+          <td>Pre-market bar data</td>
+          <td>Bar subscription</td>
+          <td>&mdash;</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-dead">Needs data feed</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+        <tr>
+          <td>18</td>
+          <td>Highs4am</td>
+          <td><code>Highs4am.cs</code></td>
+          <td>4am session bar data</td>
+          <td>Bar subscription</td>
+          <td>&mdash;</td>
+          <td>Yes</td>
+          <td>TTS</td>
+          <td><span class="badge badge-dead">Needs data feed</span></td>
+          <td><span class="badge badge-missing">Not impl</span></td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="note warn">
+      <strong>Key insight:</strong> Alerts #9 and #14&ndash;18 all depend on bar-level data from QuoteManager (which uses the Polygon WebSocket feed). These are dead or disabled in the legacy app too because the LX/IQ data feed endpoints went down. They are NOT blockers for Justin&rsquo;s cutover &mdash; he doesn&rsquo;t have them on desktop either.
+    </div>
+
+  </div>
+</details>
+
+<!-- ═══════════════════════ SECTION 2 ═══════════════════════ -->
+<details class="section" open>
+  <summary><span class="sec-num s2">SEC 2</span> Central Alert Pipeline &mdash; Legacy vs Web</summary>
+  <div class="section-body">
+
+    <div class="flow-grid">
+      <div class="flow-box legacy">
+        <h4>&#9670; Legacy (C# Desktop)</h4>
+<pre>
+<span class="hl-dim">── Sources ──────────────────────────────</span>
+<span class="hl-legacy">News Hub SignalR</span>    &rarr; PRs.cs, FilteredPR.cs
+<span class="hl-legacy">Azure SignalR</span>       &rarr; TradingView.cs, Filings.cs,
+                       TradeExchange.cs, CatalystScan.cs
+<span class="hl-legacy">REST Polling</span>        &rarr; PRs (5min), Filings (backfill)
+<span class="hl-legacy">XService</span>            &rarr; X.cs (1s poll!)
+<span class="hl-legacy">RSS/miniextensions</span> &rarr; RssFeed.cs (5min poll)
+<span class="hl-legacy">L1 Quotes</span>          &rarr; AlertPriceService, dol_vol_100M
+<span class="hl-legacy">Bar Subscriptions</span>  &rarr; CatalystScan, HODbreak (disabled)
+      <span class="arrow">│</span>
+      <span class="arrow">▼</span> <span class="hl-dim">IAlert.AlertTriggered event</span>
+<span class="hl-legacy">AlertService.Alert_AlertTriggered()</span>
+      <span class="arrow">│</span>
+      <span class="arrow">├─</span> <span class="hl-red">30-second dedup</span> (symbol|message key)
+      <span class="arrow">│</span>   Clean expired keys &rarr; skip if seen
+      <span class="arrow">│</span>
+      <span class="arrow">├─</span> <span class="hl-green">_alertTriggers.Add(e)</span>
+      <span class="arrow">│</span>
+      <span class="arrow">├─</span> <span class="hl-legacy">SpeechService.Speak()</span>
+      <span class="arrow">│</span>   Only if: alert in runningAlerts2.json
+      <span class="arrow">│</span>   AND audio=true AND age &lt; 5 min
+      <span class="arrow">│</span>   (Price alerts: always speak)
+      <span class="arrow">│</span>
+      <span class="arrow">▼</span>
+<span class="hl-legacy">Local SignalR Hub</span> (localhost:5000)
+      <span class="arrow">│</span> BroadcastAlertTrigger
+      <span class="arrow">▼</span>
+<span class="hl-green">React AlertBar</span> &rarr; renders + scrolls
+</pre>
+      </div>
+
+      <div class="flow-box web">
+        <h4>&#9670; Web (Next.js)</h4>
+<pre>
+<span class="hl-dim">── Sources (independent hooks) ──────────</span>
+<span class="hl-web">useSignalR</span>           &rarr; Quotes, TradingView,
+                        TradeExch, Filings (newFiling),
+                        BroadcastAlertTrigger
+<span class="hl-web">useNewsHub</span>           &rarr; BroadcastNews (PRs)
+<span class="hl-web">useFilingsPolling</span>    &rarr; REST 30-60s
+<span class="hl-web">useTweetsPolling</span>     &rarr; REST 30s
+<span class="hl-web">useCatalystPolling</span>   &rarr; REST 30s
+<span class="hl-web">useTradeExchangePolling</span>&rarr; REST 30s
+<span class="hl-web">usePriceAlerts</span>       &rarr; Zustand quote data
+      <span class="arrow">│</span>
+      <span class="arrow">▼</span> <span class="hl-dim">store.addAlert()</span>
+<span class="hl-web">Zustand Store</span>
+      <span class="arrow">│</span>
+      <span class="arrow">├─</span> <span class="hl-red">Dedup</span>: symbol + type + first 40 chars
+      <span class="arrow">│</span>
+      <span class="arrow">├─</span> <span class="hl-green">alerts[] (max 500)</span>
+      <span class="arrow">│</span>
+      <span class="arrow">├─</span> <span class="hl-web">Audio: 800Hz beep</span> (same for all types)
+      <span class="arrow">│</span>   <span class="hl-dim">No TTS. No per-type sounds.</span>
+      <span class="arrow">│</span>
+      <span class="arrow">├─</span> <span class="hl-web">BroadcastChannel</span> &rarr; pop-out windows
+      <span class="arrow">│</span>
+      <span class="arrow">▼</span>
+<span class="hl-green">AlertBar component</span> &rarr; renders + scrolls
+
+
+<span class="hl-dim">── Missing from pipeline ────────────────</span>
+<span class="hl-red">&times;</span> No FilteredPR keyword matching
+<span class="hl-red">&times;</span> No RSS/MAIL feed polling
+<span class="hl-red">&times;</span> No TradeExchangeFiltered (unfiltered)
+<span class="hl-red">&times;</span> No TTS / per-type audio
+<span class="hl-red">&times;</span> No Cosmos watchlist sync
+</pre>
+      </div>
+    </div>
+
+    <div class="note info">
+      <strong>Architecture difference:</strong> Legacy uses a centralized <code>AlertService</code> as a single router. Web uses decentralized hooks that each call <code>store.addAlert()</code> independently. The web approach is simpler and easier to extend, but lacks the central dedup/audio control that <code>AlertService</code> provides.
+    </div>
+
+  </div>
+</details>
+
+<!-- ═══════════════════════ SECTION 3 ═══════════════════════ -->
+<details class="section" open>
+  <summary><span class="sec-num s3">SEC 3</span> Alert-by-Alert Parity Checklist</summary>
+  <div class="section-body">
+
+    <div class="note critical">
+      <strong>Color key:</strong>
+      <span class="badge badge-parity">FULL PARITY</span> = functionally equivalent &nbsp;
+      <span class="badge badge-partial">PARTIAL</span> = works but missing features &nbsp;
+      <span class="badge badge-missing">MISSING</span> = not in web at all &nbsp;
+      <span class="badge badge-dead">DEAD</span> = broken/disabled on both platforms
+    </div>
+
+    <div style="overflow-x:auto;">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Alert Type</th>
+          <th>Legacy Source</th>
+          <th>Web Hook</th>
+          <th>RT?</th>
+          <th>Backfill?</th>
+          <th>Dedup?</th>
+          <th>WL Filter?</th>
+          <th>Audio?</th>
+          <th>Parity</th>
+          <th>Action Needed</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr class="row-green">
+          <td>PRs</td>
+          <td>News Hub + Azure</td>
+          <td><code>useNewsHub</code> + <code>useSignalR</code></td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>Beep only</td>
+          <td><span class="badge badge-parity">Parity</span></td>
+          <td>Add TTS, verify TIGER/AMPS dedup</td>
+        </tr>
+        <tr class="row-red">
+          <td>FilteredPRs</td>
+          <td>News Hub + Azure + regex</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-missing">Missing</span></td>
+          <td>Implement keyword filter in web. Port regex logic from <code>FilteredPR.cs</code></td>
+        </tr>
+        <tr class="row-yellow">
+          <td>Filings</td>
+          <td>Azure SignalR + REST</td>
+          <td><code>useFilingsPolling</code></td>
+          <td>&frac12;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>Beep only</td>
+          <td><span class="badge badge-partial">Partial</span></td>
+          <td>Add real-time via <code>newFiling</code> SignalR event. Add ExcludeFilings config</td>
+        </tr>
+        <tr class="row-yellow">
+          <td>X / Twitter</td>
+          <td>XService (1s poll)</td>
+          <td><code>useTweetsPolling</code></td>
+          <td>&frac12;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>Beep only</td>
+          <td><span class="badge badge-partial">Partial</span></td>
+          <td>Web polls every 30s vs legacy 1s. Acceptable latency? Fix multi-symbol bug in both</td>
+        </tr>
+        <tr class="row-green">
+          <td>TradingView</td>
+          <td>Azure SignalR</td>
+          <td><code>useSignalR</code></td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&mdash;</td>
+          <td>Beep only</td>
+          <td><span class="badge badge-parity">Parity</span></td>
+          <td>Verify backfill dedup with tvAlertIds</td>
+        </tr>
+        <tr class="row-yellow">
+          <td>TradeExchange</td>
+          <td>Azure SignalR + REST</td>
+          <td><code>useTradeExchangePolling</code></td>
+          <td>&frac12;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>Beep only</td>
+          <td><span class="badge badge-partial">Partial</span></td>
+          <td>Web is REST-only (30s). Add SignalR real-time path</td>
+        </tr>
+        <tr class="row-red">
+          <td>TradeExchFiltered</td>
+          <td>Azure SignalR + REST</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-missing">Missing</span></td>
+          <td>Wire up &mdash; fires all TradeExchange posts regardless of watchlist</td>
+        </tr>
+        <tr class="row-yellow">
+          <td>CatalystScan</td>
+          <td>Azure SignalR + REST + bars</td>
+          <td><code>useCatalystPolling</code></td>
+          <td>&frac12;</td>
+          <td>&#10003;</td>
+          <td>&#10003;</td>
+          <td>&mdash;</td>
+          <td>Beep only</td>
+          <td><span class="badge badge-partial">Partial</span></td>
+          <td>No bar tracking = no $50k dolVol + price multiplier check. Shows raw catalysts only</td>
+        </tr>
+        <tr class="row-gray">
+          <td>AfternoonBreakout</td>
+          <td>1s bars (DISABLED)</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Dead</span></td>
+          <td><code>return;</code> on line 98 of HODbreak.cs. Dead on both platforms</td>
+        </tr>
+        <tr class="row-gray">
+          <td>dol_vol_100M</td>
+          <td>L1 (VWAP &times; TotalVol)</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Needs VWAP</span></td>
+          <td>Requires VWAP field from L1 quotes (not available in web quote data)</td>
+        </tr>
+        <tr class="row-red">
+          <td>RSS Feed</td>
+          <td>miniextensions RSS poll</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-broken">Broken</span></td>
+          <td>Feed returns 1 item. miniextensions config issue. Fix Airtable first, then port to web</td>
+        </tr>
+        <tr class="row-red">
+          <td>MAIL Feed</td>
+          <td>miniextensions RSS poll</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-broken">Broken</span></td>
+          <td>Same miniextensions issue. Fix Airtable config first</td>
+        </tr>
+        <tr class="row-green">
+          <td>Price Alerts</td>
+          <td>L1 quotes + thresholds</td>
+          <td><code>usePriceAlerts</code></td>
+          <td>&#10003;</td>
+          <td>&mdash;</td>
+          <td>&#10003;</td>
+          <td>Per-symbol</td>
+          <td>Beep</td>
+          <td><span class="badge badge-parity">Parity</span></td>
+          <td>Add TTS for price alerts (legacy always speaks these)</td>
+        </tr>
+        <tr class="row-gray">
+          <td>Halt</td>
+          <td>LULD bands</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Dead</span></td>
+          <td>Fully commented out in legacy. Skip</td>
+        </tr>
+        <tr class="row-gray">
+          <td>Bullish_VWAP</td>
+          <td>Bars + VWAP</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Dead</span></td>
+          <td>Needs data feed. Dead on legacy too</td>
+        </tr>
+        <tr class="row-gray">
+          <td>GapNCrap</td>
+          <td>Bars</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Dead</span></td>
+          <td>Needs data feed. Dead on legacy too</td>
+        </tr>
+        <tr class="row-gray">
+          <td>PMlows</td>
+          <td>Pre-market bars</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Dead</span></td>
+          <td>Needs data feed. Dead on legacy too</td>
+        </tr>
+        <tr class="row-gray">
+          <td>Highs4am</td>
+          <td>4am session bars</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td>&mdash;</td>
+          <td><span class="badge badge-dead">Dead</span></td>
+          <td>Needs data feed. Dead on legacy too</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+
+    <div class="note info">
+      <strong>Summary:</strong> Of 18 legacy alert types: <strong>3 full parity</strong> (PRs, TradingView, Price), <strong>4 partial</strong> (Filings, X, TradeExch, Catalyst), <strong>4 missing</strong> (FilteredPR, TradeExchFiltered, RSS, MAIL), <strong>7 dead/disabled</strong> on both platforms. The 4 partial + 4 missing are the real work.
+    </div>
+
+  </div>
+</details>
+
+<!-- ═══════════════════════ SECTION 4 ═══════════════════════ -->
+<details class="section" open>
+  <summary><span class="sec-num s4">SEC 4</span> Cutover Action Plan &mdash; 5 Phases</summary>
+  <div class="section-body">
+
+    <!-- PHASE 1 -->
+    <div class="phase-section critical">
+      <div class="phase-header">&#9888; Phase 1 &mdash; Alert Reliability Verification (CRITICAL)</div>
+      <div class="phase-body">
+        <p style="margin-bottom:1rem; color:var(--text-secondary);">Before adding anything new, verify that the alerts already wired up in the web version actually work reliably. Run legacy and web side-by-side during market hours and compare.</p>
+
+        <h5>1.1 &mdash; Side-by-Side Test Session</h5>
+        <ul>
+          <li>Run legacy desktop + web version simultaneously on the same watchlist</li>
+          <li>For each alert that fires on legacy, confirm it also appears in web within acceptable latency</li>
+          <li>Log discrepancies: missed alerts, extra alerts, wrong symbols, wrong timestamps</li>
+          <li>Duration: <strong>Full trading day (pre-market through close)</strong></li>
+        </ul>
+
+        <h5>1.2 &mdash; Per-Alert Verification</h5>
+
+        <div class="test-card">
+          <div class="tc-name">PRs (Press Releases)</div>
+          <div class="tc-row"><span class="tc-label">Trigger</span><span>Wait for a real PR to hit during market hours on a watchlisted symbol</span></div>
+          <div class="tc-row"><span class="tc-label">Verify</span><span>Alert appears in web AlertBar within ~5s of legacy. Symbol correct. URL clickable. Headline text matches</span></div>
+          <div class="tc-row"><span class="tc-label">Dedup test</span><span>Same PR should NOT fire twice (TIGER arrives first, then AMPS duplicate)</span></div>
+          <div class="tc-row"><span class="tc-label">Backfill</span><span>Refresh web page &rarr; today's PRs should reload from backfill</span></div>
+        </div>
+
+        <div class="test-card">
+          <div class="tc-name">Filings (SEC)</div>
+          <div class="tc-row"><span class="tc-label">Trigger</span><span>Wait for an SEC filing on a watchlisted symbol (check EDGAR for active filers)</span></div>
+          <div class="tc-row"><span class="tc-label">Verify</span><span>Alert appears. Form type shown (e.g., "Filing form 4"). Link to filing works</span></div>
+          <div class="tc-row"><span class="tc-label">Gap</span><span>Web uses REST-only (30s poll). Legacy also gets real-time <code>newFiling</code> SignalR event. Check latency difference</span></div>
+        </div>
+
+        <div class="test-card">
+          <div class="tc-name">X / Twitter</div>
+          <div class="tc-row"><span class="tc-label">Trigger</span><span>Wait for a tweet mentioning $SYMBOL for a watchlisted ticker</span></div>
+          <div class="tc-row"><span class="tc-label">Verify</span><span>Alert shows username, tweet text, link to tweet. Symbol correct</span></div>
+          <div class="tc-row"><span class="tc-label">Latency</span><span>Legacy polls every 1s, web every 30s. Expect up to 30s delay in web &mdash; is this acceptable?</span></div>
+          <div class="tc-row"><span class="tc-label">Bug check</span><span>Tweet mentioning 3 watchlisted symbols: legacy fires only for first (known break bug). Web should fire for all (if fixed) or at least match legacy</span></div>
+        </div>
+
+        <div class="test-card">
+          <div class="tc-name">TradingView Webhooks</div>
+          <div class="tc-row"><span class="tc-label">Trigger</span><span>Fire a TradingView alert that hits the webhook URL</span></div>
+          <div class="tc-row"><span class="tc-label">Verify</span><span>Alert appears in both legacy and web simultaneously. Raw text shown. Symbol parsed from first word</span></div>
+          <div class="tc-row"><span class="tc-label">Backfill</span><span>Refresh web &rarr; previous TV alerts should reload (check tvAlertIds dedup)</span></div>
+        </div>
+
+        <div class="test-card">
+          <div class="tc-name">TradeExchange</div>
+          <div class="tc-row"><span class="tc-label">Trigger</span><span>Post a trade exchange message mentioning a watchlisted symbol</span></div>
+          <div class="tc-row"><span class="tc-label">Verify</span><span>Alert appears in web. Symbol resolved via lookup table. Content shown</span></div>
+          <div class="tc-row"><span class="tc-label">Gap</span><span>Web is REST-only (30s). Legacy gets real-time via <code>OnTradeExchangePost</code> SignalR</span></div>
+        </div>
+
+        <div class="test-card">
+          <div class="tc-name">CatalystScan</div>
+          <div class="tc-row"><span class="tc-label">Trigger</span><span>Wait for a catalyst headline to arrive via Azure Function</span></div>
+          <div class="tc-row"><span class="tc-label">Verify</span><span>Catalyst shows in web. Note: web only shows raw catalyst, NO bar tracking / dolVol / price multiplier. Legacy fires the &ldquo;Catalyst AAPL&rdquo; alert only after $50k dolVol + price confirmation &mdash; web fires immediately</span></div>
+          <div class="tc-row"><span class="tc-label">Decision</span><span>Is &ldquo;raw catalyst display&rdquo; acceptable for cutover, or must bar tracking be ported?</span></div>
+        </div>
+
+        <div class="test-card">
+          <div class="tc-name">Price Alerts</div>
+          <div class="tc-row"><span class="tc-label">Trigger</span><span>Set an upper alert on a volatile symbol slightly above current price. Wait for it to cross</span></div>
+          <div class="tc-row"><span class="tc-label">Verify</span><span>Alert fires in web. Beep plays. Threshold not retriggered until reset</span></div>
+        </div>
+
+        <h5>1.3 &mdash; Automated Monitoring (Optional)</h5>
+        <ul>
+          <li><strong>Approach:</strong> Add a lightweight logger in <code>store.addAlert()</code> that POSTs each alert to an endpoint (or logs to localStorage with timestamps)</li>
+          <li>Compare against legacy's console output logs from the same session</li>
+          <li>Diff report: alerts in legacy but not web, alerts in web but not legacy, latency differences</li>
+          <li><strong>Claude Computer Use:</strong> Could automate clicking through the web UI to verify alerts render correctly, but manual side-by-side is faster for first pass</li>
+        </ul>
+
+        <h5>1.4 &mdash; Commit Uncommitted Work</h5>
+        <ul>
+          <li><strong>22 modified files</strong> are sitting uncommitted from March sessions</li>
+          <li>Review diffs, commit in logical groups, push to remote</li>
+          <li>This is prerequisite for everything else &mdash; can't build on uncommitted work</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PHASE 2 -->
+    <div class="phase-section warn">
+      <div class="phase-header">&#9874; Phase 2 &mdash; Missing Alert Types</div>
+      <div class="phase-body">
+
+        <h5>2.1 &mdash; FilteredPR Keyword Matching</h5>
+        <ul>
+          <li>Port <code>FilteredPR.cs</code> regex logic to a <code>useFilteredPRs</code> hook or add to existing <code>useNewsHub</code></li>
+          <li>Add settings for positive/negative filter strings (already have SettingsPage)</li>
+          <li>Filter syntax: comma = OR, &amp; = AND, ! = NOT, * = wildcard</li>
+          <li>Test: headline "AAPL announces offering" with positive filter "offering,merger" should fire. With negative "!rumor" should still fire. With "!offering" should NOT fire</li>
+          <li><strong>Effort: ~2hr</strong></li>
+        </ul>
+
+        <h5>2.2 &mdash; RSS + MAIL Feeds</h5>
+        <ul>
+          <li><strong>Blocker:</strong> miniextensions RSS feeds only return 1 item. Jon needs to fix the Airtable view/config</li>
+          <li>Once fixed, create <code>useRssPolling</code> hook &mdash; polls both URLs every 5 min, parses XML, dedup by GUID, fires addAlert with custom colors</li>
+          <li>RSS: symbol="RSS", color=#FF6719, uses title as author + description as article title</li>
+          <li>MAIL: symbol="MAIL", color=#4FC3F7, titleOnly (subject line only)</li>
+          <li><strong>Effort: ~1.5hr</strong> (after Airtable fix)</li>
+        </ul>
+
+        <h5>2.3 &mdash; TradeExchangeFiltered</h5>
+        <ul>
+          <li>Add option to show ALL trade exchange posts (not just watchlist matches)</li>
+          <li>Toggle in Settings. Reuse existing <code>useTradeExchangePolling</code> with filter bypass</li>
+          <li><strong>Effort: ~30min</strong></li>
+        </ul>
+
+        <h5>2.4 &mdash; Text-to-Speech</h5>
+        <ul>
+          <li>Use Web Speech API: <code>window.speechSynthesis.speak(new SpeechSynthesisUtterance(text))</code></li>
+          <li>Legacy uses <code>System.Speech.Synthesis</code> with female adult voice</li>
+          <li>Add TTS toggle in Settings (per alert type). Dedup: skip if same text spoken within 30s</li>
+          <li><strong>Effort: ~1.5hr</strong></li>
+        </ul>
+
+        <h5>2.5 &mdash; Per-Type Alert Sounds</h5>
+        <ul>
+          <li>Currently: same 800Hz beep for everything</li>
+          <li>Add configurable sound per alert type (PR, filing, tweet, tradingview, tradeexchange, catalyst, price, rss, mail)</li>
+          <li>Options: different frequencies, or upload custom .mp3/.wav files</li>
+          <li><strong>Effort: ~1hr</strong></li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div class="phase-section info">
+      <div class="phase-header">&#128274; Phase 3 &mdash; Data Integrity</div>
+      <div class="phase-body">
+
+        <h5>3.1 &mdash; Cosmos DB Watchlist Sync</h5>
+        <ul>
+          <li>Legacy syncs watchlists to Cosmos via <code>UserSyncService</code>. Web uses localStorage only &mdash; clear browser = lose everything</li>
+          <li>Implement: on watchlist change, save to Cosmos via Azure Function endpoint. On load, pull from Cosmos if localStorage is empty</li>
+          <li>Existing endpoint: <code>PUT /api/user/config</code> in Azure Function (check if it exists)</li>
+          <li><strong>Effort: ~3hr</strong></li>
+        </ul>
+
+        <h5>3.2 &mdash; Alert Persistence</h5>
+        <ul>
+          <li>Currently: alerts live in Zustand store (persisted to localStorage). Page refresh = they survive. But max 500 cap may drop old ones</li>
+          <li>Consider: session recovery flag that re-backfills from today's alerts on reconnect</li>
+        </ul>
+
+        <h5>3.3 &mdash; Settings Sync</h5>
+        <ul>
+          <li>Hub URL, API keys, TradingView ID, filter strings &mdash; all in localStorage</li>
+          <li>Low priority: could sync to Cosmos but localStorage is fine if user doesn't clear it</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PHASE 4 -->
+    <div class="phase-section cool">
+      <div class="phase-header">&#9881; Phase 4 &mdash; UX Parity</div>
+      <div class="phase-body">
+        <h5>From PLAN.html (Jon&rsquo;s Requests)</h5>
+        <ul>
+          <li><strong>Multi-symbol tweet alerts</strong> &mdash; Tweet mentions 3 watchlisted symbols &rarr; fire 3 alerts. Fix the <code>break</code> bug from X.cs. ~1hr</li>
+          <li><strong>Historical tweets in blue</strong> &mdash; Distinguish backfill from real-time in alert bar. ~30min</li>
+          <li><strong>Delete alert row</strong> &mdash; Clean removal with animation. ~30min</li>
+          <li><strong>Website/URL field per symbol</strong> &mdash; Double-click editable URL column in watchlist. ~2hr</li>
+          <li><strong>Double-click editing</strong> &mdash; Reusable EditableCell component for all fields. ~2hr</li>
+          <li><strong>Description/Notes field</strong> &mdash; Manual editable description per symbol. ~1hr</li>
+          <li><strong>Data ribbon additions</strong> &mdash; FVOL, MVPHS, O/S, manual overrides. Needs Polygon API key. ~4hr</li>
+          <li><strong>Symbol alias table</strong> &mdash; ES &rarr; ES1! (TradingView), SPY (DAS), etc. Per-platform mapping. ~3hr</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- PHASE 5 -->
+    <div class="phase-section purple">
+      <div class="phase-header">&#128300; Phase 5 &mdash; Testing Protocol</div>
+      <div class="phase-body">
+        <h5>5.1 &mdash; Alert Test Matrix (Per Type)</h5>
+        <p style="color:var(--text-secondary); margin-bottom:0.75rem;">For each working alert type, verify all of the following:</p>
+
+        <div style="overflow-x:auto;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Test</th>
+              <th>What to Check</th>
+              <th>Pass Criteria</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>Trigger</td><td>Alert fires when expected condition occurs</td><td>Alert appears in AlertBar within acceptable latency</td></tr>
+            <tr><td>Symbol</td><td>Correct symbol assigned</td><td>Matches legacy symbol for same alert</td></tr>
+            <tr><td>Message</td><td>Alert text content</td><td>Meaningful text, headline/content present</td></tr>
+            <tr><td>Timestamp</td><td>Time shown on alert</td><td>Eastern time, within 1 min of actual event</td></tr>
+            <tr><td>URL/Link</td><td>Clickable link (if applicable)</td><td>Opens correct PR article, filing, tweet, etc.</td></tr>
+            <tr><td>Color</td><td>Alert badge/type color</td><td>Correct type color (legacy uses per-type colors)</td></tr>
+            <tr><td>Dedup</td><td>Fire same alert twice</td><td>Only shows once</td></tr>
+            <tr><td>WL Filter</td><td>Alert for symbol NOT on watchlist</td><td>Should NOT appear (for WL-filtered types)</td></tr>
+            <tr><td>Audio</td><td>Sound plays on alert</td><td>Beep fires (TTS if phase 2 complete)</td></tr>
+            <tr><td>Persistence</td><td>Refresh page</td><td>Alert still visible (from localStorage or backfill)</td></tr>
+            <tr><td>Pop-out</td><td>Alert appears in pop-out window</td><td>BroadcastChannel delivers to all windows</td></tr>
+            <tr><td>Volume</td><td>10+ alerts in rapid succession</td><td>All render, no dropped alerts, scrollbar works</td></tr>
+          </tbody>
+        </table>
+        </div>
+
+        <h5>5.2 &mdash; Regression Tests</h5>
+        <ul>
+          <li>After each change, run the side-by-side test for at least 1 hour during market hours</li>
+          <li>Keep a shared spreadsheet of test results per alert type per session</li>
+          <li>Final sign-off: Justin runs web-only for a full trading day and confirms no critical alerts missed</li>
+        </ul>
+
+        <h5>5.3 &mdash; Automated Approach (Future)</h5>
+        <ul>
+          <li><strong>Unit tests:</strong> Mock SignalR events, verify store.addAlert() called with correct fields</li>
+          <li><strong>Integration tests:</strong> Fire real webhook at Azure Function, verify it reaches web client</li>
+          <li><strong>E2E with Claude Computer Use:</strong> Could script a bot to watch the AlertBar and screenshot any new alerts, comparing against a log of expected alerts &mdash; but manual is more practical for initial verification</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</details>
+
+<!-- ═══════════════════════ SECTION 5 ═══════════════════════ -->
+<details class="section" open>
+  <summary><span class="sec-num s5">SEC 5</span> Open Questions</summary>
+  <div class="section-body">
+    <ol class="question-list">
+      <li><strong>RSS/MAIL Airtable feeds:</strong> Jon needs to fix the miniextensions RSS config so feeds return all recent records, not just 1. Who manages the Airtable? Is it Jon or someone else?</li>
+      <li><strong>Catalyst bar tracking:</strong> Is the &ldquo;raw catalyst display&rdquo; in the web version acceptable for cutover? Or does Justin need the full $50k dolVol + price multiplier confirmation from the legacy CatalystScan?</li>
+      <li><strong>Tweet polling latency:</strong> Web polls every 30s, legacy every 1s. Is 30s acceptable for Justin&rsquo;s trading workflow? Could reduce to 5-10s but costs more API calls.</li>
+      <li><strong>TradeExchangeFiltered:</strong> Does Justin actually use this alert type? It fires for ALL trade exchange posts, not just watchlisted symbols. If he doesn&rsquo;t use it, skip it.</li>
+      <li><strong>Polygon API key:</strong> Do we have a Polygon API key for O/S and Exchange data for the data ribbon additions? Or use Finviz scraping like legacy?</li>
+      <li><strong>MVPHS formula:</strong> Confirm: Float &times; (Bid + Ask) / 2? Or Float &times; Last price?</li>
+      <li><strong>Theme vs Type fields:</strong> Two separate manual fields? What&rsquo;s the distinction?</li>
+      <li><strong>Website URL:</strong> Multiple URL slots (Finviz + X + Custom) or one generic field?</li>
+      <li><strong>Symbol alias table:</strong> Which platforms does Justin need mappings for? TradingView, DAS, Polygon — any others?</li>
+      <li><strong>Cosmos DB sync:</strong> What user ID / key should the web version use when syncing watchlists to Cosmos? Same as <code>UserKey</code> in settings?</li>
+      <li><strong>Jon&rsquo;s REST endpoints:</strong> Are <code>TC/headlines</code>, <code>TC/mktCap</code>, <code>TC/GetDocumentUrl</code>, <code>api/ampspr</code> fixed yet? They were returning 500/404 as of March.</li>
+      <li><strong>Cutover timeline:</strong> What&rsquo;s Justin&rsquo;s target date for going web-only? This affects whether we do all 5 phases or just Phase 1-2.</li>
+    </ol>
+  </div>
+</details>
+
+<!-- ═══════════════════════ FOOTER ═══════════════════════ -->
+<div class="footer">
+  Trade Companion Web Cutover Master Plan &nbsp;&middot;&nbsp; Generated 2026-04-09 &nbsp;&middot;&nbsp; Claude Code
+</div>
+
+</div>
+</body>
+</html>

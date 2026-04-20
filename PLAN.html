@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trade Companion Next — Feature Plan</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0a0e17;
+      color: #e0e0e0;
+      padding: 32px;
+      line-height: 1.6;
+    }
+    h1 {
+      font-size: 28px;
+      color: #00e676;
+      border-bottom: 2px solid #00e676;
+      padding-bottom: 12px;
+      margin-bottom: 24px;
+    }
+    h2 {
+      font-size: 20px;
+      color: #64b5f6;
+      margin: 32px 0 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    .done { background: #1b5e20; color: #69f0ae; }
+    .high { background: #b71c1c; color: #ff8a80; }
+    .med { background: #e65100; color: #ffab40; }
+    .low { background: #1a237e; color: #82b1ff; }
+    .bug { background: #880e4f; color: #f48fb1; }
+
+    .card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card p { margin: 8px 0; color: #b0b0b0; }
+    .card strong { color: #e0e0e0; }
+    .card code {
+      background: rgba(0,230,118,0.1);
+      color: #69f0ae;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 13px;
+    }
+    .card .files {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      font-size: 13px;
+      color: #90a4ae;
+    }
+    .card .files span { color: #64b5f6; }
+    .card .how {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: rgba(100,181,246,0.05);
+      border-left: 3px solid #64b5f6;
+      border-radius: 0 8px 8px 0;
+      font-size: 14px;
+    }
+    .legend {
+      display: flex; gap: 16px; flex-wrap: wrap;
+      margin-bottom: 24px;
+      font-size: 13px;
+    }
+    .legend div {
+      display: flex; align-items: center; gap: 6px;
+    }
+    .legend .dot {
+      width: 10px; height: 10px; border-radius: 50%;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    th { text-align: left; color: #64b5f6; padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+    td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    tr:hover { background: rgba(255,255,255,0.02); }
+    .summary {
+      background: rgba(0,230,118,0.05);
+      border: 1px solid rgba(0,230,118,0.2);
+      border-radius: 12px;
+      padding: 20px;
+      margin: 24px 0;
+    }
+    .summary h3 { color: #00e676; margin-bottom: 8px; }
+    ul { padding-left: 20px; }
+    li { margin: 4px 0; }
+    .section-divider {
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      margin: 40px 0;
+    }
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-left: 6px;
+    }
+    .tag-legacy { background: #4a148c; color: #ce93d8; }
+    .tag-next { background: #004d40; color: #80cbc4; }
+    .tag-both { background: #263238; color: #b0bec5; }
+    .tag-backend { background: #1a237e; color: #9fa8da; }
+  </style>
+</head>
+<body>
+
+<h1>Trade Companion Next — Feature Plan</h1>
+<p style="color:#90a4ae; margin-bottom: 8px;">Generated: March 5, 2026 &nbsp;|&nbsp; Covers legacy parity + Jon's requests</p>
+
+<div class="legend">
+  <div><span class="badge done">DONE</span> Completed</div>
+  <div><span class="badge bug">BUG</span> Bug fix / urgent</div>
+  <div><span class="badge high">P0</span> Critical priority</div>
+  <div><span class="badge med">P1</span> High priority</div>
+  <div><span class="badge low">P2</span> Nice to have</div>
+  <div><span class="tag tag-legacy">Legacy</span> .NET desktop app</div>
+  <div><span class="tag tag-next">Next</span> trade-companion-next</div>
+  <div><span class="tag tag-backend">Backend</span> Azure Function / API</div>
+</div>
+
+<!-- ============================================================ -->
+<hr class="section-divider">
+
+<h2><span class="badge done">DONE</span> 1. TradingView Duplicate Alerts Removal <span class="tag tag-legacy">Legacy</span></h2>
+<div class="card">
+  <p><strong>What:</strong> Remove ALL duplicate filtering from TradingView webhook alerts so every alert passes through.</p>
+  <p><strong>Status:</strong> Completed in two commits:</p>
+  <ul>
+    <li><code>TradingView.cs</code> — stripped <code>_alertedIds</code>, <code>_symList</code>, <code>_activeSymList</code>, all dedup checks from real-time + backfill</li>
+    <li><code>AlertService.cs</code> — removed <code>_triggeredAlerts</code> HashSet and dedup gate (lines 257-270)</li>
+  </ul>
+  <p>Now every alert fires straight through at both layers — no filtering at all.</p>
+  <div class="files">
+    <span>Files changed:</span><br>
+    Services/Alerts/TradingView.cs (pushed to equitydynamics/Trade-Companion)<br>
+    Services/AlertService.cs (needs push)
+  </div>
+</div>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge bug">BUG</span> 2. Catalyst PRs Not Coming in Real-Time <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>Problem:</strong> Jon reported MOBX catalyst PR at 8:00 didn't arrive until reboot. PRs are currently fetched only on load via DB backfill — the real-time SignalR subscription for PRs was never finished.</p>
+
+  <div class="how">
+    <strong>Root Cause:</strong> In <code>useSignalR.ts</code>, the hook subscribes to <code>tradingViewAlertRaw</code>, <code>ScannerAlert</code>, and <code>BroadcastAlertTrigger</code> events. But <code>BroadcastAlertTrigger</code> is only fired from the legacy desktop app's <code>AlertService.cs</code> — it's NOT fired from the Azure Functions backend where catalysts/PRs originate. The Azure Function uses a different SignalR hub.
+  </div>
+
+  <div class="how" style="margin-top: 8px;">
+    <strong>Fix Options:</strong>
+    <ol style="margin-top: 8px;">
+      <li><strong>Option A — Subscribe to Azure SignalR events directly.</strong> The Azure Function hub fires <code>newsAlertRaw</code> for PRs and <code>catalystAlertRaw</code> for catalysts. Add these handlers in <code>useSignalR.ts</code> on the Azure socket connection.</li>
+      <li><strong>Option B — Relay through the desktop app.</strong> The desktop <code>AlertService</code> already calls <code>BroadcastAlertTrigger</code> when PRs arrive. If TC desktop is running, PRs flow. But this makes next-gen dependent on legacy running.</li>
+      <li><strong>Option C — Poll the DB on an interval.</strong> Set a 30s timer to re-fetch <code>/AlertsBySymbol</code>. Simple but introduces latency.</li>
+    </ol>
+    <p style="margin-top: 8px; color: #69f0ae;"><strong>Recommended: Option A</strong> — true real-time, no legacy dependency.</p>
+  </div>
+
+  <div class="files">
+    <span>Files to change:</span><br>
+    hooks/useSignalR.ts — add <code>newsAlertRaw</code> and <code>catalystAlertRaw</code> handlers<br>
+    Need to confirm: exact event names on the Azure SignalR hub (check Azure Function code)
+  </div>
+</div>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge high">P0</span> 3. TradingView Webhooks Admin Visibility <span class="tag tag-next">Next</span> <span class="tag tag-backend">Backend</span></h2>
+<div class="card">
+  <p><strong>What:</strong> Jon wants to see TradingView webhooks in the admin/dashboard URL to confirm they're actually being received by the server before any processing.</p>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ol style="margin-top: 8px;">
+      <li>Add a <code>/api/tv/recent</code> endpoint to the Azure Function that returns the last 50 raw TradingView webhook payloads with timestamps (from Cosmos DB or in-memory ring buffer)</li>
+      <li>Add a "Webhooks" tab/panel in the admin dashboard showing a live table of recent TradingView webhook arrivals — timestamp, raw text, symbol extracted, status</li>
+      <li>Optional: add a WebSocket/SSE push so the admin page updates in real-time as webhooks arrive</li>
+    </ol>
+  </div>
+
+  <div class="files">
+    <span>Files to change:</span><br>
+    Azure Function: add GET /api/tv/recent endpoint<br>
+    trade-companion-next: new AdminWebhooks.tsx component or section in existing admin page
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<hr class="section-divider">
+<h2 style="color: #00e676; font-size: 22px;">Watchlist Table & Data Ribbon Features</h2>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge med">P1</span> 4. Website / URL Field — Double-Click to Edit <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>What:</strong> Add a URL field to the watchlist table. If blank, show white text. If populated, show as blue clickable link. Double-click to edit/add a custom URL.</p>
+  <p><strong>Examples:</strong> Finviz link, X (Twitter) profile, any custom URL per symbol.</p>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ul>
+      <li>Add <code>url?: string</code> field to <code>WatchlistSymbol</code> type</li>
+      <li>New column in watchlist table between Symbol and Last</li>
+      <li>Display: blank = white "—", has URL = blue underlined text, clickable opens in new tab</li>
+      <li>Double-click cell → inline text input to enter/edit URL</li>
+      <li>Persist to store + save to backend via <code>PUT /api/tcadmin/stockdata/{ticker}</code></li>
+    </ul>
+  </div>
+
+  <div class="files">
+    <span>Files:</span><br>
+    types/index.ts — add <code>url</code> to WatchlistSymbol<br>
+    components/Watchlist.tsx — new column, double-click handler, inline edit<br>
+    store/useStore.ts — persist url field
+  </div>
+</div>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge med">P1</span> 5. Manual Description / Notes Field <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>What:</strong> Allow manual edit of a description field per symbol (e.g. "3x leverage ETF" for AGQ). Remove the auto-populated description text from the notes area — let it be user-editable only.</p>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ul>
+      <li>Add <code>description?: string</code> field to <code>WatchlistSymbol</code> type</li>
+      <li>Show in data ribbon or as an editable row in the right pane</li>
+      <li>Double-click to edit inline, blur/Enter to save</li>
+      <li>Remove any auto-populated description text currently in the note field</li>
+      <li>Legacy has 3 note fields (General, Dilution, Trade Plan) — consider adding all 3</li>
+    </ul>
+  </div>
+
+  <div class="files">
+    <span>Files:</span><br>
+    types/index.ts — add description to WatchlistSymbol<br>
+    components/Watchlist.tsx — editable description in right pane<br>
+    components/StockDataRibbon.tsx — display description
+  </div>
+</div>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge med">P1</span> 6. Double-Click Editing for All Cells <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>What:</strong> Implement double-click-to-edit pattern across the watchlist table. Currently Upper/Lower are always-editable inputs. Need consistent behavior: display mode → double-click → edit mode → blur/Enter to save.</p>
+  <p><strong>Issue:</strong> If cell already has data and user starts deleting, it should work cleanly (no partial state bugs).</p>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ul>
+      <li>Create a reusable <code>EditableCell</code> component</li>
+      <li>Props: value, onSave, type (text/number/url), display formatter</li>
+      <li>States: viewing (shows formatted value) → editing (shows input) → saving</li>
+      <li>Keyboard: Enter = save, Escape = cancel, Tab = save and move to next cell</li>
+      <li>Apply to: URL, Description, Upper, Lower, Notes fields</li>
+    </ul>
+  </div>
+
+  <div class="files">
+    <span>Files:</span><br>
+    components/EditableCell.tsx (NEW) — reusable editable cell<br>
+    components/Watchlist.tsx — replace inline inputs with EditableCell
+  </div>
+</div>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge med">P1</span> 7. Data Ribbon Additions <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>What:</strong> Add the following fields to the StockDataRibbon, positioned next to the theme selector area. These match what the legacy app displays.</p>
+
+  <table>
+    <thead>
+      <tr><th>Field</th><th>Source</th><th>Editable?</th><th>Notes</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><strong>MCAP</strong></td><td>Calculated: Float × Price</td><td>No</td><td>Real-time update as price changes. Legacy uses Float × Price, NOT O/S × Price.</td></tr>
+      <tr><td><strong>Float</strong></td><td>Finviz / backend StockData</td><td>Manual override</td><td>Already shown. Add manual override capability.</td></tr>
+      <tr><td><strong>MVPHS</strong></td><td>Calculated: Float × Bid/Ask midpoint</td><td>No</td><td>Market Value Per Hundred Shares. Real-time.</td></tr>
+      <tr><td><strong>O/S</strong></td><td>Polygon API → fallback manual</td><td>Manual fallback</td><td>Outstanding shares. Try Polygon first, allow manual entry if unavailable.</td></tr>
+      <tr><td><strong>FVOL</strong></td><td>Calculated: Volume ÷ Float</td><td>No (never)</td><td>Float volume ratio. No manual override. Updates as volume changes.</td></tr>
+      <tr><td><strong>Country</strong></td><td>Finviz / StockData</td><td>No</td><td>Legacy highlights China in RED</td></tr>
+      <tr><td><strong>Sector</strong></td><td>Finviz / StockData</td><td>No</td><td></td></tr>
+      <tr><td><strong>Theme</strong></td><td>Manual</td><td>Yes</td><td>User-defined tag/category</td></tr>
+      <tr><td><strong>Type</strong></td><td>Manual or API</td><td>Yes</td><td>e.g., "3x Leverage ETF"</td></tr>
+      <tr><td><strong>Exchange</strong></td><td>Polygon / StockData</td><td>No</td><td>NYSE, NASDAQ, etc.</td></tr>
+    </tbody>
+  </table>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ul>
+      <li>Expand <code>StockData</code> interface to include all fields</li>
+      <li>Add real-time calculation for MCAP, MVPHS, FVOL using quote data from Zustand store</li>
+      <li>For manual-override fields: double-click to edit, save to backend</li>
+      <li>Polygon API integration for O/S and Exchange (new API call, cache results)</li>
+      <li>Country = China → red text (match legacy behavior)</li>
+    </ul>
+  </div>
+
+  <div class="files">
+    <span>Files:</span><br>
+    components/StockDataRibbon.tsx — add all new fields, real-time calcs<br>
+    types/index.ts — expand StockData interface<br>
+    hooks/useSignalR.ts or new hook — Polygon API calls<br>
+    store/useStore.ts — cache stock data
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<hr class="section-divider">
+<h2 style="color: #00e676; font-size: 22px;">Alert System Features</h2>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge high">P0</span> 8. Multi-Symbol Tweet Alerts <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>What:</strong> When a tweet mentions NVDA, SPY, and AAPL — and all 3 are in the watchlist — fire a separate alert for EACH symbol, not just the first one.</p>
+  <p><strong>Current behavior:</strong> Legacy X.cs uses <code>break</code> after first match — only one alert per tweet. This needs to change.</p>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ul>
+      <li>In <code>useSignalR.ts</code> tweet handler: parse all $CASHTAG symbols from tweet text</li>
+      <li>Cross-reference each against the active watchlist</li>
+      <li>Fire one alert per matching symbol (don't break after first)</li>
+      <li>Each alert gets its own entry in the alert bar with the correct symbol</li>
+      <li>Use tweet ID + symbol as dedup key (same tweet, different symbols = different alerts)</li>
+    </ul>
+  </div>
+
+  <div class="files">
+    <span>Files:</span><br>
+    hooks/useSignalR.ts — modify tweet handler to multi-match<br>
+    Also fix in legacy: Services/Alerts/X.cs line 170 — remove <code>break</code>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge med">P1</span> 9. Historical Tweets in Blue <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>What:</strong> In the alerts pane, historical/backfilled tweets should display in blue to distinguish them from real-time alerts. Currently all tweets show as purple ("news" type).</p>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ul>
+      <li>Add an <code>isHistorical?: boolean</code> flag to the Alert type</li>
+      <li>When loading alerts from DB via <code>/AlertsBySymbol</code>, mark them as <code>isHistorical: true</code></li>
+      <li>Real-time alerts from SignalR get <code>isHistorical: false</code> (default)</li>
+      <li>In AlertBar.tsx, use blue badge/color for historical tweets instead of purple</li>
+      <li>Also apply to the right-pane alerts in Watchlist.tsx</li>
+    </ul>
+  </div>
+
+  <div class="files">
+    <span>Files:</span><br>
+    types/index.ts — add isHistorical to Alert<br>
+    components/Watchlist.tsx — set isHistorical on DB alerts<br>
+    components/AlertBar.tsx — blue styling for historical
+  </div>
+</div>
+
+<!-- ============================================================ -->
+
+<h2><span class="badge med">P1</span> 10. Delete Alert Row <span class="tag tag-next">Next</span></h2>
+<div class="card">
+  <p><strong>What:</strong> When deleting a row from the alerts pane, it should remove cleanly. Confirm current delete behavior works without leaving ghost state.</p>
+
+  <div class="how">
+    <strong>Implementation:</strong>
+    <ul>
+      <li>Audit the <code>removeAlert</code> action in useStore — ensure it removes from both <code>alerts</code> array and any <code>hiddenAlertIds</code></li>
+      <li>Add a delete animation (fade out) for smooth UX</li>
+      <li>If "delete row" means deleting a watchlist row — ensure associated price alerts are also cleaned up</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<hr class="section-divider">
+
+<div class="summary">
+  <h3>Implementation Priority Order</h3>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Feature</th><th>Priority</th><th>Effort</th><th>Dependency</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td>TradingView Dedup Removal</td><td><span class="badge done">DONE</span></td><td>—</td><td>Push AlertService.cs</td></tr>
+      <tr><td>2</td><td>Catalyst PRs Real-Time</td><td><span class="badge bug">BUG</span></td><td>~2hr</td><td>Need Azure Function event names</td></tr>
+      <tr><td>3</td><td>TradingView Webhook Admin Visibility</td><td><span class="badge high">P0</span></td><td>~3hr</td><td>Azure Function + new UI</td></tr>
+      <tr><td>4</td><td>Multi-Symbol Tweet Alerts</td><td><span class="badge high">P0</span></td><td>~1hr</td><td>None</td></tr>
+      <tr><td>5</td><td>Data Ribbon Additions (MCAP, Float, FVOL, etc.)</td><td><span class="badge med">P1</span></td><td>~4hr</td><td>Polygon API key</td></tr>
+      <tr><td>6</td><td>Website/URL Field</td><td><span class="badge med">P1</span></td><td>~2hr</td><td>None</td></tr>
+      <tr><td>7</td><td>Double-Click Editing</td><td><span class="badge med">P1</span></td><td>~2hr</td><td>None</td></tr>
+      <tr><td>8</td><td>Description/Notes Field</td><td><span class="badge med">P1</span></td><td>~1hr</td><td>Double-click editing (#7)</td></tr>
+      <tr><td>9</td><td>Historical Tweets in Blue</td><td><span class="badge med">P1</span></td><td>~30min</td><td>None</td></tr>
+      <tr><td>10</td><td>Delete Alert Row</td><td><span class="badge med">P1</span></td><td>~30min</td><td>None</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================================ -->
+<hr class="section-divider">
+
+<h2 style="color: #ffab40; font-size: 18px;">Open Questions for Jon</h2>
+<div class="card">
+  <ol>
+    <li><strong>Catalyst PRs:</strong> What are the exact SignalR event names on the Azure hub for PR/catalyst alerts? Need to subscribe in trade-companion-next directly.</li>
+    <li><strong>Polygon API:</strong> Do we have a Polygon API key for O/S and Exchange data? Or should we use Finviz scraping like the legacy app?</li>
+    <li><strong>MVPHS:</strong> Confirm formula — Float × (Bid + Ask) / 2? Or Float × Last price?</li>
+    <li><strong>Theme vs Type:</strong> Are these two separate manual fields? What's the distinction? (e.g., Theme = "AI", Type = "3x Leverage ETF"?)</li>
+    <li><strong>Website URL:</strong> Should there be multiple URL slots (Finviz + X + Custom) or one generic URL field?</li>
+    <li><strong>AlertService.cs push:</strong> Ready to push the dedup removal — same equitydynamics/Trade-Companion repo?</li>
+  </ol>
+</div>
+
+<p style="margin-top: 40px; color: #616161; font-size: 12px;">
+  Plan generated by Claude Code &nbsp;|&nbsp; trade-companion-next @ /Users/cwebmac/Documents/MasterTC/trade-companion-next
+</p>
+
+</body>
+</html>

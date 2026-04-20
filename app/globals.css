@@ -246,6 +246,23 @@ td input {
   @apply py-0;
 }
 
+/* AlertBar — pin every row to the same height so new alerts pushing in
+   can't cause visible row-height jitter (mixed cell contents like the
+   AI button, truncated tweet text, and price alerts all have
+   different natural heights otherwise). */
+.alert-bar-table tr {
+  height: 26px;
+}
+.alert-bar-table td {
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.alert-bar-table td.truncate,
+.alert-bar-table td .truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 tr:hover {
   background: rgba(255, 255, 255, 0.03);
 }

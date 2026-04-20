@@ -238,7 +238,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full text-sm">
+        <table className="w-full text-sm alert-bar-table">
           <thead className="sticky top-0 bg-gray-800 text-xs text-gray-400">
             <tr>
               <th className="w-8 px-2 py-1 text-center">Flag</th>

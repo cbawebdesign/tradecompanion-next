@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TC — Complete Data Source Map & Live Test System</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#050810;--bg2:#0a0e1a;--bg3:#0e1225;--bg4:#111730;--bg5:#151b38;--bd:#1a2040;--bd2:#252d55;--t1:#d4daf0;--t2:#8892b8;--t3:#5a6488;--tb:#eef0fa;--blue:#4488ff;--cyan:#22ddee;--green:#00ee88;--yellow:#ffcc22;--orange:#ff8844;--red:#ff4466;--purple:#aa66ff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--t1);line-height:1.65;min-height:100vh}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(68,136,255,0.015) 1px,transparent 1px),linear-gradient(90deg,rgba(68,136,255,0.015) 1px,transparent 1px);background-size:48px 48px;pointer-events:none;z-index:0}
+.c{max-width:1400px;margin:0 auto;padding:2rem 1.5rem 6rem;position:relative;z-index:1}
+.hdr{text-align:center;padding:2.5rem 2rem 2rem;margin-bottom:2rem;border:1px solid var(--bd);border-radius:12px;background:linear-gradient(180deg,var(--bg3),var(--bg));position:relative;overflow:hidden}
+.hdr::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent 5%,var(--cyan) 50%,transparent 95%)}
+.hdr h1{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:800;color:var(--tb);margin-bottom:.3rem}
+.hdr h1 em{color:var(--cyan);font-style:normal}
+.hdr p{font-size:.82rem;color:var(--t2)}
+.hdr .meta{font-family:'JetBrains Mono',monospace;font-size:.62rem;color:var(--t3);margin-top:1rem;letter-spacing:.05em}
+details.sec{margin-bottom:1.5rem;border:1px solid var(--bd);border-radius:10px;overflow:hidden;background:var(--bg2)}
+details.sec>summary{font-family:'JetBrains Mono',monospace;font-size:.8rem;font-weight:700;padding:.85rem 1.25rem;background:var(--bg3);border-bottom:1px solid var(--bd);cursor:pointer;display:flex;align-items:center;gap:.75rem;list-style:none;color:var(--t1)}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::before{content:'▸';font-size:.7rem;color:var(--blue);transition:transform .2s}
+details.sec[open]>summary::before{transform:rotate(90deg)}
+.sb{padding:1.25rem}
+.sn{font-size:.58rem;font-weight:800;padding:2px 8px;border-radius:4px;letter-spacing:.1em}
+.s1{background:rgba(68,136,255,.15);color:var(--blue)}.s2{background:rgba(34,221,238,.12);color:var(--cyan)}.s3{background:rgba(0,238,136,.12);color:var(--green)}.s4{background:rgba(255,136,68,.12);color:var(--orange)}.s5{background:rgba(170,102,255,.12);color:var(--purple)}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:.74rem;margin-bottom:1rem}
+thead th{font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;padding:.6rem .7rem;background:var(--bg5);color:var(--t3);border-bottom:1px solid var(--bd2);text-align:left;white-space:nowrap;position:sticky;top:0;z-index:2}
+tbody td{padding:.5rem .7rem;border-bottom:1px solid rgba(26,32,64,.6);vertical-align:top;color:var(--t2);line-height:1.5}
+tbody tr:hover td{background:rgba(68,136,255,.03)}
+tbody td:first-child{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--t1);white-space:nowrap}
+code{font-family:'JetBrains Mono',monospace;font-size:.66rem;background:rgba(68,136,255,.08);padding:1px 5px;border-radius:3px;color:var(--cyan)}
+.badge{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.56rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.b-rt{background:rgba(0,238,136,.1);color:var(--green);border:1px solid rgba(0,238,136,.2)}
+.b-poll{background:rgba(68,136,255,.1);color:var(--blue);border:1px solid rgba(68,136,255,.2)}
+.b-push{background:rgba(34,221,238,.1);color:var(--cyan);border:1px solid rgba(34,221,238,.2)}
+.b-client{background:rgba(170,102,255,.1);color:var(--purple);border:1px solid rgba(170,102,255,.2)}
+.b-ext{background:rgba(255,136,68,.1);color:var(--orange);border:1px solid rgba(255,136,68,.2)}
+.note{font-size:.76rem;padding:.65rem 1rem;border-radius:6px;margin:.75rem 0;line-height:1.5}
+.note.info{background:rgba(68,136,255,.06);border:1px solid rgba(68,136,255,.12);color:var(--blue)}
+.note.warn{background:rgba(255,136,68,.05);border:1px solid rgba(255,136,68,.1);color:var(--orange)}
+.note.critical{background:rgba(255,68,102,.05);border:1px solid rgba(255,68,102,.1);color:var(--red)}
+.flow{background:var(--bg4);border:1px solid var(--bd);border-radius:8px;padding:1rem;margin:.75rem 0;overflow-x:auto}
+.flow h4{font-family:'JetBrains Mono',monospace;font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;margin-bottom:.75rem;color:var(--cyan)}
+.flow pre{font-family:'JetBrains Mono',monospace;font-size:.64rem;line-height:1.7;color:var(--t2);white-space:pre}
+.flow .h{color:var(--cyan);font-weight:600}.flow .g{color:var(--green);font-weight:600}.flow .y{color:var(--yellow)}.flow .r{color:var(--red)}.flow .d{color:var(--t3)}.flow .o{color:var(--orange)}
+.ft{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--t3);padding:2rem 0;border-top:1px solid var(--bd);margin-top:3rem;letter-spacing:.05em}
+@media print{body{background:#fff!important;color:#111!important}body::before{display:none!important}}
+</style>
+</head>
+<body>
+<div class="c">
+
+<div class="hdr">
+<h1>TC <em>Data Source Map</em> & Live Test System</h1>
+<p>Every endpoint, every SignalR event, every data flow &mdash; backend to frontend</p>
+<div class="meta">Updated: 2026-04-09 &nbsp;&middot;&nbsp; 52 Azure Function endpoints &nbsp;&middot;&nbsp; 9 SignalR events &nbsp;&middot;&nbsp; 14 external APIs &nbsp;&middot;&nbsp; 11 web hooks</div>
+</div>
+
+<!-- ═══════ SECTION 1: AZURE FUNCTION ENDPOINTS ═══════ -->
+<details class="sec" open>
+<summary><span class="sn s1">1</span> Azure Function &mdash; All 52 HTTP Endpoints</summary>
+<div class="sb">
+<div class="note info">Base URL: <code>https://tradecompanion3.azurewebsites.net/api</code> &mdash; All endpoints use <code>AuthorizationLevel.Anonymous</code>. Hub name: <code>tchub</code>.</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);margin:1rem 0 .5rem">Core Data Endpoints</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Method</th><th>Route</th><th>Description</th><th>Data Source</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>GET</td><td><code>/Hello</code></td><td>Health check</td><td>Static</td></tr>
+<tr><td>2</td><td>GET</td><td><code>/negotiate</code></td><td>SignalR negotiate &mdash; returns Azure SignalR URL + access token. <code>?userId=</code></td><td>Azure SignalR Management</td></tr>
+<tr><td>3</td><td>GET</td><td><code>/tweets</code></td><td>Tweets since timestamp. <code>?since={ticks}</code></td><td>Cosmos <code>X</code></td></tr>
+<tr><td>4</td><td>GET</td><td><code>/Catalyst</code></td><td>Catalyst headlines since ET time. <code>?since={datetime}</code></td><td>In-memory (CatalystScannerService)</td></tr>
+<tr><td>5</td><td>GET</td><td><code>/Filings</code></td><td>SEC filings since time. <code>?since={datetime}</code>. Default: last 5 days</td><td>Cosmos <code>SEC</code></td></tr>
+<tr><td>6</td><td>GET</td><td><code>/GetBars</code></td><td>Price bars. <code>?symbol=&amp;start=&amp;end=&amp;interval=</code></td><td>Polygon API</td></tr>
+<tr><td>7</td><td>GET</td><td><code>/Tickers</code></td><td>All US stock tickers</td><td>Polygon reference data (cached)</td></tr>
+<tr><td>8</td><td>GET</td><td><code>/NBBO</code></td><td>Best bid/offer. <code>?symbol=</code></td><td>Polygon API</td></tr>
+<tr><td>9</td><td>GET</td><td><code>/PrevCloses</code></td><td>Previous day close prices (all symbols)</td><td>Polygon grouped daily bars (cached)</td></tr>
+<tr><td>10</td><td>GET</td><td><code>/StockData</code></td><td>Stock fundamentals. <code>?symbol=&amp;user=</code> (per-user notes)</td><td>Cosmos <code>StockData</code></td></tr>
+<tr><td>11</td><td>GET</td><td><code>/AlertsBySymbol</code></td><td>ALL alert types for a symbol. Aggregates tweets, filings, TX, TV, catalysts. <code>?symbol=&amp;since=</code></td><td>Cosmos: X, SEC, TradeExchange, TradingView, Headlines</td></tr>
+<tr><td>12</td><td>GET</td><td><code>/MktCap</code></td><td><strong>STUB</strong> &mdash; returns null</td><td>N/A (dead)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);margin:1rem 0 .5rem">Trade Exchange</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Method</th><th>Route</th><th>Description</th><th>Data Source</th></tr></thead>
+<tbody>
+<tr><td>13</td><td>POST</td><td><code>/tradeexchange</code></td><td>Webhook &mdash; receives post, dedupes, broadcasts via SignalR, persists</td><td>Cosmos <code>TradeExchange</code></td></tr>
+<tr><td>14</td><td>GET</td><td><code>/TradeExchangeGet</code></td><td>Posts since time. <code>?since=</code>. Default: yesterday 4pm ET</td><td>Cosmos <code>TradeExchange</code></td></tr>
+<tr><td>15</td><td>GET</td><td><code>/TradeExchangeSymbols</code></td><td>Symbol lookup table for trade exchange</td><td>Azure Table <code>TradeExchangeSymbolMatch</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);margin:1rem 0 .5rem">TradingView</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Method</th><th>Route</th><th>Description</th><th>Data Source</th></tr></thead>
+<tbody>
+<tr><td>16</td><td>POST</td><td><code>/tv/{webhookKey}</code></td><td>Webhook &mdash; receives TV alert, broadcasts via SignalR, saves</td><td>Cosmos <code>TradingView</code></td></tr>
+<tr><td>17</td><td>GET</td><td><code>/tv/alerts</code></td><td>Backfill TV alerts. <code>?userId=</code></td><td>Cosmos <code>TradingView</code></td></tr>
+<tr><td>18</td><td>POST</td><td><code>/tv/register</code></td><td>Register webhook key. <code>{user_id, webhook_key}</code></td><td>Cosmos <code>TradingView</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);margin:1rem 0 .5rem">User Management</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Method</th><th>Route</th><th>Description</th><th>Data Source</th></tr></thead>
+<tbody>
+<tr><td>19</td><td>POST</td><td><code>/user/register</code></td><td>Register new user (generates user_key)</td><td>Cosmos <code>Users</code></td></tr>
+<tr><td>20</td><td>GET</td><td><code>/user/{userKey}</code></td><td>Get user data</td><td>Cosmos <code>Users</code></td></tr>
+<tr><td>21</td><td>PUT</td><td><code>/user/{userKey}</code></td><td>Save user data (watchlists, configs, price alerts)</td><td>Cosmos <code>Users</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);margin:1rem 0 .5rem">Admin (<code>/tcadmin/</code>) &mdash; 25 endpoints</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Method</th><th>Route</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td>22</td><td>GET</td><td><code>/tcadmin/health</code></td><td>All service health status (last-message times, counts)</td></tr>
+<tr><td>23</td><td>GET</td><td><code>/tcadmin/recent-errors</code></td><td>Error buffer. <code>?service=&amp;count=</code></td></tr>
+<tr><td>24-25</td><td>GET/PUT</td><td><code>/tcadmin/scanner-config</code></td><td>Scanner filter settings (min%, minPrice, banned)</td></tr>
+<tr><td>26</td><td>PUT</td><td><code>/tcadmin/stockdata/{ticker}</code></td><td>Partial-update stock data. Supports per-user notes</td></tr>
+<tr><td>27</td><td>GET</td><td><code>/tcadmin/catalysts</code></td><td>All catalysts (7 days from Cosmos + in-memory fallback)</td></tr>
+<tr><td>28</td><td>POST</td><td><code>/tcadmin/catalysts/backfill</code></td><td>Backfill from scanzzers. <code>?since=</code></td></tr>
+<tr><td>29</td><td>GET</td><td><code>/tcadmin/tv-alerts</code></td><td>All TV alerts (all users). <code>?since=&amp;max=</code></td></tr>
+<tr><td>30-31</td><td>POST/GET</td><td><code>/tcadmin/client-metrics</code></td><td>Client diagnostic snapshot</td></tr>
+<tr><td>32-33</td><td>POST/GET</td><td><code>/tcadmin/pr-stats</code></td><td>PR processing stats from desktop</td></tr>
+<tr><td>34</td><td>POST</td><td><code>/tcadmin/login</code></td><td>App user auth (username + password)</td></tr>
+<tr><td>35-41</td><td>CRUD</td><td><code>/tcadmin/users</code></td><td>User management (list, create, update, delete)</td></tr>
+<tr><td>42-47</td><td>CRUD</td><td><code>/tcadmin/bugs</code> + <code>/tcadmin/features</code></td><td>Bug/feature tracker</td></tr>
+<tr><td>48</td><td>POST</td><td><code>/tcadmin/rollback</code></td><td>Triggers GitHub Actions rollback. <code>?commits_back=</code></td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);margin:1rem 0 .5rem">Launcher + Timer + Test</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>Method</th><th>Route</th><th>Description</th></tr></thead>
+<tbody>
+<tr><td>49</td><td>GET</td><td><code>/lx/v3build</code></td><td>Current build number (Blob Storage)</td></tr>
+<tr><td>50</td><td>POST</td><td><code>/lx/v3download</code></td><td>Download launcher zip (password: <code>*lxV3Pass!</code>)</td></tr>
+<tr><td>51</td><td>POST</td><td><code>/lx/v3upload</code></td><td>Upload new launcher zip + bump build</td></tr>
+<tr><td>52</td><td>GET</td><td><code>/TestBroadcastNews</code></td><td>Broadcasts test headline via SignalR</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+</details>
+
+<!-- ═══════ SECTION 2: SIGNALR EVENTS ═══════ -->
+<details class="sec" open>
+<summary><span class="sn s2">2</span> SignalR Events &mdash; Every Broadcast &amp; Subscription</summary>
+<div class="sb">
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--cyan);margin:0 0 .5rem">Azure Function Broadcasts (Server → Client)</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Event</th><th>Source</th><th>Payload</th><th>Target</th><th>Legacy Sub?</th><th>Web Sub?</th></tr></thead>
+<tbody>
+<tr><td><code>BroadcastQuotes</code></td><td>QuoteManager (throttled)</td><td><code>LxQuoteSmall[]</code> (s, b, a, l, v, change, changePercent)</td><td>Per-client</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>Broadcast1sBar</code></td><td>QuoteManager (throttled)</td><td><code>LxBarSmall[]</code> (s, o, h, l, c, v, t)</td><td>Per-client</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>tradingViewAlertRaw</code></td><td>TV webhook POST</td><td><code>{id, user_id, raw_text, received_utc}</code></td><td>All clients</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>newTradeExchange</code></td><td>TX webhook POST</td><td><code>{source, content, symbols, save_time_utc}</code></td><td>All clients</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>newFiling</code></td><td>FilingRssService timer</td><td><code>lx_filing_rss</code> (symbol, form, url, dcn, cik, title)</td><td>All clients</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>newCatalystScanner</code></td><td>CatalystScannerService (15s)</td><td><code>Catalyst</code> (symbol, title, saveTime_et, startPrice)</td><td>All clients</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>BroadcastNews</code></td><td>CatalystScannerService (15s)</td><td><code>{symbol, headline, story_id, time_et, savetime_et}</code></td><td>All clients</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>ScannerAlert</code></td><td>ScannerService (<strong>DISABLED</strong>)</td><td>Scanner alert object</td><td>All clients</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>BroadcastAlertTrigger</code></td><td>Legacy AlertService only</td><td><code>AlertArgs</code> (time, alert, message, symbol, alertName, color)</td><td>All clients</td><td>&#10003; (origin)</td><td>&#10003; (listens)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--cyan);margin:1rem 0 .5rem">Client → Server Hub Methods</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Method</th><th>Args</th><th>Description</th><th>Legacy?</th><th>Web?</th></tr></thead>
+<tbody>
+<tr><td><code>SubL1</code></td><td>symbol (string)</td><td>Subscribe to L1 quotes for symbol</td><td>&#10003;</td><td>&#10003;</td></tr>
+<tr><td><code>Sub1s</code></td><td>symbol (string)</td><td>Subscribe to 1-second bars</td><td>&#10003;</td><td>&#10007; (not used)</td></tr>
+<tr><td><code>Ping</code></td><td>(none)</td><td>Heartbeat</td><td>&#10003;</td><td>&#10007;</td></tr>
+<tr><td><code>SubAlertTriggers</code></td><td>(none)</td><td>Subscribe to alert broadcasts (local hub only)</td><td>&#10003;</td><td>&#10003; (localhost only)</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--cyan);margin:1rem 0 .5rem">News Hub (Separate SignalR Connection)</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Hub</th><th>URL</th><th>Auth</th><th>Event</th><th>Legacy?</th><th>Web?</th></tr></thead>
+<tbody>
+<tr><td>News Hub</td><td><code>stage.news.scanzzers.com/newshub</code></td><td>JWT via <code>stage.scanzzers.com/auth/machine-login</code></td><td><code>BroadcastNews</code></td><td>&#10003; (NewsFeedCore)</td><td>&#10003; (useNewsHub)</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note warn"><strong>Key insight:</strong> <code>BroadcastNews</code> arrives from TWO sources &mdash; Azure Function hub (CatalystScannerService relay) AND News Hub direct. Both legacy and web subscribe to both. This is intentional for redundancy but causes duplicates that must be deduped.</div>
+</div>
+</details>
+
+<!-- ═══════ SECTION 3: EXTERNAL APIS ═══════ -->
+<details class="sec" open>
+<summary><span class="sn s3">3</span> External APIs &mdash; Everything the Backend Polls</summary>
+<div class="sb">
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>#</th><th>URL</th><th>Service</th><th>Freq</th><th>Auth</th><th>What it provides</th></tr></thead>
+<tbody>
+<tr><td>1</td><td><code>stage.scanzzers.com/tc/headlines</code></td><td>CatalystScannerService</td><td>15s</td><td><code>X-Api-Key</code></td><td>PR headlines → broadcast as <code>BroadcastNews</code> + <code>newCatalystScanner</code></td></tr>
+<tr><td>2</td><td><code>api.twitter.com/v2/...</code></td><td>xService (timer trigger)</td><td>3min</td><td>Bearer token</td><td>X/Twitter timeline → Cosmos <code>X</code> → <code>/api/tweets</code></td></tr>
+<tr><td>3</td><td><code>www.sec.gov/.../browse-edgar</code></td><td>FilingRssService</td><td>150ms timer</td><td>SEC User-Agent</td><td>SEC EDGAR ATOM feed → Cosmos <code>SEC</code> → broadcast <code>newFiling</code></td></tr>
+<tr><td>4</td><td><code>www.sec.gov/files/company_tickers.json</code></td><td>FilingRssService</td><td>Startup</td><td>SEC User-Agent</td><td>CIK → ticker mapping (one-time load)</td></tr>
+<tr><td>5</td><td><code>wss://socket.polygon.io/stocks</code></td><td>PolygonService</td><td>Persistent WS</td><td>API key</td><td>Real-time quotes + bars (L1, 1s bars)</td></tr>
+<tr><td>6-12</td><td><code>api.polygon.io/v2/aggs/...</code></td><td>PolygonService</td><td>On-demand</td><td>API key</td><td>Historical bars (1s, 1m, 1d), prev closes, NBBO, ticker list</td></tr>
+<tr><td>13</td><td><code>stage.scanzzers.com/auth/machine-login</code></td><td>News Hub auth</td><td>On connect</td><td>API key body</td><td>JWT for News Hub SignalR</td></tr>
+<tr><td>14</td><td><code>stage.news.scanzzers.com/newshub</code></td><td>News Hub</td><td>Persistent WS</td><td>JWT</td><td>Real-time PR headlines</td></tr>
+</tbody>
+</table>
+</div>
+
+<div class="note info"><strong>Cosmos DB containers (10):</strong> X, SEC, TradeExchange, TradingView, StockData, Users, AppUsers, Headlines, ScannerConfig, AdminTracker &mdash; all in database <code>TC</code>.</div>
+</div>
+</details>
+
+<!-- ═══════ SECTION 4: WEB VERSION HOOKS ═══════ -->
+<details class="sec" open>
+<summary><span class="sn s4">4</span> Web Version &mdash; All 11 Hooks &amp; Store</summary>
+<div class="sb">
+
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Hook</th><th>Transport</th><th>Endpoint / Event</th><th>Interval</th><th>Dedup</th><th>WL Filter?</th><th>Store Action</th></tr></thead>
+<tbody>
+<tr><td><code>useSignalR</code></td><td><span class="badge b-push">SignalR</span></td><td>8 events (quotes, alerts, filings, TX, catalyst, news, TV, scanner)</td><td>Real-time (quotes batched 250ms)</td><td>TV: alert ID set. Others: store-level</td><td>Quotes: yes (SubL1 per symbol). Alerts: no</td><td><code>updateQuotes()</code>, <code>addAlert()</code>, <code>addScannerAlert()</code></td></tr>
+<tr><td><code>useNewsHub</code></td><td><span class="badge b-push">SignalR</span></td><td><code>BroadcastNews</code> on news.scanzzers.com</td><td>Real-time</td><td>Store-level</td><td>No</td><td><code>addAlert()</code></td></tr>
+<tr><td><code>useFilingsPolling</code></td><td><span class="badge b-poll">REST poll</span></td><td><code>/api/Filings</code></td><td>60s</td><td><code>{cik}-{dcn}</code> ID set (cap 250)</td><td>Yes (watchlist symbols)</td><td><code>addAlert()</code> / <code>addAlerts()</code></td></tr>
+<tr><td><code>useTweetsPolling</code></td><td><span class="badge b-poll">REST poll</span></td><td><code>/api/tweets</code></td><td>30s</td><td><code>id_long</code> set (cap 500)</td><td>No (all tweets shown)</td><td><code>addAlert()</code> / <code>addAlerts()</code></td></tr>
+<tr><td><code>useCatalystPolling</code></td><td><span class="badge b-poll">REST poll</span></td><td><code>/api/Catalyst</code></td><td>60s</td><td><code>{symbol}-{saveTime}</code> set (cap 250)</td><td>Yes (watchlist)</td><td><code>addAlert()</code></td></tr>
+<tr><td><code>useTradeExchangePolling</code></td><td><span class="badge b-poll">REST poll</span></td><td><code>/api/TradeExchangeGet</code></td><td>30s</td><td><code>id</code> set (cap 250)</td><td>No (all shown)</td><td><code>addAlert()</code></td></tr>
+<tr><td><code>usePriceAlerts</code></td><td><span class="badge b-client">Client</span></td><td>Zustand quote data</td><td>On quote change</td><td><code>triggeredPriceAlerts</code> set in store</td><td>Yes (watchlist only)</td><td><code>addAlert()</code></td></tr>
+<tr><td><code>usePrevCloses</code></td><td><span class="badge b-poll">REST poll</span></td><td><code>/api/PrevCloses</code></td><td>1 hour</td><td>&mdash;</td><td>No</td><td><code>setPrevCloses()</code>, seeds quotes</td></tr>
+<tr><td><code>useStockDataPreload</code></td><td><span class="badge b-poll">REST</span></td><td><code>/api/StockData?symbol=</code></td><td>Once (5s after mount)</td><td>&mdash;</td><td>N/A</td><td>Module-level cache (NOT store)</td></tr>
+<tr><td><code>useQuoteBroadcast</code></td><td><span class="badge b-client">BroadcastChannel</span></td><td>Browser inter-tab</td><td>500ms throttle</td><td>&mdash;</td><td>N/A</td><td><code>updateQuotes()</code> in pop-outs</td></tr>
+<tr><td><code>useCrossWindowSync</code></td><td><span class="badge b-client">localStorage</span></td><td>Storage event listener</td><td>On change</td><td>Deep equality guard</td><td>N/A</td><td>Syncs watchlists, flags, alerts, config</td></tr>
+</tbody>
+</table>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--orange);margin:1rem 0 .5rem">Zustand Store — addAlert() Dedup Logic</h4>
+<div class="flow">
+<pre>
+<span class="h">store.addAlert(alert)</span>
+  <span class="d">│</span>
+  <span class="d">├─</span> Scan existing alerts[] for same <span class="y">symbol + type</span>
+  <span class="d">│</span>   <span class="d">├─</span> Exact message match? → <span class="r">SKIP (duplicate)</span>
+  <span class="d">│</span>   <span class="d">└─</span> First 40 chars match (case-insensitive, min 10)? → <span class="r">SKIP (fuzzy dup)</span>
+  <span class="d">│</span>
+  <span class="d">├─</span> Prepend to alerts[]
+  <span class="d">├─</span> Cap at <span class="g">500 entries</span>
+  <span class="d">└─</span> Persist to localStorage
+
+<span class="h">store.addAlerts(batch)</span> <span class="d">(used by initial backfill)</span>
+  <span class="d">│</span>
+  <span class="d">├─</span> Build Set of <span class="y">{symbol}|{message}|{type}</span> from existing
+  <span class="d">├─</span> Filter batch to truly new (exact key only, no fuzzy)
+  <span class="d">├─</span> Prepend reversed batch (oldest first in new block)
+  <span class="d">└─</span> Cap at <span class="g">500 entries</span>
+</pre>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--orange);margin:1rem 0 .5rem">Initial Load Stagger Schedule</h4>
+<div style="overflow-x:auto">
+<table>
+<thead><tr><th>Hook</th><th>Delay</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>PrevCloses</td><td>0ms</td><td>Needed first to compute % change</td></tr>
+<tr><td>Tweets</td><td>500ms</td><td>Lightweight</td></tr>
+<tr><td>Filings</td><td>2000ms</td><td>Medium response</td></tr>
+<tr><td>TradeExchange</td><td>3500ms</td><td>Medium response</td></tr>
+<tr><td>Catalysts</td><td>5000ms</td><td>Depends on backend warm-up</td></tr>
+<tr><td>StockData preload</td><td>5000ms</td><td>10 symbols at a time, 100ms between batches</td></tr>
+</tbody>
+</table>
+</div>
+<div class="note info">Staggering prevents <code>ERR_INSUFFICIENT_RESOURCES</code> from too many concurrent fetches at page load.</div>
+
+</div>
+</details>
+
+<!-- ═══════ SECTION 5: LIVE TEST SYSTEM ═══════ -->
+<details class="sec" open>
+<summary><span class="sn s5">5</span> Live Comparison Test System &mdash; Architecture</summary>
+<div class="sb">
+
+<div class="note critical"><strong>Requirement:</strong> No manual testing. System must run autonomously during market hours, compare legacy vs web alert streams, detect missed/extra/duplicate alerts, and detect UI performance bugs.</div>
+
+<div class="flow">
+<h4>Live Side-by-Side Architecture</h4>
+<pre>
+<span class="d">┌──────────────────────────────────────────────────────────────────┐</span>
+<span class="d">│</span>  <span class="h">PRODUCTION DATA SOURCES</span> (Azure Function, News Hub, Polygon)     <span class="d">│</span>
+<span class="d">└────────────┬─────────────────────┬───────────────────────────────┘</span>
+             <span class="d">│</span>                     <span class="d">│</span>
+     <span class="d">┌───────▼────────┐     ┌───────▼────────┐</span>
+     <span class="d">│</span> <span class="y">LEGACY DESKTOP</span> <span class="d">│</span>     <span class="d">│</span> <span class="h">WEB VERSION</span>    <span class="d">│</span>
+     <span class="d">│</span> (Justin's PC)  <span class="d">│</span>     <span class="d">│</span> (headless or   <span class="d">│</span>
+     <span class="d">│</span>                <span class="d">│</span>     <span class="d">│</span>  Claude CU)    <span class="d">│</span>
+     <span class="d">└───────┬────────┘     └───────┬────────┘</span>
+             <span class="d">│</span>                     <span class="d">│</span>
+     <span class="d">┌───────▼────────┐     ┌───────▼────────┐</span>
+     <span class="d">│</span> <span class="y">ALERT LOGGER</span>   <span class="d">│</span>     <span class="d">│</span> <span class="h">ALERT LOGGER</span>   <span class="d">│</span>
+     <span class="d">│</span> Intercepts all <span class="d">│</span>     <span class="d">│</span> Hooks into     <span class="d">│</span>
+     <span class="d">│</span> BroadcastAlert <span class="d">│</span>     <span class="d">│</span> addAlert() +   <span class="d">│</span>
+     <span class="d">│</span> Trigger events <span class="d">│</span>     <span class="d">│</span> all poll hooks <span class="d">│</span>
+     <span class="d">└───────┬────────┘     └───────┬────────┘</span>
+             <span class="d">│</span>                     <span class="d">│</span>
+             <span class="d">│</span>  POST to shared      <span class="d">│</span>
+             <span class="d">│</span>  logging endpoint     <span class="d">│</span>
+     <span class="d">┌───────▼─────────────────▼────────┐</span>
+     <span class="d">│</span>       <span class="g">COMPARISON SERVICE</span>          <span class="d">│</span>
+     <span class="d">│</span>                                  <span class="d">│</span>
+     <span class="d">│</span>  Matches alerts by:              <span class="d">│</span>
+     <span class="d">│</span>  - symbol + type + time window   <span class="d">│</span>
+     <span class="d">│</span>  - fuzzy message matching         <span class="d">│</span>
+     <span class="d">│</span>                                  <span class="d">│</span>
+     <span class="d">│</span>  Produces:                       <span class="d">│</span>
+     <span class="d">│</span>  <span class="r">- MISSED</span>: in legacy, not web    <span class="d">│</span>
+     <span class="d">│</span>  <span class="o">- EXTRA</span>: in web, not legacy     <span class="d">│</span>
+     <span class="d">│</span>  <span class="y">- DELAYED</span>: &gt;30s latency diff   <span class="d">│</span>
+     <span class="d">│</span>  <span class="g">- MATCHED</span>: confirmed parity    <span class="d">│</span>
+     <span class="d">│</span>  <span class="r">- DUPES</span>: fired &gt;1 time        <span class="d">│</span>
+     <span class="d">└──────────────┬───────────────────┘</span>
+                   <span class="d">│</span>
+          <span class="d">┌────────▼────────┐</span>
+          <span class="d">│</span>  <span class="g">DAILY REPORT</span>    <span class="d">│</span>
+          <span class="d">│</span>                  <span class="d">│</span>
+          <span class="d">│</span>  Legacy: 52      <span class="d">│</span>
+          <span class="d">│</span>  Web: 48         <span class="d">│</span>
+          <span class="d">│</span>  Matched: 47     <span class="d">│</span>
+          <span class="d">│</span>  Missed: 4       <span class="d">│</span>
+          <span class="d">│</span>  Extra: 1        <span class="d">│</span>
+          <span class="d">│</span>  Avg latency: 2s <span class="d">│</span>
+          <span class="d">└─────────────────┘</span>
+</pre>
+</div>
+
+<h4 style="font-family:'JetBrains Mono',monospace;font-size:.7rem;color:var(--green);margin:1rem 0 .5rem">Implementation Plan</h4>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t1);margin:.75rem 0 .3rem">Step 1: Web Alert Logger</h5>
+<p style="font-size:.78rem;color:var(--t2)">Add a middleware layer in the Zustand store that intercepts every <code>addAlert()</code> call and POSTs a log entry to the Azure Function: <code>POST /tcadmin/alert-log</code> with <code>{source: 'web', symbol, type, message, timestamp, hookName}</code>. This requires zero UI changes &mdash; it's a store-level wrapper.</p>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t1);margin:.75rem 0 .3rem">Step 2: Legacy Alert Logger</h5>
+<p style="font-size:.78rem;color:var(--t2)">In <code>AlertService.Alert_AlertTriggered()</code>, add a fire-and-forget POST to the same endpoint: <code>POST /tcadmin/alert-log</code> with <code>{source: 'legacy', symbol, type, message, timestamp, alertName}</code>. One line of code.</p>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t1);margin:.75rem 0 .3rem">Step 3: Comparison Endpoint</h5>
+<p style="font-size:.78rem;color:var(--t2)">New Azure Function endpoint: <code>GET /tcadmin/alert-diff?date=</code>. Reads logged alerts from both sources, matches by symbol + type + 60-second time window, returns the diff report.</p>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t1);margin:.75rem 0 .3rem">Step 4: Claude Computer Use (Performance Testing)</h5>
+<p style="font-size:.78rem;color:var(--t2)">Run Claude Computer Use session during market hours pointed at the web version. Tasked with:</p>
+<ul style="font-size:.78rem;color:var(--t2);padding-left:1.25rem">
+<li>Monitoring alert bar for visual glitches (duplicates, flickering, frozen scroll)</li>
+<li>Checking memory usage over time (chrome://process-internals or Performance tab)</li>
+<li>Testing interactions: click symbol → verify AHK fires, click alert → verify URL opens, scroll → verify smooth</li>
+<li>Screenshotting any anomaly for review</li>
+</ul>
+
+<h5 style="font-family:'JetBrains Mono',monospace;font-size:.65rem;color:var(--t1);margin:.75rem 0 .3rem">Step 5: Daily Automated Report</h5>
+<p style="font-size:.78rem;color:var(--t2)">Timer trigger in Azure Function runs at market close (4:30pm ET). Calls the diff endpoint, formats a report, posts to a Slack/email/dashboard. Chris reviews the next morning.</p>
+
+<div class="note warn"><strong>Key advantage:</strong> This runs on LIVE production data. No mocking, no replay, no synthetic data. If Justin would have missed an alert, the system catches it. Runs unattended every market day.</div>
+
+</div>
+</details>
+
+<div class="ft">TC Data Source Map &amp; Live Test System &nbsp;&middot;&nbsp; Generated 2026-04-09 &nbsp;&middot;&nbsp; Claude Code</div>
+</div>
+</body>
+</html>

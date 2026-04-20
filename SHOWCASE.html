@@ -1,0 +1,2344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Trade Companion Web — Feature Showcase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:ital,wght@0,400..700;1,400..700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+/* ──────────────────────────────────────────────────────────
+   DESIGN SYSTEM
+   Direction: refined terminal — editorial serif display,
+   technical monospace, whisper-quiet sans. Electric accents
+   on obsidian. Hairline rules. Asymmetric composition.
+────────────────────────────────────────────────────────── */
+
+:root {
+  --bg: #050607;
+  --bg-raised: #0b0c0e;
+  --bg-elev: #111214;
+  --bg-glass: rgba(255, 255, 255, 0.02);
+  --border: #1a1b1e;
+  --border-bright: #2a2b30;
+  --border-glow: rgba(103, 232, 249, 0.15);
+
+  --ink: #f0f1f3;
+  --ink-soft: #b4b6bd;
+  --ink-mute: #6b6d76;
+  --ink-dim: #3d3f46;
+
+  --cyan: #67e8f9;
+  --cyan-glow: rgba(103, 232, 249, 0.4);
+  --emerald: #34d399;
+  --emerald-glow: rgba(52, 211, 153, 0.4);
+  --amber: #fcd34d;
+  --amber-glow: rgba(252, 211, 77, 0.4);
+  --coral: #fb7185;
+  --violet: #a78bfa;
+
+  --serif: "Instrument Serif", "Times New Roman", serif;
+  --sans: "Instrument Sans", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+
+  --radius: 2px;
+  --radius-md: 6px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 15px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "ss02", "cv11";
+  background-image:
+    radial-gradient(ellipse 800px 500px at 10% 0%, rgba(103, 232, 249, 0.04), transparent 60%),
+    radial-gradient(ellipse 600px 400px at 90% 30%, rgba(167, 139, 250, 0.025), transparent 70%);
+}
+
+/* Grain overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 100;
+  opacity: 0.4;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.2 0 0 0 0 0.2 0 0 0 0 0.25 0 0 0 0.4 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Subtle grid */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.015) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.015) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   TICKER TAPE (top)
+────────────────────────────────────────────────────────── */
+.ticker {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: rgba(5, 6, 7, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  z-index: 50;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+
+.ticker__track {
+  display: flex;
+  gap: 48px;
+  white-space: nowrap;
+  animation: tick 60s linear infinite;
+  padding-left: 100vw;
+}
+
+.ticker__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink-mute);
+}
+
+.ticker__item strong {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.ticker__item .up {
+  color: var(--emerald);
+}
+
+.ticker__item .down {
+  color: var(--coral);
+}
+
+.ticker__item span.dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+}
+
+@keyframes tick {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+/* ──────────────────────────────────────────────────────────
+   SIDEBAR NAV
+────────────────────────────────────────────────────────── */
+.side {
+  position: fixed;
+  left: 0;
+  top: 32px;
+  bottom: 0;
+  width: 220px;
+  padding: 40px 28px;
+  border-right: 1px solid var(--border);
+  background: rgba(5, 6, 7, 0.6);
+  backdrop-filter: blur(20px);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+}
+
+.side__brand {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+
+.side__brand b {
+  font-style: normal;
+  font-family: var(--sans);
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  margin-left: 8px;
+  vertical-align: middle;
+  padding: 2px 6px;
+  border: 1px solid var(--cyan);
+  border-radius: var(--radius);
+}
+
+.side__sub {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 48px;
+}
+
+.side__nav {
+  list-style: none;
+  flex: 1;
+}
+
+.side__nav li {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  counter-increment: navi;
+}
+
+.side__nav a {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 8px 0;
+  color: var(--ink-mute);
+  text-decoration: none;
+  transition: color 0.25s ease;
+  position: relative;
+}
+
+.side__nav a::before {
+  content: counter(navi, decimal-leading-zero);
+  font-size: 10px;
+  color: var(--ink-dim);
+  transition: color 0.25s ease;
+}
+
+.side__nav a:hover,
+.side__nav a.is-active {
+  color: var(--ink);
+}
+
+.side__nav a:hover::before,
+.side__nav a.is-active::before {
+  color: var(--cyan);
+}
+
+.side__nav a.is-active::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 12px var(--cyan-glow);
+}
+
+.side ol {
+  counter-reset: navi;
+  list-style: none;
+}
+
+.side__foot {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.side__foot-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+  margin-bottom: 6px;
+}
+
+.side__foot-row span.live {
+  color: var(--emerald);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.side__foot-row span.live::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 8px var(--emerald-glow);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+/* ──────────────────────────────────────────────────────────
+   LAYOUT
+────────────────────────────────────────────────────────── */
+.wrap {
+  margin-left: 220px;
+  margin-top: 32px;
+  padding: 0 64px;
+  position: relative;
+  z-index: 1;
+}
+
+section {
+  min-height: 100vh;
+  padding: 100px 0 120px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+section:last-of-type {
+  border-bottom: none;
+}
+
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  gap: 24px;
+  margin-bottom: 56px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+
+.sec-head__num {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+
+.sec-head__title {
+  font-family: var(--serif);
+  font-size: 42px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  flex: 1;
+}
+
+.sec-head__title em {
+  font-style: italic;
+  color: var(--cyan);
+}
+
+.sec-head__meta {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+  text-align: right;
+}
+
+/* ──────────────────────────────────────────────────────────
+   HERO
+────────────────────────────────────────────────────────── */
+.hero {
+  padding: 160px 0 140px !important;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+
+.hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px;
+  border: 1px solid var(--border-bright);
+  border-radius: 50px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--emerald);
+  margin-bottom: 48px;
+  background: rgba(52, 211, 153, 0.04);
+}
+
+.hero__badge::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--emerald);
+  box-shadow: 0 0 12px var(--emerald-glow);
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.hero__badge a {
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.7;
+  transition: opacity 0.25s;
+}
+.hero__badge a:hover { opacity: 1; }
+
+.hero__title {
+  font-family: var(--serif);
+  font-size: clamp(72px, 11vw, 160px);
+  line-height: 0.88;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  margin-bottom: 24px;
+  font-weight: 400;
+}
+
+.hero__title em {
+  font-style: italic;
+  color: var(--cyan);
+  display: block;
+  font-size: 0.85em;
+  opacity: 0.95;
+}
+
+.hero__tagline {
+  font-family: var(--sans);
+  font-size: 22px;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  max-width: 680px;
+  font-weight: 300;
+  margin-bottom: 72px;
+  letter-spacing: -0.01em;
+}
+
+.hero__tagline b {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.hero__divider {
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--border-bright) 20%, var(--border-bright) 80%, transparent);
+  margin-bottom: 56px;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.stat {
+  padding: 40px 0;
+  border-right: 1px solid var(--border);
+  padding-right: 40px;
+  position: relative;
+}
+
+.stat:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+
+.stat:not(:first-child) {
+  padding-left: 40px;
+}
+
+.stat__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 12px;
+}
+
+.stat__number {
+  font-family: var(--serif);
+  font-size: 120px;
+  line-height: 0.9;
+  color: var(--ink);
+  font-weight: 400;
+  margin-bottom: 16px;
+  font-variant-numeric: tabular-nums;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.stat__number sub {
+  font-family: var(--mono);
+  font-size: 14px;
+  color: var(--ink-mute);
+  vertical-align: baseline;
+  letter-spacing: 0.04em;
+}
+
+.stat__desc {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink-soft);
+  max-width: 260px;
+}
+
+/* ──────────────────────────────────────────────────────────
+   ALERT TYPES CAROUSEL
+────────────────────────────────────────────────────────── */
+.alert-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding: 12px 4px 60px;
+  margin: 0 -64px;
+  padding-left: 64px;
+  padding-right: 64px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-bright) transparent;
+}
+
+.alert-scroll::-webkit-scrollbar {
+  height: 6px;
+}
+.alert-scroll::-webkit-scrollbar-track { background: transparent; }
+.alert-scroll::-webkit-scrollbar-thumb {
+  background: var(--border-bright);
+  border-radius: 3px;
+}
+
+.alert-card {
+  flex: 0 0 320px;
+  min-height: 280px;
+  padding: 28px;
+  border: 1px solid var(--border);
+  background: linear-gradient(to bottom, var(--bg-raised), var(--bg));
+  position: relative;
+  scroll-snap-align: start;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.alert-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent, var(--cyan));
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+
+.alert-card:hover {
+  border-color: var(--accent, var(--cyan));
+  transform: translateY(-4px);
+  box-shadow: 0 20px 60px -20px var(--accent-glow, var(--cyan-glow));
+}
+
+.alert-card:hover::before {
+  opacity: 1;
+}
+
+.alert-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 32px;
+}
+
+.alert-card__ico {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-bright);
+  border-radius: var(--radius);
+  color: var(--accent, var(--cyan));
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.alert-card__badge {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+  background: rgba(103, 232, 249, 0.08);
+  color: var(--cyan);
+  border: 1px solid rgba(103, 232, 249, 0.2);
+}
+
+.alert-card__badge.poll {
+  background: rgba(252, 211, 77, 0.08);
+  color: var(--amber);
+  border-color: rgba(252, 211, 77, 0.2);
+}
+
+.alert-card__badge.hybrid {
+  background: rgba(167, 139, 250, 0.08);
+  color: var(--violet);
+  border-color: rgba(167, 139, 250, 0.2);
+}
+
+.alert-card__name {
+  font-family: var(--serif);
+  font-size: 32px;
+  line-height: 1;
+  color: var(--ink);
+  margin-bottom: 12px;
+  font-weight: 400;
+}
+
+.alert-card__name em {
+  font-style: italic;
+  color: var(--accent, var(--cyan));
+}
+
+.alert-card__desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+  margin-bottom: auto;
+  padding-bottom: 24px;
+}
+
+.alert-card__meta {
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  display: flex;
+  justify-content: space-between;
+  letter-spacing: 0.06em;
+}
+
+.alert-card__meta code {
+  color: var(--ink-soft);
+}
+
+/* Scroll hint */
+.scroll-hint {
+  position: absolute;
+  right: 64px;
+  top: 110px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scroll-hint::after {
+  content: "→";
+  font-size: 14px;
+  animation: pt 1.8s ease-in-out infinite;
+}
+
+@keyframes pt {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(6px); }
+}
+
+/* ──────────────────────────────────────────────────────────
+   ARCHITECTURE DIAGRAM
+────────────────────────────────────────────────────────── */
+.arch {
+  position: relative;
+  margin: 40px 0 0;
+  padding: 60px 40px;
+  border: 1px solid var(--border);
+  background: radial-gradient(ellipse at center, rgba(103, 232, 249, 0.03), transparent 70%);
+}
+
+.arch__lane {
+  display: grid;
+  grid-template-columns: 200px 1fr 1fr 200px;
+  gap: 40px;
+  align-items: center;
+  margin-bottom: 40px;
+  position: relative;
+}
+
+.arch__lane:last-of-type {
+  margin-bottom: 0;
+}
+
+.arch__node {
+  padding: 20px 24px;
+  border: 1px solid var(--border-bright);
+  background: var(--bg-raised);
+  text-align: center;
+  position: relative;
+  transition: border-color 0.3s;
+}
+
+.arch__node-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin-bottom: 8px;
+}
+
+.arch__node-name {
+  font-family: var(--sans);
+  font-size: 15px;
+  color: var(--ink);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.arch__node-detail {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+}
+
+.arch__node.backend { border-color: var(--violet); }
+.arch__node.signalr { border-color: var(--emerald); }
+.arch__node.web { border-color: var(--cyan); }
+.arch__node.auditor { border-color: var(--amber); }
+
+.arch__pipe {
+  height: 1px;
+  background: linear-gradient(to right, var(--border-bright), var(--border-bright) 50%, transparent);
+  background-size: 8px 1px;
+  position: relative;
+  overflow: hidden;
+}
+
+.arch__pipe::before {
+  content: "";
+  position: absolute;
+  top: -3px;
+  left: 0;
+  width: 60px;
+  height: 7px;
+  background: radial-gradient(ellipse, var(--emerald-glow), transparent 70%);
+  animation: flow 3s linear infinite;
+}
+
+.arch__pipe.slow::before {
+  background: radial-gradient(ellipse, var(--amber-glow), transparent 70%);
+  animation: flow 6s linear infinite;
+}
+
+@keyframes flow {
+  from { transform: translateX(-60px); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  to { transform: translateX(calc(100% + 60px)); opacity: 0; }
+}
+
+.arch__label {
+  font-family: var(--mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--ink-mute);
+  text-align: center;
+}
+
+.arch__label b {
+  color: var(--emerald);
+  font-weight: 500;
+}
+
+.arch__label.slow b {
+  color: var(--amber);
+}
+
+.arch__divider {
+  position: relative;
+  margin: 48px 0 40px;
+  text-align: center;
+}
+
+.arch__divider::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.arch__divider span {
+  position: relative;
+  background: var(--bg);
+  padding: 0 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.arch__callout {
+  margin-top: 56px;
+  padding: 24px 32px;
+  border-left: 2px solid var(--cyan);
+  background: rgba(103, 232, 249, 0.03);
+  font-family: var(--serif);
+  font-size: 22px;
+  font-style: italic;
+  color: var(--ink);
+  line-height: 1.4;
+}
+
+.arch__callout b {
+  font-family: var(--mono);
+  font-style: normal;
+  font-size: 13px;
+  color: var(--cyan);
+  display: block;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────────────────
+   FEATURE GRID (EXPANDABLE)
+────────────────────────────────────────────────────────── */
+.cat {
+  margin-bottom: 64px;
+}
+
+.cat__head {
+  display: flex;
+  align-items: baseline;
+  gap: 20px;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.cat__num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.1em;
+}
+
+.cat__name {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ink);
+}
+
+.cat__name.i em { color: var(--cyan); font-style: normal; }
+.cat__name.u em { color: var(--emerald); font-style: normal; }
+.cat__name.r em { color: var(--amber); font-style: normal; }
+
+.cat__count {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-mute);
+}
+
+.feat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 0;
+  border-top: 1px solid var(--border);
+}
+
+.feat {
+  padding: 28px 24px 28px 0;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding-right: 28px;
+  cursor: pointer;
+  position: relative;
+  transition: background 0.25s;
+}
+
+.feat:last-child {
+  border-right: none;
+}
+
+.feat:hover {
+  background: var(--bg-glass);
+}
+
+.feat__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.feat__num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+  letter-spacing: 0.1em;
+}
+
+.feat__toggle {
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border-bright);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  color: var(--ink-mute);
+  font-family: var(--mono);
+  font-size: 10px;
+}
+
+.feat.is-open .feat__toggle {
+  background: var(--cyan);
+  color: var(--bg);
+  border-color: var(--cyan);
+  transform: rotate(45deg);
+}
+
+.feat__name {
+  font-family: var(--serif);
+  font-size: 24px;
+  line-height: 1.15;
+  color: var(--ink);
+  margin-bottom: 6px;
+  letter-spacing: -0.01em;
+}
+
+.feat__name em {
+  font-style: italic;
+  color: var(--cyan);
+}
+
+.feat__short {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.5;
+}
+
+.feat__detail {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.feat.is-open .feat__detail {
+  max-height: 600px;
+}
+
+.feat__detail-inner {
+  padding-top: 20px;
+  margin-top: 20px;
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.65;
+}
+
+.feat__detail-inner code {
+  font-family: var(--mono);
+  font-size: 12px;
+  background: var(--bg-elev);
+  padding: 2px 6px;
+  border-radius: 3px;
+  color: var(--cyan);
+  border: 1px solid var(--border);
+}
+
+.feat__detail-inner ul {
+  list-style: none;
+  margin-top: 12px;
+}
+
+.feat__detail-inner ul li {
+  padding: 4px 0;
+  padding-left: 18px;
+  position: relative;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+.feat__detail-inner ul li::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--cyan);
+}
+
+/* ──────────────────────────────────────────────────────────
+   PERFORMANCE (before/after)
+────────────────────────────────────────────────────────── */
+.perf {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.perf-item {
+  padding: 40px;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+.perf-item:last-child {
+  border-right: none;
+}
+
+.perf-item__num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  letter-spacing: 0.1em;
+  margin-bottom: 12px;
+}
+
+.perf-item__name {
+  font-family: var(--serif);
+  font-size: 24px;
+  color: var(--ink);
+  line-height: 1.15;
+  margin-bottom: 28px;
+  letter-spacing: -0.01em;
+}
+
+.perf-item__row {
+  margin-bottom: 16px;
+}
+
+.perf-item__row-label {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.perf-item__row-label.before { color: var(--coral); }
+.perf-item__row-label.after  { color: var(--emerald); }
+
+.perf-item__row-label span.val {
+  font-size: 13px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.perf-bar {
+  height: 6px;
+  background: var(--bg-elev);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.perf-bar__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 1.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  width: 0;
+}
+
+.perf-bar__fill.before {
+  background: linear-gradient(to right, #fb7185, #ef4444);
+}
+
+.perf-bar__fill.after {
+  background: linear-gradient(to right, var(--emerald), #10b981);
+  box-shadow: 0 0 12px var(--emerald-glow);
+}
+
+.perf-item__note {
+  font-size: 12px;
+  color: var(--ink-mute);
+  margin-top: auto;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+  font-style: italic;
+  font-family: var(--serif);
+}
+
+/* ──────────────────────────────────────────────────────────
+   STACK PILLS
+────────────────────────────────────────────────────────── */
+.stack {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 40px;
+}
+
+.stack__pill {
+  padding: 10px 18px;
+  border: 1px solid var(--border-bright);
+  border-radius: 50px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--ink-soft);
+  letter-spacing: 0.04em;
+  transition: all 0.25s;
+  cursor: default;
+  background: var(--bg-raised);
+}
+
+.stack__pill:hover {
+  border-color: var(--cyan);
+  color: var(--cyan);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 30px -15px var(--cyan-glow);
+}
+
+.stack__pill::before {
+  content: "●";
+  color: var(--ink-dim);
+  margin-right: 8px;
+  font-size: 8px;
+  transition: color 0.25s;
+}
+
+.stack__pill:hover::before {
+  color: var(--cyan);
+}
+
+/* ──────────────────────────────────────────────────────────
+   PARITY TABLE
+────────────────────────────────────────────────────────── */
+.parity {
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.parity-head {
+  display: grid;
+  grid-template-columns: 40px 3fr 1fr 1fr 1fr;
+  gap: 24px;
+  padding: 16px 24px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+
+.parity-row {
+  display: grid;
+  grid-template-columns: 40px 3fr 1fr 1fr 1fr;
+  gap: 24px;
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.parity-row:hover {
+  background: var(--bg-glass);
+}
+
+.parity-row:last-child {
+  border-bottom: none;
+}
+
+.parity-num {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-dim);
+}
+
+.parity-name {
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.parity-name small {
+  display: block;
+  font-size: 11px;
+  color: var(--ink-mute);
+  margin-top: 4px;
+  font-family: var(--mono);
+}
+
+.parity-cell {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.parity-cell .y { color: var(--emerald); }
+.parity-cell .n { color: var(--ink-dim); }
+.parity-cell .plus { color: var(--cyan); }
+
+.parity-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  display: inline-block;
+  font-weight: 500;
+}
+
+.parity-status.parity { background: rgba(52,211,153,.1); color: var(--emerald); }
+.parity-status.better { background: rgba(103,232,249,.1); color: var(--cyan); }
+
+/* ──────────────────────────────────────────────────────────
+   ROADMAP
+────────────────────────────────────────────────────────── */
+.roadmap {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.road-card {
+  padding: 32px 28px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s;
+}
+
+.road-card:hover {
+  border-color: var(--border-bright);
+}
+
+.road-card__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--amber);
+  margin-bottom: 24px;
+}
+
+.road-card__badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+
+.road-card__name {
+  font-family: var(--serif);
+  font-size: 26px;
+  line-height: 1.15;
+  color: var(--ink);
+  margin-bottom: 16px;
+  letter-spacing: -0.01em;
+}
+
+.road-card__name em {
+  font-style: italic;
+  color: var(--amber);
+}
+
+.road-card__desc {
+  font-size: 13px;
+  color: var(--ink-soft);
+  line-height: 1.6;
+  font-family: var(--serif);
+  font-style: italic;
+  padding-bottom: 24px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.road-card__meta {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-mute);
+  letter-spacing: 0.06em;
+  line-height: 1.8;
+}
+
+.road-card__meta b {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+/* ──────────────────────────────────────────────────────────
+   FOOTER
+────────────────────────────────────────────────────────── */
+.foot {
+  margin-left: 220px;
+  padding: 60px 64px 40px;
+  border-top: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  background: var(--bg-raised);
+}
+
+.foot__brand {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 32px;
+  color: var(--ink-soft);
+  line-height: 1;
+}
+
+.foot__meta {
+  text-align: right;
+  line-height: 1.8;
+}
+
+/* ──────────────────────────────────────────────────────────
+   RESPONSIVE
+────────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
+  .side { display: none; }
+  .wrap, .foot { margin-left: 0; padding-left: 32px; padding-right: 32px; }
+  .hero__title { font-size: clamp(56px, 14vw, 100px); }
+  .stats, .perf, .roadmap { grid-template-columns: 1fr; }
+  .stat { border-right: none; border-bottom: 1px solid var(--border); padding-right: 0; padding-left: 0 !important; }
+  .perf-item { border-right: none; border-bottom: 1px solid var(--border); }
+  .feat-grid { grid-template-columns: 1fr; }
+  .feat { border-right: none; }
+  .arch__lane { grid-template-columns: 1fr; }
+  .parity-head, .parity-row { grid-template-columns: 30px 2fr 1fr 1fr 1fr; padding: 12px 16px; font-size: 10px; }
+  .alert-scroll { margin: 0 -32px; padding-left: 32px; padding-right: 32px; }
+}
+</style>
+</head>
+<body>
+
+<!-- Ticker tape -->
+<div class="ticker">
+  <div class="ticker__track">
+    <span class="ticker__item"><strong>TRADE COMPANION</strong> v2.1 <span class="dot"></span></span>
+    <span class="ticker__item">ALERT.PARITY <strong>100%</strong> <span class="up">▲</span></span>
+    <span class="ticker__item">UPTIME <strong>99.8%</strong></span>
+    <span class="ticker__item">ALERT.SOURCES <strong>11</strong></span>
+    <span class="ticker__item">DEDUP.KEYS <strong>active</strong> <span class="up">●</span></span>
+    <span class="ticker__item">SAFETY.NET <strong>60s</strong></span>
+    <span class="ticker__item">COSMOS.DB <strong>synced</strong></span>
+    <span class="ticker__item">SIGNALR <strong>connected</strong> <span class="up">●</span></span>
+    <span class="ticker__item">VERCEL <strong>deployed</strong></span>
+    <span class="ticker__item">AIRTABLE <strong>direct</strong></span>
+    <span class="ticker__item">FEATURES.NEW <strong>+13</strong> <span class="up">▲</span></span>
+    <span class="ticker__item">PERF.FIXED <strong>3 cascades</strong></span>
+    <span class="ticker__item">LEGACY.GAP <strong>0</strong> <span class="up">▲</span></span>
+    <!-- duplicate for infinite scroll -->
+    <span class="ticker__item"><strong>TRADE COMPANION</strong> v2.1 <span class="dot"></span></span>
+    <span class="ticker__item">ALERT.PARITY <strong>100%</strong> <span class="up">▲</span></span>
+    <span class="ticker__item">UPTIME <strong>99.8%</strong></span>
+    <span class="ticker__item">ALERT.SOURCES <strong>11</strong></span>
+    <span class="ticker__item">DEDUP.KEYS <strong>active</strong> <span class="up">●</span></span>
+    <span class="ticker__item">SAFETY.NET <strong>60s</strong></span>
+    <span class="ticker__item">COSMOS.DB <strong>synced</strong></span>
+    <span class="ticker__item">SIGNALR <strong>connected</strong> <span class="up">●</span></span>
+    <span class="ticker__item">VERCEL <strong>deployed</strong></span>
+    <span class="ticker__item">AIRTABLE <strong>direct</strong></span>
+    <span class="ticker__item">FEATURES.NEW <strong>+13</strong> <span class="up">▲</span></span>
+    <span class="ticker__item">PERF.FIXED <strong>3 cascades</strong></span>
+    <span class="ticker__item">LEGACY.GAP <strong>0</strong> <span class="up">▲</span></span>
+  </div>
+</div>
+
+<!-- Sidebar -->
+<aside class="side">
+  <div class="side__brand"><em>TC</em><b>WEB</b></div>
+  <div class="side__sub">FEATURE SHOWCASE / v2.1.0</div>
+  <nav>
+    <ol class="side__nav">
+      <li><a href="#hero" class="is-active">Overview</a></li>
+      <li><a href="#alerts">Alert System</a></li>
+      <li><a href="#arch">Architecture</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#perf">Performance</a></li>
+      <li><a href="#stack">Tech Stack</a></li>
+      <li><a href="#parity">Parity Matrix</a></li>
+      <li><a href="#roadmap">Roadmap</a></li>
+    </ol>
+  </nav>
+  <div class="side__foot">
+    <div class="side__foot-row">
+      <span>Prod</span>
+      <span class="live">LIVE</span>
+    </div>
+    <div class="side__foot-row">
+      <span>Build</span>
+      <span id="build-date">04.18.26</span>
+    </div>
+    <div class="side__foot-row">
+      <span>Market</span>
+      <span id="nyc-time">—</span>
+    </div>
+  </div>
+</aside>
+
+<main class="wrap">
+
+  <!-- ═══════════════════════════════════════════════════════
+       1. HERO
+  ═══════════════════════════════════════════════════════ -->
+  <section class="hero" id="hero">
+    <div class="hero__badge">
+      <span>Production · Live</span>
+      <span style="color: var(--ink-dim)">·</span>
+      <a href="https://trade-companion-next.vercel.app" target="_blank" rel="noopener">trade-companion-next.vercel.app ↗</a>
+    </div>
+
+    <h1 class="hero__title">
+      Trade
+      <em>Companion.</em>
+    </h1>
+
+    <p class="hero__tagline">
+      Real-time alerts. Self-healing. <b>100% parity</b> with the legacy desktop app —
+      rebuilt as a web-native terminal with dedupKey tagging, a Cosmos-backed context
+      layer, and a safety net that recovers what the real-time feed drops.
+    </p>
+
+    <div class="hero__divider"></div>
+
+    <div class="stats">
+      <div class="stat">
+        <div class="stat__label">Alert Parity</div>
+        <div class="stat__number">
+          <span class="count" data-target="11">0</span>
+          <sub>/ 11 types</sub>
+        </div>
+        <div class="stat__desc">
+          PRs, Filings, Tweets, TradingView, Catalysts, Trade Exchange, Price, RSS, MAIL — all at parity or better.
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">Beyond Legacy</div>
+        <div class="stat__number">
+          <span class="count" data-target="13">0</span>
+          <sub>new</sub>
+        </div>
+        <div class="stat__desc">
+          Features the legacy desktop app doesn't have: self-healing, dedupKey tagging, cloud sync, 5 themes, AI summaries.
+        </div>
+      </div>
+      <div class="stat">
+        <div class="stat__label">Perf Wins</div>
+        <div class="stat__number">
+          <span class="count" data-target="3">0</span>
+          <sub>cascades</sub>
+        </div>
+        <div class="stat__desc">
+          Re-render storms eliminated. localStorage thrashing gone. Hooks isolated into focused concerns.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       2. ALERT SYSTEM
+  ═══════════════════════════════════════════════════════ -->
+  <section id="alerts">
+    <div class="sec-head">
+      <span class="sec-head__num">02 / Core</span>
+      <h2 class="sec-head__title">The alert <em>system.</em></h2>
+      <div class="sec-head__meta">11 types · 4 transports</div>
+    </div>
+
+    <div class="scroll-hint">scroll</div>
+
+    <div class="alert-scroll" id="alert-carousel">
+      <!-- PRs -->
+      <article class="alert-card" style="--accent: var(--cyan); --accent-glow: var(--cyan-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">PR</div>
+          <span class="alert-card__badge">real-time</span>
+        </div>
+        <h3 class="alert-card__name">Press <em>Releases</em></h3>
+        <p class="alert-card__desc">Streaming PR headlines from the News Hub and Azure SignalR relay. Dedup by story_id. Full body via resource_id.</p>
+        <div class="alert-card__meta">
+          <code>BroadcastNews</code>
+          <span>news.scanzzers</span>
+        </div>
+      </article>
+
+      <!-- FilteredPRs -->
+      <article class="alert-card" style="--accent: #fcd34d; --accent-glow: var(--amber-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">F.PR</div>
+          <span class="alert-card__badge hybrid">keyword</span>
+        </div>
+        <h3 class="alert-card__name">Filtered <em>PRs</em></h3>
+        <p class="alert-card__desc">Regex filter ported from legacy. Comma = OR, &amp; = AND, ! = NOT, * = wildcard. Highlights positive/negative matches.</p>
+        <div class="alert-card__meta">
+          <code>lib/filteredPr.ts</code>
+          <span>/+offering,!shelf/</span>
+        </div>
+      </article>
+
+      <!-- Filings -->
+      <article class="alert-card" style="--accent: #67e8f9; --accent-glow: var(--cyan-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">10-Q</div>
+          <span class="alert-card__badge hybrid">hybrid</span>
+        </div>
+        <h3 class="alert-card__name">SEC <em>Filings</em></h3>
+        <p class="alert-card__desc">Real-time SignalR + 60s polling fallback. ExcludeFilings blacklist (SC 13G, Form 4, etc). Deep-linked EDGAR URLs.</p>
+        <div class="alert-card__meta">
+          <code>newFiling</code>
+          <span>cik-dcn keyed</span>
+        </div>
+      </article>
+
+      <!-- Tweets -->
+      <article class="alert-card" style="--accent: #34d399; --accent-glow: var(--emerald-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">X</div>
+          <span class="alert-card__badge poll">30s poll</span>
+        </div>
+        <h3 class="alert-card__name">X / <em>Twitter</em></h3>
+        <p class="alert-card__desc">Tweets from watched accounts. Fires separately for each watchlisted cashtag (legacy bug fixed — no more single-symbol-only).</p>
+        <div class="alert-card__meta">
+          <code>useTweetsPolling</code>
+          <span>id_long keyed</span>
+        </div>
+      </article>
+
+      <!-- TradingView -->
+      <article class="alert-card" style="--accent: #a78bfa; --accent-glow: rgba(167,139,250,0.4);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">TV</div>
+          <span class="alert-card__badge">webhook</span>
+        </div>
+        <h3 class="alert-card__name">TradingView <em>Webhooks</em></h3>
+        <p class="alert-card__desc">Custom indicator alerts fire through a user-specific webhook URL. Backfill on connect with dedup by alert ID.</p>
+        <div class="alert-card__meta">
+          <code>tradingViewAlertRaw</code>
+          <span>per-user keyed</span>
+        </div>
+      </article>
+
+      <!-- TradeExchange -->
+      <article class="alert-card" style="--accent: #fb7185; --accent-glow: rgba(251,113,133,0.4);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">TX</div>
+          <span class="alert-card__badge hybrid">hybrid</span>
+        </div>
+        <h3 class="alert-card__name">Trade <em>Exchange</em></h3>
+        <p class="alert-card__desc">Curated chat room posts. Initial load capped at 20 to prevent backfill floods. Source-prefixed messages.</p>
+        <div class="alert-card__meta">
+          <code>newTradeExchange</code>
+          <span>post.id keyed</span>
+        </div>
+      </article>
+
+      <!-- TradeExchangeFiltered -->
+      <article class="alert-card" style="--accent: #fcd34d; --accent-glow: var(--amber-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">TX+</div>
+          <span class="alert-card__badge">toggle</span>
+        </div>
+        <h3 class="alert-card__name">TX <em>Filtered</em></h3>
+        <p class="alert-card__desc">Show-all toggle for trade exchange. When off, only watchlisted symbols surface. When on, everything flows.</p>
+        <div class="alert-card__meta">
+          <code>showAllTradeExchange</code>
+          <span>boolean flag</span>
+        </div>
+      </article>
+
+      <!-- CatalystScan -->
+      <article class="alert-card" style="--accent: #a78bfa; --accent-glow: rgba(167,139,250,0.4);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">CAT</div>
+          <span class="alert-card__badge hybrid">hybrid</span>
+        </div>
+        <h3 class="alert-card__name">Catalyst <em>Scan</em></h3>
+        <p class="alert-card__desc">High-impact headlines with price context. Resource_id now flows backend→frontend for direct PR links.</p>
+        <div class="alert-card__meta">
+          <code>newCatalystScanner</code>
+          <span>symbol-time keyed</span>
+        </div>
+      </article>
+
+      <!-- Price -->
+      <article class="alert-card" style="--accent: #34d399; --accent-glow: var(--emerald-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">$</div>
+          <span class="alert-card__badge">client-side</span>
+        </div>
+        <h3 class="alert-card__name">Price <em>Alerts</em></h3>
+        <p class="alert-card__desc">Upper/lower triggers evaluated outside the React render cycle. Fires only on quote changes — no render churn.</p>
+        <div class="alert-card__meta">
+          <code>usePriceAlerts</code>
+          <span>threshold keyed</span>
+        </div>
+      </article>
+
+      <!-- RSS -->
+      <article class="alert-card" style="--accent: #67e8f9; --accent-glow: var(--cyan-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">RSS</div>
+          <span class="alert-card__badge poll">5m poll</span>
+        </div>
+        <h3 class="alert-card__name">RSS <em>Feeds</em></h3>
+        <p class="alert-card__desc">Direct Airtable API — replaced the broken miniextensions RSS bridge. YouTube, Substack, Articles views.</p>
+        <div class="alert-card__meta">
+          <code>useAirtablePolling</code>
+          <span>guid keyed</span>
+        </div>
+      </article>
+
+      <!-- MAIL -->
+      <article class="alert-card" style="--accent: #fcd34d; --accent-glow: var(--amber-glow);">
+        <div class="alert-card__top">
+          <div class="alert-card__ico">@</div>
+          <span class="alert-card__badge poll">5m poll</span>
+        </div>
+        <h3 class="alert-card__name">Email <em>Digest</em></h3>
+        <p class="alert-card__desc">Parsed email content surfaced as alerts. Same Airtable pipe, different view — proves the direct API pattern scales.</p>
+        <div class="alert-card__meta">
+          <code>view=Articles</code>
+          <span>guid keyed</span>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       3. ARCHITECTURE
+  ═══════════════════════════════════════════════════════ -->
+  <section id="arch">
+    <div class="sec-head">
+      <span class="sec-head__num">03 / Resilience</span>
+      <h2 class="sec-head__title">Self-healing <em>architecture.</em></h2>
+      <div class="sec-head__meta">real-time + polling safety net</div>
+    </div>
+
+    <div class="arch">
+      <!-- Real-time lane -->
+      <div class="arch__lane">
+        <div class="arch__node backend">
+          <div class="arch__node-label">Source</div>
+          <div class="arch__node-name">Backend</div>
+          <div class="arch__node-detail">Azure Functions</div>
+        </div>
+        <div class="arch__pipe"></div>
+        <div class="arch__pipe"></div>
+        <div class="arch__node web">
+          <div class="arch__node-label">Destination</div>
+          <div class="arch__node-name">Web App</div>
+          <div class="arch__node-detail">React / Zustand</div>
+        </div>
+      </div>
+
+      <div class="arch__label"><b>Primary path</b> — SignalR real-time broadcast · 250ms batch flush</div>
+
+      <div class="arch__divider"><span>Fallback / Safety Net</span></div>
+
+      <!-- Auditor lane -->
+      <div class="arch__lane">
+        <div class="arch__node backend">
+          <div class="arch__node-label">Source</div>
+          <div class="arch__node-name">Backend</div>
+          <div class="arch__node-detail">AlertsBySymbol</div>
+        </div>
+        <div class="arch__pipe slow"></div>
+        <div class="arch__pipe slow"></div>
+        <div class="arch__node auditor">
+          <div class="arch__node-label">Safety net</div>
+          <div class="arch__node-name">Alert Auditor</div>
+          <div class="arch__node-detail">useAlertAuditor</div>
+        </div>
+      </div>
+
+      <div class="arch__label slow"><b>Backup path</b> — Polls every 60 seconds · catches anything the real-time feed drops · during market hours</div>
+
+      <div class="arch__callout">
+        <b>DedupKey tagging</b>
+        Every alert carries an explicit key from its source — <code style="font-family: var(--mono); font-size: 17px; color: var(--cyan);">filing:&lt;cik-dcn&gt;</code>,
+        <code style="font-family: var(--mono); font-size: 17px; color: var(--cyan);">tweet:&lt;id_long&gt;</code>,
+        <code style="font-family: var(--mono); font-size: 17px; color: var(--cyan);">cat:&lt;sym-time&gt;</code>.
+        When two sources race to deliver the same event, the store recognizes them as the same alert.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       4. FEATURES
+  ═══════════════════════════════════════════════════════ -->
+  <section id="features">
+    <div class="sec-head">
+      <span class="sec-head__num">04 / Detail</span>
+      <h2 class="sec-head__title">What we <em>built.</em></h2>
+      <div class="sec-head__meta">click to expand</div>
+    </div>
+
+    <!-- Alert Intelligence -->
+    <div class="cat">
+      <div class="cat__head">
+        <span class="cat__num">[ A ]</span>
+        <div class="cat__name i">Alert <em>Intelligence</em></div>
+        <span class="cat__count">7 features</span>
+      </div>
+      <div class="feat-grid">
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">A.01</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">FilteredPR Keyword <em>Matching</em></h4>
+          <p class="feat__short">Ported regex logic from legacy C# — comma = OR, &amp; = AND, ! = NOT, * = wildcard.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Full regex-based filter system matching the legacy desktop app's behavior. Positive keywords highlight matching PRs in green, negative keywords highlight in red.
+            <ul>
+              <li>OR matches: <code>offering,merger,acquisition</code></li>
+              <li>AND matches: <code>FDA &amp; approval</code></li>
+              <li>NOT filters: <code>!shelf,!dilution</code></li>
+              <li>Wildcards: <code>*acquisition*</code></li>
+            </ul>
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">A.02</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Multi-Symbol Tweet <em>Fix</em></h4>
+          <p class="feat__short">Legacy only alerted on the first watchlisted cashtag. We fire for every match.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            A tweet mentioning <code>$AAPL $TSLA $NVDA</code> now generates three alerts if all three are watchlisted — one per symbol, each with its own dedupKey. Legacy would have surfaced only the first.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">A.03</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">ExcludeFilings <em>Blacklist</em></h4>
+          <p class="feat__short">Pipe-separated form types to mute across both SignalR and polling paths.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Noisy filings like Form 4 insider transactions and SC 13G ownership disclosures can be silenced entirely. Config lives in settings: <code>excludeFilings: "SC 13G|4|D"</code>
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">A.04</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Alert Auditor <em>Safety Net</em></h4>
+          <p class="feat__short">Polls /api/AlertsBySymbol every 60s. Recovers anything the real-time feed drops.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            For each watchlisted symbol the auditor asks the backend: <em>what alerts exist that the web app hasn't logged yet?</em> Any gap gets replayed with its original timestamp. Runs only during market hours.
+            <ul>
+              <li>Initial delay 5 minutes — lets hooks settle</li>
+              <li>Dedup checks fresh store state before adding</li>
+              <li>Source tag: <code>useAlertAuditor</code></li>
+            </ul>
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">A.05</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">DedupKey <em>Tagging</em></h4>
+          <p class="feat__short">Explicit source-derived keys: filing:cik-dcn, tweet:id_long, cat:sym-time.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Every alert carries a unique dedup key inferred from the event source. When SignalR and polling both deliver the same filing, the store recognizes them as the same event via <code>filing:320193-000032019326000012</code> regardless of message formatting.
+            <ul>
+              <li>Filings: <code>filing:&lt;cik&gt;-&lt;dcn&gt;</code></li>
+              <li>Tweets: <code>tweet:&lt;id_long&gt;</code></li>
+              <li>Catalysts: <code>cat:&lt;symbol&gt;-&lt;saveTime&gt;</code></li>
+              <li>PRs: <code>pr:&lt;story_id&gt;</code></li>
+              <li>TradingView: <code>tv:&lt;alertId&gt;</code></li>
+            </ul>
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">A.06</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Catalyst PR <em>Linking</em></h4>
+          <p class="feat__short">resource_id now flows backend → frontend. Catalyst alerts open the actual PR.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Added <code>resource_id</code> to the Catalyst C# model, pushed it through the SignalR broadcast and the AlertsBySymbol endpoint. Frontend constructs <code>/api/pr?id=&lt;resource_id&gt;</code> on click — catalyst alerts now open the originating press release in one click.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">A.07</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Airtable Direct <em>API</em></h4>
+          <p class="feat__short">Replaced broken miniextensions RSS bridge with the native Airtable API.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Old flow: Airtable → miniextensions RSS adapter → web (frequently broken). New flow: Airtable API directly with view-scoped pagination. Three views map to alert types: <code>YouTube</code>, <code>Substack</code>, <code>Articles</code>.
+          </div></div>
+        </article>
+      </div>
+    </div>
+
+    <!-- User Experience -->
+    <div class="cat">
+      <div class="cat__head">
+        <span class="cat__num">[ B ]</span>
+        <div class="cat__name u">User <em>Experience</em></div>
+        <span class="cat__count">8 features</span>
+      </div>
+      <div class="feat-grid">
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.01</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Editable Data <em>Ribbon</em></h4>
+          <p class="feat__short">Double-click any field in the ribbon. Type. Enter. Saved to Cosmos.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Company data — float, sector, market cap, manual overrides — all editable inline. Changes persist to <code>StockData</code> in Cosmos and sync across devices.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.02</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Five Color <em>Themes</em></h4>
+          <p class="feat__short">Dark, Blue, Wall Street, Crimson, Nebula — built on CSS variables.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Theme switching via <code>data-theme</code> attribute on documentElement. Full color palette swap — backgrounds, borders, accents, alert colors — all reactive to user preference stored in the config.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.03</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Pop-Out <em>Windows</em></h4>
+          <p class="feat__short">AlertBar, Watchlist, Scanner, Mascot — each can detach into its own window.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Multi-monitor workflows supported natively. Pop-outs communicate via <code>BroadcastChannel</code> for live quote updates and <code>localStorage</code> events for state sync.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.04</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Grok AI <em>Summaries</em></h4>
+          <p class="feat__short">One-click summarization of PRs and filings via Grok.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            A Grok button appears on any alert with a URL. Click it — Grok fetches the page, summarizes the relevant content, surfaces key financial signals. Much faster than reading the full filing.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.05</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Text-to-<em>Speech</em></h4>
+          <p class="feat__short">Web Speech API reads alerts aloud. 30-second dedup on identical phrases.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Never miss a PR while you're looking away from the monitor. Voice selection, rate, and volume are user-configurable. Dedup prevents repeated identical phrases within a 30-second window.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.06</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Per-Type Alert <em>Sounds</em></h4>
+          <p class="feat__short">Frequency and duration configurable per alert type.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Distinct audio signatures per event type — filings sound different from tweets sound different from price triggers. Configured in Settings → Audio & Speech.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.07</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Alert <em>Mascot</em></h4>
+          <p class="feat__short">Animated character that reacts to incoming alerts. Tasteful levity.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Small draggable mascot lives in a pop-out window. Subtle animations trigger on alert arrival. Can be disabled for minimalist workflows. Because trading desks can be fun.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">B.08</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Clickable <em>URLs</em></h4>
+          <p class="feat__short">Every alert type — tweets, PRs, filings, catalysts — links to its source.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Tweet URLs built from <code>x.com/&lt;user&gt;/status/&lt;id_long&gt;</code>. Filing URLs from EDGAR. PR URLs from resource_id. Catalysts link to the originating press release. Every alert is one click from its source.
+          </div></div>
+        </article>
+      </div>
+    </div>
+
+    <!-- Infrastructure -->
+    <div class="cat">
+      <div class="cat__head">
+        <span class="cat__num">[ C ]</span>
+        <div class="cat__name r">Infra<em>structure</em></div>
+        <span class="cat__count">6 features</span>
+      </div>
+      <div class="feat-grid">
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">C.01</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Cosmos Watchlist <em>Sync</em></h4>
+          <p class="feat__short">Watchlists survive browser clear, work across devices, debounced save.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            <code>useCosmosSync</code> hook reconciles local Zustand state with Cosmos DB user documents. 3-second debounce on writes. Pull on mount. Push on change.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">C.02</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Cross-Window <em>Sync</em></h4>
+          <p class="feat__short">BroadcastChannel for quote updates, storage events for state sync.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Open the Watchlist in a pop-out and flag a symbol — the main window reflects it instantly. Same for quotes, alerts, theme changes. Zero network round-trips.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">C.03</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">AHK Companion <em>Server</em></h4>
+          <p class="feat__short">Local Node.js bridge so browser-side clicks can fire AutoHotKey scripts.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            20-line companion Node server listens on localhost:9876. The web app posts a symbol — the server invokes an AHK script with that symbol as an argument. Unlocks all the legacy desktop keyboard/automation workflows inside a web context.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">C.04</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Alert Integrity <em>Agent</em></h4>
+          <p class="feat__short">Azure Function timer (5m). Reconciles client log vs. backend truth.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Every 5 minutes during market hours, a timer-triggered Azure Function compares what the web client logged to what the backend actually dispatched. Mismatches flag as missed / delayed / duplicate. Admin dashboard surfaces the daily score.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">C.05</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">TC Context <em>Layer</em></h4>
+          <p class="feat__short">6 knowledge modules in Cosmos: source map, taxonomy, components, config, baselines, issue log.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            Persistent structured knowledge the agents and auditors read from. Each module is a versioned Cosmos document describing one aspect of the system — data sources, alert taxonomy, UI component map, live config, performance baselines, known issue history.
+          </div></div>
+        </article>
+
+        <article class="feat">
+          <div class="feat__top"><span class="feat__num">C.06</span><span class="feat__toggle">+</span></div>
+          <h4 class="feat__name">Settings <em>UI</em></h4>
+          <p class="feat__short">Every config field from the legacy app, plus all the new ones, surfaced in a sane UI.</p>
+          <div class="feat__detail"><div class="feat__detail-inner">
+            TradingView ID, API keys, excludeFilings, filteredPrPositive/Negative, showAllTradeExchange, per-type sounds, AHK URL, theme, TTS voice/rate — all user-editable. No more editing JSON files.
+          </div></div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       5. PERFORMANCE
+  ═══════════════════════════════════════════════════════ -->
+  <section id="perf">
+    <div class="sec-head">
+      <span class="sec-head__num">05 / Speed</span>
+      <h2 class="sec-head__title">Performance <em>cascades, eliminated.</em></h2>
+      <div class="sec-head__meta">three before / after</div>
+    </div>
+
+    <div class="perf">
+      <div class="perf-item">
+        <div class="perf-item__num">P.01</div>
+        <div class="perf-item__name">localStorage thrash</div>
+        <div class="perf-item__row">
+          <div class="perf-item__row-label before"><span>Before</span> <span class="val">4/sec · every 250ms</span></div>
+          <div class="perf-bar"><div class="perf-bar__fill before" data-w="95"></div></div>
+        </div>
+        <div class="perf-item__row">
+          <div class="perf-item__row-label after"><span>After</span> <span class="val">0/sec idle · debounced write</span></div>
+          <div class="perf-bar"><div class="perf-bar__fill after" data-w="3"></div></div>
+        </div>
+        <div class="perf-item__note">Quote updates no longer trigger persist middleware. UI stays responsive through bursty market opens.</div>
+      </div>
+
+      <div class="perf-item">
+        <div class="perf-item__num">P.02</div>
+        <div class="perf-item__name">Re-render cascade</div>
+        <div class="perf-item__row">
+          <div class="perf-item__row-label before"><span>Before</span> <span class="val">13 hooks · 1 host component</span></div>
+          <div class="perf-bar"><div class="perf-bar__fill before" data-w="88"></div></div>
+        </div>
+        <div class="perf-item__row">
+          <div class="perf-item__row-label after"><span>After</span> <span class="val">4 focused concern groups</span></div>
+          <div class="perf-bar"><div class="perf-bar__fill after" data-w="30"></div></div>
+        </div>
+        <div class="perf-item__note">Each hook group now re-renders only on its own concern — alerts, quotes, config, connection.</div>
+      </div>
+
+      <div class="perf-item">
+        <div class="perf-item__num">P.03</div>
+        <div class="perf-item__name">usePriceAlerts churn</div>
+        <div class="perf-item__row">
+          <div class="perf-item__row-label before"><span>Before</span> <span class="val">every 250ms · inside React</span></div>
+          <div class="perf-bar"><div class="perf-bar__fill before" data-w="92"></div></div>
+        </div>
+        <div class="perf-item__row">
+          <div class="perf-item__row-label after"><span>After</span> <span class="val">only on quote change · outside React</span></div>
+          <div class="perf-bar"><div class="perf-bar__fill after" data-w="12"></div></div>
+        </div>
+        <div class="perf-item__note">Threshold checks moved out of the render cycle. Fires precisely when a quote actually crosses a boundary.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       6. STACK
+  ═══════════════════════════════════════════════════════ -->
+  <section id="stack">
+    <div class="sec-head">
+      <span class="sec-head__num">06 / Platform</span>
+      <h2 class="sec-head__title">The <em>stack.</em></h2>
+      <div class="sec-head__meta">tools behind the terminal</div>
+    </div>
+
+    <p style="font-size: 16px; color: var(--ink-soft); max-width: 720px; line-height: 1.6; font-family: var(--serif); font-style: italic;">
+      Built on Next.js with a Zustand client store, Tailwind for primitives, SignalR for real-time,
+      Azure Functions + Cosmos DB for the backend plane, and Vercel for edge deployment.
+    </p>
+
+    <div class="stack">
+      <span class="stack__pill">Next.js 14</span>
+      <span class="stack__pill">TypeScript</span>
+      <span class="stack__pill">Zustand</span>
+      <span class="stack__pill">Tailwind CSS</span>
+      <span class="stack__pill">SignalR</span>
+      <span class="stack__pill">Azure Functions</span>
+      <span class="stack__pill">Cosmos DB</span>
+      <span class="stack__pill">Vercel</span>
+      <span class="stack__pill">Web Speech API</span>
+      <span class="stack__pill">BroadcastChannel</span>
+      <span class="stack__pill">Airtable API</span>
+      <span class="stack__pill">Polygon.io</span>
+      <span class="stack__pill">AHK Bridge</span>
+      <span class="stack__pill">Grok AI</span>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       7. PARITY
+  ═══════════════════════════════════════════════════════ -->
+  <section id="parity">
+    <div class="sec-head">
+      <span class="sec-head__num">07 / Audit</span>
+      <h2 class="sec-head__title">Parity <em>matrix.</em></h2>
+      <div class="sec-head__meta">side-by-side with legacy</div>
+    </div>
+
+    <div class="parity">
+      <div class="parity-head">
+        <div>#</div>
+        <div>Feature</div>
+        <div>Legacy</div>
+        <div>Web</div>
+        <div>Status</div>
+      </div>
+
+      <div class="parity-row">
+        <div class="parity-num">01</div>
+        <div class="parity-name">Press Releases<small>news hub + azure signalr</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div><span class="parity-status parity">Parity</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">02</div>
+        <div class="parity-name">FilteredPRs<small>regex ported from legacy C#</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="y">● ported</span></div>
+        <div><span class="parity-status parity">Parity</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">03</div>
+        <div class="parity-name">SEC Filings<small>signalr + polling + ExcludeFilings</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div><span class="parity-status parity">Parity</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">04</div>
+        <div class="parity-name">X / Twitter<small>multi-symbol fix applied</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="plus">+ improved</span></div>
+        <div><span class="parity-status better">Better</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">05</div>
+        <div class="parity-name">TradingView Webhooks<small>real-time + backfill</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div><span class="parity-status parity">Parity</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">06</div>
+        <div class="parity-name">Trade Exchange<small>curated chat room posts</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div><span class="parity-status parity">Parity</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">07</div>
+        <div class="parity-name">TradeExchange Filtered<small>show-all toggle</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div><span class="parity-status parity">Parity</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">08</div>
+        <div class="parity-name">Catalyst Scan<small>now with resource_id → PR link</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="plus">+ deep-linked</span></div>
+        <div><span class="parity-status better">Better</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">09</div>
+        <div class="parity-name">Price Alerts<small>upper/lower, outside React</small></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div class="parity-cell"><span class="y">● present</span></div>
+        <div><span class="parity-status parity">Parity</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">10</div>
+        <div class="parity-name">RSS / MAIL<small>direct airtable api</small></div>
+        <div class="parity-cell"><span class="n">● broken</span></div>
+        <div class="parity-cell"><span class="plus">+ replaced</span></div>
+        <div><span class="parity-status better">Better</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">11</div>
+        <div class="parity-name">Alert Auditor<small>60s safety net polling</small></div>
+        <div class="parity-cell"><span class="n">— not present</span></div>
+        <div class="parity-cell"><span class="plus">+ new</span></div>
+        <div><span class="parity-status better">Web-Only</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">12</div>
+        <div class="parity-name">DedupKey Tagging<small>explicit source-derived keys</small></div>
+        <div class="parity-cell"><span class="n">— not present</span></div>
+        <div class="parity-cell"><span class="plus">+ new</span></div>
+        <div><span class="parity-status better">Web-Only</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">13</div>
+        <div class="parity-name">Cosmos Watchlist Sync<small>survives browser clear</small></div>
+        <div class="parity-cell"><span class="n">— not present</span></div>
+        <div class="parity-cell"><span class="plus">+ new</span></div>
+        <div><span class="parity-status better">Web-Only</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">14</div>
+        <div class="parity-name">5 Color Themes<small>dark/blue/wallst/crimson/nebula</small></div>
+        <div class="parity-cell"><span class="n">— not present</span></div>
+        <div class="parity-cell"><span class="plus">+ new</span></div>
+        <div><span class="parity-status better">Web-Only</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">15</div>
+        <div class="parity-name">Grok AI Summaries<small>PR + filing summarization</small></div>
+        <div class="parity-cell"><span class="n">— not present</span></div>
+        <div class="parity-cell"><span class="plus">+ new</span></div>
+        <div><span class="parity-status better">Web-Only</span></div>
+      </div>
+      <div class="parity-row">
+        <div class="parity-num">16</div>
+        <div class="parity-name">Context Layer<small>6 cosmos knowledge modules</small></div>
+        <div class="parity-cell"><span class="n">— not present</span></div>
+        <div class="parity-cell"><span class="plus">+ new</span></div>
+        <div><span class="parity-status better">Web-Only</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════
+       8. ROADMAP
+  ═══════════════════════════════════════════════════════ -->
+  <section id="roadmap">
+    <div class="sec-head">
+      <span class="sec-head__num">08 / Next</span>
+      <h2 class="sec-head__title">On the <em>horizon.</em></h2>
+      <div class="sec-head__meta">three outbound vectors</div>
+    </div>
+
+    <div class="roadmap">
+      <div class="road-card">
+        <div class="road-card__badge">Vector 01 · Agent</div>
+        <h4 class="road-card__name">Visual QA <em>Agent</em></h4>
+        <p class="road-card__desc">Opens the web app in a browser and watches like a human. Screenshots anomalies. Files issues with context.</p>
+        <div class="road-card__meta">
+          Substrate <b>· Claude Computer Use</b><br />
+          Cadence <b>· market hours</b><br />
+          Output <b>· screenshots + issue drafts</b>
+        </div>
+      </div>
+
+      <div class="road-card">
+        <div class="road-card__badge">Vector 02 · Telemetry</div>
+        <h4 class="road-card__name">Performance <em>Monitor</em></h4>
+        <p class="road-card__desc">Tracks heap, DOM node count, frame rate. Writes baselines to the context layer. Alerts on regressions.</p>
+        <div class="road-card__meta">
+          Substrate <b>· browser PerfObserver</b><br />
+          Cadence <b>· continuous</b><br />
+          Output <b>· cosmos perf-baselines</b>
+        </div>
+      </div>
+
+      <div class="road-card">
+        <div class="road-card__badge">Vector 03 · Architecture</div>
+        <h4 class="road-card__name">Backend-centric <em>Integrity</em></h4>
+        <p class="road-card__desc">Remove the client-open dependency from integrity checks. Move the log to the backend. Client only confirms receipt.</p>
+        <div class="road-card__meta">
+          Substrate <b>· azure function</b><br />
+          Cadence <b>· per-dispatch</b><br />
+          Output <b>· dispatch + ACK ledger</b>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="foot">
+  <div class="foot__brand"><em>Trade Companion</em></div>
+  <div class="foot__meta">
+    SHOWCASE · v2.1.0<br />
+    trade-companion-next.vercel.app<br />
+    GENERATED 2026
+  </div>
+</footer>
+
+<script>
+/* ──────────────────────────────────────────────────────────
+   Interactivity
+────────────────────────────────────────────────────────── */
+
+// 1. Count-up animation
+const counters = document.querySelectorAll('.count');
+const counterObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const el = entry.target;
+      const target = parseInt(el.dataset.target, 10);
+      const duration = 1200;
+      const start = performance.now();
+      const step = (now) => {
+        const progress = Math.min((now - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        el.textContent = Math.floor(eased * target);
+        if (progress < 1) requestAnimationFrame(step);
+        else el.textContent = target;
+      };
+      requestAnimationFrame(step);
+      counterObserver.unobserve(el);
+    }
+  });
+}, { threshold: 0.4 });
+counters.forEach(c => counterObserver.observe(c));
+
+// 2. Perf bars fill on scroll-in
+const bars = document.querySelectorAll('.perf-bar__fill');
+const barObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const el = entry.target;
+      const w = el.dataset.w;
+      setTimeout(() => { el.style.width = w + '%'; }, 100);
+      barObserver.unobserve(el);
+    }
+  });
+}, { threshold: 0.5 });
+bars.forEach(b => barObserver.observe(b));
+
+// 3. Feature card expand/collapse
+document.querySelectorAll('.feat').forEach(card => {
+  card.addEventListener('click', () => {
+    card.classList.toggle('is-open');
+    const t = card.querySelector('.feat__toggle');
+    if (t) t.textContent = card.classList.contains('is-open') ? '×' : '+';
+  });
+});
+
+// 4. Sidebar nav active section
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('.side__nav a');
+const sectionObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const id = entry.target.id;
+      navLinks.forEach(a => {
+        a.classList.toggle('is-active', a.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { rootMargin: '-40% 0px -55% 0px' });
+sections.forEach(s => sectionObserver.observe(s));
+
+// 5. NYC market time clock
+function updateClock() {
+  const el = document.getElementById('nyc-time');
+  if (!el) return;
+  const now = new Date();
+  const opts = { timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: false };
+  el.textContent = now.toLocaleTimeString('en-US', opts) + ' ET';
+}
+updateClock();
+setInterval(updateClock, 1000 * 15);
+
+// 6. Build date
+(() => {
+  const el = document.getElementById('build-date');
+  if (!el) return;
+  const d = new Date();
+  const pad = (n) => n.toString().padStart(2, '0');
+  el.textContent = `${pad(d.getMonth()+1)}.${pad(d.getDate())}.${String(d.getFullYear()).slice(2)}`;
+})();
+
+// 7. Parallax-lite: faintly nudge the grid on scroll for depth
+let lastScroll = 0;
+window.addEventListener('scroll', () => {
+  const y = window.scrollY;
+  if (Math.abs(y - lastScroll) < 8) return;
+  lastScroll = y;
+  document.body.style.setProperty('--grid-offset', -(y * 0.15) + 'px');
+}, { passive: true });
+</script>
+
+</body>
+</html>

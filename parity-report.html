@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Companion — Feature Parity Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  :root {
+    --bg-primary: #0f1419;
+    --bg-secondary: #1a1f2e;
+    --bg-tertiary: #232a3b;
+    --bg-row-even: #161b27;
+    --bg-row-odd: #1a1f2e;
+    --border: #2a3040;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --green: #22c55e;
+    --green-bg: rgba(34, 197, 94, 0.12);
+    --green-border: rgba(34, 197, 94, 0.3);
+    --red: #ef4444;
+    --red-bg: rgba(239, 68, 68, 0.12);
+    --red-border: rgba(239, 68, 68, 0.3);
+    --yellow: #eab308;
+    --yellow-bg: rgba(234, 179, 8, 0.12);
+    --yellow-border: rgba(234, 179, 8, 0.3);
+    --gray: #6b7280;
+    --gray-bg: rgba(107, 114, 128, 0.12);
+    --gray-border: rgba(107, 114, 128, 0.3);
+    --accent: #3b82f6;
+    --accent-dim: rgba(59, 130, 246, 0.15);
+  }
+
+  html {
+    font-size: 14px;
+  }
+
+  body {
+    font-family: 'IBM Plex Mono', monospace;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  .header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #e2e8f0, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .header .subtitle {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: 400;
+  }
+
+  /* Summary Stats Bar */
+  .summary-bar {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 2.5rem;
+    padding: 1.25rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .stat-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.9rem;
+  }
+
+  .stat-item .count {
+    font-size: 1.4rem;
+    font-weight: 700;
+  }
+
+  .stat-done {
+    background: var(--green-bg);
+    border: 1px solid var(--green-border);
+    color: var(--green);
+  }
+
+  .stat-missing {
+    background: var(--red-bg);
+    border: 1px solid var(--red-border);
+    color: var(--red);
+  }
+
+  .stat-new {
+    background: var(--accent-dim);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    color: var(--accent);
+  }
+
+  .stat-na {
+    background: var(--gray-bg);
+    border: 1px solid var(--gray-border);
+    color: var(--gray);
+  }
+
+  /* Overall progress */
+  .overall-progress {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .overall-progress .label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+  }
+
+  .overall-progress .bar-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    height: 12px;
+    background: var(--bg-tertiary);
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .overall-progress .bar-fill {
+    height: 100%;
+    border-radius: 6px;
+    background: linear-gradient(90deg, var(--green), #16a34a);
+    transition: width 0.5s ease;
+  }
+
+  .overall-progress .percentage {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--green);
+    margin-top: 0.4rem;
+  }
+
+  /* Section */
+  .section {
+    margin-bottom: 2.5rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header h2 {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+
+  .section-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+  }
+
+  .section-progress .mini-bar {
+    width: 120px;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .section-progress .mini-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    background: var(--green);
+  }
+
+  /* Tables */
+  .table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+  }
+
+  thead th {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    font-weight: 600;
+    text-transform: uppercase;
+    font-size: 0.75rem;
+    letter-spacing: 0.05em;
+    padding: 0.75rem 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  thead th:last-child {
+    text-align: center;
+  }
+
+  tbody tr:nth-child(even) {
+    background: var(--bg-row-even);
+  }
+
+  tbody tr:nth-child(odd) {
+    background: var(--bg-row-odd);
+  }
+
+  tbody tr:hover {
+    background: rgba(59, 130, 246, 0.06);
+  }
+
+  tbody td {
+    padding: 0.6rem 1rem;
+    border-bottom: 1px solid rgba(42, 48, 64, 0.5);
+    vertical-align: top;
+  }
+
+  tbody td:last-child {
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* Status badges */
+  .badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .badge-done {
+    background: var(--green-bg);
+    color: var(--green);
+    border: 1px solid var(--green-border);
+  }
+
+  .badge-missing {
+    background: var(--red-bg);
+    color: var(--red);
+    border: 1px solid var(--red-border);
+  }
+
+  .badge-partial {
+    background: var(--yellow-bg);
+    color: var(--yellow);
+    border: 1px solid var(--yellow-border);
+  }
+
+  .badge-na {
+    background: var(--gray-bg);
+    color: var(--gray);
+    border: 1px solid var(--gray-border);
+  }
+
+  .badge-new {
+    background: var(--accent-dim);
+    color: var(--accent);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+  }
+
+  .badge-better {
+    background: rgba(34, 197, 94, 0.18);
+    color: #4ade80;
+    border: 1px solid rgba(74, 222, 128, 0.3);
+  }
+
+  /* Priority section */
+  .priority-section {
+    margin-bottom: 2.5rem;
+  }
+
+  .priority-group {
+    margin-bottom: 1.5rem;
+  }
+
+  .priority-group h3 {
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+  }
+
+  .priority-group.p1 h3 {
+    background: var(--red-bg);
+    color: var(--red);
+    border-left: 3px solid var(--red);
+  }
+
+  .priority-group.p2 h3 {
+    background: var(--yellow-bg);
+    color: var(--yellow);
+    border-left: 3px solid var(--yellow);
+  }
+
+  .priority-group.p3 h3 {
+    background: var(--gray-bg);
+    color: var(--text-secondary);
+    border-left: 3px solid var(--gray);
+  }
+
+  .priority-list {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .priority-list li {
+    padding: 0.5rem 0.75rem;
+    margin-bottom: 0.25rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .priority-list li:nth-child(even) {
+    background: var(--bg-row-even);
+  }
+
+  .priority-list li:nth-child(odd) {
+    background: var(--bg-row-odd);
+  }
+
+  .priority-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.8rem;
+  }
+
+  /* Print styles */
+  @media print {
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f8fafc;
+      --bg-tertiary: #f1f5f9;
+      --bg-row-even: #f8fafc;
+      --bg-row-odd: #ffffff;
+      --border: #e2e8f0;
+      --text-primary: #0f172a;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+    }
+
+    body {
+      background: white;
+      color: black;
+      font-size: 11px;
+    }
+
+    .container {
+      padding: 0.5rem;
+      max-width: 100%;
+    }
+
+    .header h1 {
+      background: none;
+      -webkit-text-fill-color: #0f172a;
+      color: #0f172a;
+    }
+
+    .summary-bar {
+      break-inside: avoid;
+    }
+
+    .section {
+      break-inside: avoid;
+    }
+
+    .table-wrapper {
+      overflow: visible;
+    }
+
+    table {
+      font-size: 10px;
+    }
+
+    .badge {
+      border-width: 1.5px;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    .badge-done {
+      background: #dcfce7 !important;
+      color: #166534 !important;
+      border-color: #86efac !important;
+    }
+
+    .badge-missing {
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+      border-color: #fca5a5 !important;
+    }
+
+    .badge-partial {
+      background: #fef9c3 !important;
+      color: #854d0e !important;
+      border-color: #fde047 !important;
+    }
+
+    .badge-na {
+      background: #f3f4f6 !important;
+      color: #374151 !important;
+      border-color: #d1d5db !important;
+    }
+
+    .badge-new {
+      background: #dbeafe !important;
+      color: #1e40af !important;
+      border-color: #93c5fd !important;
+    }
+
+    .badge-better {
+      background: #dcfce7 !important;
+      color: #166534 !important;
+      border-color: #86efac !important;
+    }
+
+    .section-progress .mini-bar,
+    .overall-progress .bar-container {
+      border: 1px solid #cbd5e1 !important;
+    }
+
+    .section-progress .mini-bar-fill,
+    .overall-progress .bar-fill {
+      background: #22c55e !important;
+      print-color-adjust: exact;
+      -webkit-print-color-adjust: exact;
+    }
+
+    tbody tr:nth-child(even) {
+      background: #f8fafc !important;
+    }
+
+    tbody tr:nth-child(odd) {
+      background: #ffffff !important;
+    }
+
+    .priority-group.p1 h3 {
+      background: #fee2e2 !important;
+      color: #991b1b !important;
+      border-left-color: #ef4444 !important;
+    }
+
+    .priority-group.p2 h3 {
+      background: #fef9c3 !important;
+      color: #854d0e !important;
+      border-left-color: #eab308 !important;
+    }
+
+    .priority-group.p3 h3 {
+      background: #f3f4f6 !important;
+      color: #374151 !important;
+      border-left-color: #6b7280 !important;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Trade Companion — Feature Parity Report</h1>
+    <div class="subtitle">Legacy Desktop App vs. Next.js Web App</div>
+  </div>
+
+  <!-- Summary Stats Bar -->
+  <div class="summary-bar">
+    <div class="stat-item stat-done">
+      <span class="count">41</span> Done
+    </div>
+    <div class="stat-item stat-missing">
+      <span class="count">17</span> Missing
+    </div>
+    <div class="stat-item stat-new">
+      <span class="count">4</span> New
+    </div>
+    <div class="stat-item stat-na">
+      <span class="count">1</span> N/A
+    </div>
+  </div>
+
+  <!-- Overall progress -->
+  <div class="overall-progress">
+    <div class="label">Overall Feature Parity (excluding N/A &amp; New items)</div>
+    <div class="bar-container">
+      <div class="bar-fill" style="width: 70.7%"></div>
+    </div>
+    <div class="percentage">41 / 58 features — 70.7%</div>
+  </div>
+
+  <!-- Section 1: Keyboard Shortcuts -->
+  <div class="section">
+    <div class="section-header">
+      <h2>1. Keyboard Shortcuts</h2>
+      <div class="section-progress">
+        <span>6 / 8</span>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" style="width: 75%"></div>
+        </div>
+        <span>75.0%</span>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Shortcut</th>
+            <th>Legacy</th>
+            <th>Next.js</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Arrow Up/Down (navigate lists)</td>
+            <td>All panes</td>
+            <td>All panes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Space (flag symbol)</td>
+            <td>All panes</td>
+            <td>All panes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Delete/Backspace (remove)</td>
+            <td>Alerts + symbols</td>
+            <td>Alerts + symbols</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Enter (select alert)</td>
+            <td>AlertBar</td>
+            <td>AlertBar</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Escape (cancel inline add)</td>
+            <td>N/A</td>
+            <td>Watchlist</td>
+            <td><span class="badge badge-new">Done (new)</span></td>
+          </tr>
+          <tr>
+            <td>PageUp/PageDown (switch tabs)</td>
+            <td>N/A</td>
+            <td>Global</td>
+            <td><span class="badge badge-new">Done (new)</span></td>
+          </tr>
+          <tr>
+            <td>Arrow Left/Right (switch watchlist)</td>
+            <td>Watchlist</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Tab (toggle alert view /1 /2)</td>
+            <td>Watchlist</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Space (run AHK script)</td>
+            <td>All panes</td>
+            <td>—</td>
+            <td><span class="badge badge-na">N/A</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 2: Click Interactions -->
+  <div class="section">
+    <div class="section-header">
+      <h2>2. Click Interactions</h2>
+      <div class="section-progress">
+        <span>5 / 8</span>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" style="width: 62.5%"></div>
+        </div>
+        <span>62.5%</span>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Legacy</th>
+            <th>Next.js</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Click alert → copy + select symbol</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Right-click alert → context menu</td>
+            <td>Yes (hide, move/copy to WL)</td>
+            <td>Yes (flag, copy, URL, hide, add to WL)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Click column header → sort</td>
+            <td>Yes (toggle asc/desc)</td>
+            <td>Yes (symbol, %chg)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Click flag icon → toggle</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Click filing URL → open window</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Right-click watchlist row → context menu</td>
+            <td>Yes (unflag, copy/move to WL)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Move symbol between watchlists</td>
+            <td>Yes (via context menu)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Copy symbol to another watchlist</td>
+            <td>Yes (via context menu)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 3: Alert Types -->
+  <div class="section">
+    <div class="section-header">
+      <h2>3. Alert Types</h2>
+      <div class="section-progress">
+        <span>8 / 12</span>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" style="width: 66.7%"></div>
+        </div>
+        <span>66.7%</span>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Alert Type</th>
+            <th>Legacy</th>
+            <th>Next.js</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>PRs/News (BroadcastNews)</td>
+            <td>SignalR + polling</td>
+            <td>SignalR (news hub) + Azure relay</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Filings (SEC)</td>
+            <td>SignalR + polling</td>
+            <td>Polling (60s)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Tweets/X</td>
+            <td>Polling (1s at :05)</td>
+            <td>Polling (30s)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Trade Exchange</td>
+            <td>SignalR + polling</td>
+            <td>Polling (30s)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Catalyst PRs</td>
+            <td>SignalR + polling</td>
+            <td>Polling (60s)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>TradingView Webhooks</td>
+            <td>SignalR</td>
+            <td>SignalR</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Scanner (4%+ movers)</td>
+            <td>SignalR</td>
+            <td>SignalR</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Price Alerts (upper/lower)</td>
+            <td>L1 + speech</td>
+            <td>L1 + beep</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>FilteredPRs (keyword filter)</td>
+            <td>Yes (pos/neg keywords)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>$100M Dollar Volume</td>
+            <td>Yes</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Afternoon Breakout (HOD)</td>
+            <td>Yes</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Catalyst Bar Tracking</td>
+            <td>Yes (tracks bars, triggers on breakout)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 4: Alert Features -->
+  <div class="section">
+    <div class="section-header">
+      <h2>4. Alert Features</h2>
+      <div class="section-progress">
+        <span>7 / 11</span>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" style="width: 63.6%"></div>
+        </div>
+        <span>63.6%</span>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Legacy</th>
+            <th>Next.js</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Alert dedup (symbol+message+type)</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Max 500 alerts buffer</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Color-coded by type</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Grok AI summaries</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Hide alerts</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Alert subscriptions (type + WL)</td>
+            <td>Yes (JSON file)</td>
+            <td>Yes (store)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Audio toggle per subscription</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Text-to-speech announcements</td>
+            <td>Yes (Windows SpeechSynth)</td>
+            <td>— (beep only)</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Different sounds per alert type</td>
+            <td>Yes (TTS text varies)</td>
+            <td>— (same beep)</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>PR keyword filtering (pos/neg)</td>
+            <td>Yes (FilterNewsPositive/Negative)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Filing type exclusion</td>
+            <td>Yes (ExcludeFilings config)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 5: Watchlist Features -->
+  <div class="section">
+    <div class="section-header">
+      <h2>5. Watchlist Features</h2>
+      <div class="section-progress">
+        <span>11 / 15</span>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" style="width: 73.3%"></div>
+        </div>
+        <span>73.3%</span>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Legacy</th>
+            <th>Next.js</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Multiple watchlists</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Add/remove symbols</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Inline add (+ button)</td>
+            <td>No</td>
+            <td>Yes</td>
+            <td><span class="badge badge-new">Done (new)</span></td>
+          </tr>
+          <tr>
+            <td>Price alerts (upper/lower)</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Symbol flagging</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Split pane (symbols / alerts)</td>
+            <td>Yes</td>
+            <td>Yes (draggable)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Column sorting</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Cloud sync (push/pull)</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>DB alert history per symbol</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Previous close / % change</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Bid/Ask display</td>
+            <td>Yes</td>
+            <td>Yes</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Arrow Left/Right switch WL</td>
+            <td>Yes</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Notes per symbol</td>
+            <td>Yes</td>
+            <td>Schema exists, no UI</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Market cap display</td>
+            <td>Yes (tier labels)</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+          <tr>
+            <td>Replace symbol in-place</td>
+            <td>Yes</td>
+            <td>—</td>
+            <td><span class="badge badge-missing">Missing</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 6: UI / Visual -->
+  <div class="section">
+    <div class="section-header">
+      <h2>6. UI / Visual</h2>
+      <div class="section-progress">
+        <span>7 / 7</span>
+        <div class="mini-bar">
+          <div class="mini-bar-fill" style="width: 100%"></div>
+        </div>
+        <span>100%</span>
+      </div>
+    </div>
+    <div class="table-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Feature</th>
+            <th>Legacy</th>
+            <th>Next.js</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Dark theme</td>
+            <td>Yes (single)</td>
+            <td>Yes (5 themes)</td>
+            <td><span class="badge badge-better">Done (better)</span></td>
+          </tr>
+          <tr>
+            <td>Pop-out windows</td>
+            <td>Via window.open</td>
+            <td>Yes (dedicated routes)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Mascot with reactions</td>
+            <td>No</td>
+            <td>Yes</td>
+            <td><span class="badge badge-new">Done (new)</span></td>
+          </tr>
+          <tr>
+            <td>Scanner leaderboard</td>
+            <td>Basic</td>
+            <td>Yes (sessions/buckets)</td>
+            <td><span class="badge badge-better">Done (better)</span></td>
+          </tr>
+          <tr>
+            <td>TradingView charts</td>
+            <td>Basic (single)</td>
+            <td>Yes (2x2 grid)</td>
+            <td><span class="badge badge-better">Done (better)</span></td>
+          </tr>
+          <tr>
+            <td>Service monitor</td>
+            <td>Health checks</td>
+            <td>Yes (dedicated page)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Cross-window sync</td>
+            <td>Not needed (single app)</td>
+            <td>Yes (BroadcastChannel)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+          <tr>
+            <td>Close confirmation</td>
+            <td>N/A</td>
+            <td>Yes (beforeunload)</td>
+            <td><span class="badge badge-done">Done</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Section 7: Missing Features (Priority Order) -->
+  <div class="section priority-section">
+    <div class="section-header">
+      <h2>7. Missing Features (Priority Order)</h2>
+    </div>
+
+    <div class="priority-group p1">
+      <h3>P1 — Quick wins</h3>
+      <ol class="priority-list">
+        <li><span class="priority-num">1</span> Arrow Left/Right to switch watchlists</li>
+        <li><span class="priority-num">2</span> Right-click context menu on watchlist rows (move/copy symbol between watchlists)</li>
+        <li><span class="priority-num">3</span> Market cap display in watchlist table</li>
+      </ol>
+    </div>
+
+    <div class="priority-group p2">
+      <h3>P2 — Medium effort</h3>
+      <ol class="priority-list">
+        <li><span class="priority-num">4</span> Text-to-speech (Web Speech API) instead of just beeps</li>
+        <li><span class="priority-num">5</span> PR keyword filtering (positive/negative)</li>
+        <li><span class="priority-num">6</span> Filing type exclusion filter</li>
+      </ol>
+    </div>
+
+    <div class="priority-group p3">
+      <h3>P3 — Low priority / desktop-specific</h3>
+      <ol class="priority-list">
+        <li><span class="priority-num">7</span> AHK script execution (desktop-only, not applicable to web)</li>
+        <li><span class="priority-num">8</span> $100M dollar volume alerts</li>
+        <li><span class="priority-num">9</span> Afternoon breakout alerts</li>
+        <li><span class="priority-num">10</span> Catalyst bar tracking with price multipliers</li>
+        <li><span class="priority-num">11</span> Symbol replace in-place</li>
+        <li><span class="priority-num">12</span> Notes UI for symbols</li>
+      </ol>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    Generated: March 8, 2026
+  </div>
+
+</div>
+</body>
+</html>

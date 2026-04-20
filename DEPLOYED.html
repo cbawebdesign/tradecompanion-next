@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TC — What's Deployed</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#040810;--bg2:#080e1c;--bg3:#0c1428;--bg4:#101a34;--bd:#182050;--t:#d0d8f0;--t2:#8090b8;--t3:#506088;--tb:#eef2ff;--grn:#00ff88;--blu:#4488ff;--cyn:#00ddee;--ylw:#ffcc22;--org:#ff8844;--red:#ff3366;--pur:#aa66ff}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Space Grotesk',sans-serif;background:var(--bg);color:var(--t);line-height:1.6}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 30% 0%,rgba(0,255,136,.03) 0%,transparent 50%),radial-gradient(ellipse at 70% 100%,rgba(68,136,255,.03) 0%,transparent 50%);pointer-events:none}
+.c{max-width:1100px;margin:0 auto;padding:2.5rem 2rem 4rem;position:relative;z-index:1}
+.hdr{text-align:center;padding:2.5rem 2rem;margin-bottom:2rem;border:1px solid var(--bd);border-radius:14px;background:linear-gradient(160deg,var(--bg3),var(--bg));position:relative;overflow:hidden}
+.hdr::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--grn),var(--cyn),var(--blu))}
+.hdr .tag{font-family:'JetBrains Mono',monospace;font-size:.55rem;font-weight:700;letter-spacing:.35em;text-transform:uppercase;color:var(--grn);margin-bottom:.5rem;display:flex;align-items:center;justify-content:center;gap:.75rem}
+.hdr .tag::before,.hdr .tag::after{content:'';width:30px;height:1px;background:var(--grn)}
+.hdr h1{font-family:'JetBrains Mono',monospace;font-size:1.8rem;font-weight:800;color:var(--tb)}
+.hdr h1 em{color:var(--grn);font-style:normal}
+.hdr .sub{font-size:.82rem;color:var(--t2);margin-top:.4rem}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1.5rem}
+.card{background:var(--bg3);border:1px solid var(--bd);border-radius:10px;padding:1.25rem;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.card.grn::before{background:var(--grn)}.card.blu::before{background:var(--blu)}.card.cyn::before{background:var(--cyn)}.card.org::before{background:var(--org)}.card.pur::before{background:var(--pur)}.card.ylw::before{background:var(--ylw)}.card.red::before{background:var(--red)}
+.card h3{font-family:'JetBrains Mono',monospace;font-size:.72rem;font-weight:700;margin-bottom:.5rem}
+.card.grn h3{color:var(--grn)}.card.blu h3{color:var(--blu)}.card.cyn h3{color:var(--cyn)}.card.org h3{color:var(--org)}.card.pur h3{color:var(--pur)}.card.ylw h3{color:var(--ylw)}.card.red h3{color:var(--red)}
+.card p,.card li{font-size:.74rem;color:var(--t2);line-height:1.55}
+.card ul{padding-left:1rem;margin:.25rem 0 0}
+.card li{margin-bottom:.15rem}
+.card code{font-family:'JetBrains Mono',monospace;font-size:.62rem;background:rgba(68,136,255,.08);padding:1px 5px;border-radius:3px;color:var(--cyn)}
+.card .url{font-family:'JetBrains Mono',monospace;font-size:.6rem;color:var(--t3);margin-top:.5rem;word-break:break-all}
+.card .url a{color:var(--blu);text-decoration:none}
+.card .url a:hover{text-decoration:underline}
+
+.full{grid-column:span 2}
+.sep{font-family:'JetBrains Mono',monospace;font-size:.6rem;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--t3);text-align:center;padding:.75rem 0;margin:.5rem 0}
+
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:.72rem;margin:.5rem 0}
+thead th{font-family:'JetBrains Mono',monospace;font-size:.58rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;padding:.5rem .6rem;background:var(--bg4);color:var(--t3);border-bottom:1px solid var(--bd);text-align:left}
+tbody td{padding:.4rem .6rem;border-bottom:1px solid rgba(24,32,80,.4);color:var(--t2)}
+tbody td:first-child{font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--t)}
+.b{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:.52rem;font-weight:700;padding:2px 6px;border-radius:3px;letter-spacing:.04em;text-transform:uppercase}
+.b-live{background:rgba(0,255,136,.1);color:var(--grn);border:1px solid rgba(0,255,136,.2)}
+.b-new{background:rgba(0,221,238,.1);color:var(--cyn);border:1px solid rgba(0,221,238,.2)}
+.b-timer{background:rgba(170,102,255,.1);color:var(--pur);border:1px solid rgba(170,102,255,.2)}
+.b-wait{background:rgba(255,204,34,.08);color:var(--ylw);border:1px solid rgba(255,204,34,.15)}
+
+.ft{text-align:center;font-family:'JetBrains Mono',monospace;font-size:.55rem;color:var(--t3);padding:1.5rem 0;border-top:1px solid var(--bd);margin-top:2rem}
+@media(max-width:700px){.grid{grid-template-columns:1fr}.full{grid-column:span 1}}
+</style>
+</head>
+<body>
+<div class="c">
+
+<div class="hdr">
+  <div class="tag">Production</div>
+  <h1>Trade Companion <em>Deployed</em></h1>
+  <div class="sub">Everything running in production right now &mdash; April 15, 2026</div>
+</div>
+
+<!-- ═══ PRODUCTION URLS ═══ -->
+<div class="grid">
+  <div class="card grn">
+    <h3>Web App (Vercel)</h3>
+    <p>Next.js 14 &mdash; React frontend with real-time SignalR, 11 data hooks, Zustand store</p>
+    <div class="url"><a href="https://trade-companion-next.vercel.app" target="_blank">trade-companion-next.vercel.app</a></div>
+  </div>
+  <div class="card blu">
+    <h3>Azure Function Backend</h3>
+    <p>C# Isolated Worker &mdash; 56 endpoints, SignalR hub, Cosmos DB, Polygon, timer triggers</p>
+    <div class="url"><a href="https://tradecompanion3.azurewebsites.net/api/Hello" target="_blank">tradecompanion3.azurewebsites.net</a></div>
+  </div>
+</div>
+
+<!-- ═══ NEW ENDPOINTS ═══ -->
+<div class="sep">New Azure Function Endpoints</div>
+<div class="card cyn full" style="grid-column:span 1;max-width:100%;margin-bottom:1rem">
+  <h3>Alert Integrity System &mdash; Cosmos DB Backed</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>POST</td><td><code>/tcadmin/alert-log</code></td><td>Web app logs each alert here (stored in Cosmos <code>AlertLog</code> container, 7-day TTL)</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>POST</td><td><code>/tcadmin/alert-log/batch</code></td><td>Batch alert log endpoint</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>GET</td><td><code>/tcadmin/alert-log?date=&amp;source=</code></td><td>Read alert log for a date (filter by source: web/backend)</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>GET</td><td><code>/tcadmin/audit-report?date=</code></td><td>Get daily integrity report (matched/missed/delayed/duplicate)</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>GET</td><td><code>/tcadmin/audit-reports?days=7</code></td><td>Get report history for last N days</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>Timer</td><td><code>AlertAuditTimer</code></td><td>Runs every 5 min Mon-Fri 9am-4pm ET. Compares backend ground truth vs web alert log. Saves report to Cosmos</td><td><span class="b b-timer">Timer</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ COSMOS DB ═══ -->
+<div class="sep">New Cosmos DB Containers</div>
+<div class="grid">
+  <div class="card org">
+    <h3>AlertLog</h3>
+    <p>Every alert the web app fires gets stored here. Partition key: <code>/date</code></p>
+    <ul>
+      <li>7-day TTL (auto-cleanup)</li>
+      <li>Fields: symbol, type, message, timestamp, receivedAt, source, hookName</li>
+      <li>Written by web app via <code>POST /tcadmin/alert-log</code></li>
+      <li>Read by AlertAuditTimer for integrity comparison</li>
+    </ul>
+  </div>
+  <div class="card org">
+    <h3>AlertAuditReports</h3>
+    <p>Daily integrity reports generated by the timer agent. Partition key: <code>/date</code></p>
+    <ul>
+      <li>30-day TTL (auto-cleanup)</li>
+      <li>Fields: date, score (%), backendTotal, webTotal, matched, missed, delayed, duplicate</li>
+      <li>Includes list of missed alert details</li>
+      <li>Read via <code>GET /tcadmin/audit-report</code></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══ WEB APP FEATURES ═══ -->
+<div class="sep">Web App &mdash; New Features Deployed</div>
+<div class="grid">
+  <div class="card grn">
+    <h3>Alert Auditor (Self-Healing)</h3>
+    <p><code>hooks/useAlertAuditor.ts</code></p>
+    <ul>
+      <li>Polls <code>/api/AlertsBySymbol</code> every 60s during market hours</li>
+      <li>Recovers missed alerts in real-time</li>
+      <li>Catches exactly the bugs Justin reported</li>
+    </ul>
+  </div>
+  <div class="card grn">
+    <h3>Alert Logger</h3>
+    <p><code>lib/alertLogger.ts</code></p>
+    <ul>
+      <li>Every <code>addAlert()</code> call logs to Cosmos DB</li>
+      <li>POSTs to <code>/tcadmin/alert-log</code> during market hours</li>
+      <li>Also writes to localStorage as backup</li>
+    </ul>
+  </div>
+  <div class="card cyn">
+    <h3>FilteredPR Keyword Matching</h3>
+    <p><code>lib/filteredPr.ts</code></p>
+    <ul>
+      <li>Comma = OR, &amp; = AND, ! = NOT, * = wildcard</li>
+      <li>Fires color-coded alert alongside regular PR</li>
+      <li>Config: <code>filteredPrPositive</code> / <code>filteredPrNegative</code></li>
+    </ul>
+  </div>
+  <div class="card cyn">
+    <h3>Per-Type Alert Sounds + TTS</h3>
+    <p><code>lib/alertAudio.ts</code></p>
+    <ul>
+      <li>Different frequency per alert type (PRs 800Hz, Filings 600Hz, Tweets 900Hz, etc.)</li>
+      <li>Web Speech API text-to-speech with 30s dedup</li>
+      <li>Config: <code>ttsEnabled</code>, per-type <code>alertSounds</code></li>
+    </ul>
+  </div>
+  <div class="card blu">
+    <h3>AHK Companion</h3>
+    <p><code>companion/ahk-server.js</code> + <code>lib/ahk.ts</code></p>
+    <ul>
+      <li>Node.js server Justin runs locally</li>
+      <li>Web calls <code>localhost:9876/run?symbol=</code></li>
+      <li>Falls back to clipboard if companion offline</li>
+    </ul>
+  </div>
+  <div class="card blu">
+    <h3>Cosmos DB Watchlist Sync</h3>
+    <p><code>hooks/useCosmosSync.ts</code></p>
+    <ul>
+      <li>Saves watchlists + config via <code>PUT /api/user/{userKey}</code></li>
+      <li>3-second debounce after changes</li>
+      <li>Restores from cloud if localStorage is empty</li>
+    </ul>
+  </div>
+  <div class="card pur">
+    <h3>ExcludeFilings</h3>
+    <p>SignalR <code>newFiling</code> handler + <code>useFilingsPolling</code></p>
+    <ul>
+      <li>Pipe-separated form types to skip (e.g., <code>SC 13G|4|D</code>)</li>
+      <li>Applied in both real-time and polling paths</li>
+    </ul>
+  </div>
+  <div class="card pur">
+    <h3>Multi-Symbol Tweet Fix</h3>
+    <p><code>hooks/useTweetsPolling.ts</code></p>
+    <ul>
+      <li>Fires alert for EACH watchlisted symbol in a tweet</li>
+      <li>Legacy only fired for first match (known bug)</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ═══ PERFORMANCE ═══ -->
+<div class="sep">Performance Fixes Deployed</div>
+<div class="grid">
+  <div class="card red">
+    <h3>Removed Quotes from Persist</h3>
+    <p>Was JSON-serializing hundreds of symbols to localStorage every 250ms. Main thread blocked, UI froze.</p>
+  </div>
+  <div class="card red">
+    <h3>Hook Isolation</h3>
+    <p>Split 13 hooks from 1 component into 4 isolated groups. Quote-frequency re-renders no longer cascade to all hooks.</p>
+  </div>
+  <div class="card red full" style="grid-column:span 2">
+    <h3>Price Alerts Rewrite</h3>
+    <p>Moved from React <code>useEffect</code> (fired every 250ms) to Zustand <code>subscribe()</code> outside React render cycle. Only checks symbols with alerts set.</p>
+  </div>
+</div>
+
+<!-- ═══ CONTEXT LAYER ═══ -->
+<div class="sep">TC Context Layer &mdash; Agent Knowledge Base (Cosmos DB)</div>
+
+<div class="card grn full" style="grid-column:span 1;max-width:100%;margin-bottom:.75rem">
+  <h3>TCContext Container &mdash; 6 Knowledge Modules</h3>
+  <p style="margin-bottom:.75rem">Persistent structured knowledge base in Cosmos DB. Seeded on first deploy, auto-updated by agents during market hours. Agents query this to make intelligent decisions.</p>
+  <table>
+    <thead><tr><th>Module</th><th>What It Contains</th><th>Updated By</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td><code>data-source-map</code></td><td>52 endpoints, 9 SignalR events, 14 external APIs, all Cosmos containers, auth methods, poll intervals</td><td>Seeded on deploy</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td><code>alert-taxonomy</code></td><td>10 alert types with dedup rules, expected fields, latency expectations, delivery method, color codes</td><td>Seeded on deploy</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td><code>ui-component-map</code></td><td>Component tree, hook isolation groups, Zustand store schema, alert dedup logic, selector patterns</td><td>Seeded on deploy</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td><code>live-config</code></td><td>Active watchlist symbols, alert counts, session stats</td><td>AlertAuditTimer (every 5 min during market hours)</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td><code>perf-baselines</code></td><td>Normal heap (120MB), DOM nodes (800), quote throughput (50), frame budget (8ms) &mdash; running averages</td><td><code>POST /context/perf</code> (from perf monitor)</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td><code>issue-history</code></td><td>Past bugs, missed alerts, regression patterns, fixes applied &mdash; agents get smarter each session</td><td>AlertAuditTimer (auto-logs missed alerts) + <code>POST /context/issue</code></td><td><span class="b b-live">Live</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="card cyn full" style="grid-column:span 1;max-width:100%;margin-bottom:1rem">
+  <h3>Context Layer API Endpoints</h3>
+  <table>
+    <thead><tr><th>Method</th><th>Route</th><th>Purpose</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>GET</td><td><code>/tcadmin/context</code></td><td>Get all 6 context documents</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>GET</td><td><code>/tcadmin/context/{type}</code></td><td>Get a specific module (e.g., <code>/context/alert-taxonomy</code>)</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>PUT</td><td><code>/tcadmin/context/{type}</code></td><td>Update a context document</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>POST</td><td><code>/tcadmin/context/issue</code></td><td>Add an issue to history (type, severity, title, rootCause, fix, commitHash)</td><td><span class="b b-live">Live</span></td></tr>
+      <tr><td>POST</td><td><code>/tcadmin/context/perf</code></td><td>Update a performance baseline metric (running avg, min, max)</td><td><span class="b b-live">Live</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ═══ AGENT STATUS ═══ -->
+<div class="sep">Agent Status</div>
+<div class="grid">
+  <div class="card grn">
+    <h3>Alert Integrity Agent</h3>
+    <p><code>AlertAuditTimer</code> &mdash; Azure Function timer trigger</p>
+    <ul>
+      <li>Runs every 5 min Mon-Fri 9am-4pm ET</li>
+      <li>Compares backend ground truth vs web alert log</li>
+      <li>Saves report to Cosmos <code>AlertAuditReports</code></li>
+      <li>Auto-logs missed alerts to context layer issue history</li>
+      <li>Auto-updates live-config with active symbols</li>
+    </ul>
+    <p style="color:var(--grn);margin-top:.4rem;font-size:.68rem;font-weight:600">DEPLOYED &amp; RUNNING</p>
+  </div>
+  <div class="card grn">
+    <h3>Web Alert Logger</h3>
+    <p><code>lib/alertLogger.ts</code> &mdash; runs in browser</p>
+    <ul>
+      <li>Every <code>addAlert()</code> POSTs to Cosmos via <code>/tcadmin/alert-log</code></li>
+      <li>Only during market hours (Mon-Fri 4am-8pm ET)</li>
+      <li>Also writes to localStorage as backup</li>
+      <li>SSR-safe (guarded for server-side rendering)</li>
+    </ul>
+    <p style="color:var(--grn);margin-top:.4rem;font-size:.68rem;font-weight:600">DEPLOYED &amp; RUNNING</p>
+  </div>
+  <div class="card ylw">
+    <h3>Visual QA Agent</h3>
+    <p>Claude Computer Use</p>
+    <ul>
+      <li>Opens TC in browser, watches UI, screenshots anomalies</li>
+      <li>Needs Claude Computer Use API access</li>
+    </ul>
+    <p style="color:var(--ylw);margin-top:.4rem;font-size:.68rem;font-weight:600">NOT YET BUILT</p>
+  </div>
+  <div class="card ylw">
+    <h3>Performance Monitor Agent</h3>
+    <p>Browser metrics collector</p>
+    <ul>
+      <li>Tracks heap, DOM nodes, frame rate, long tasks</li>
+      <li>Posts to <code>/tcadmin/context/perf</code> to update baselines</li>
+    </ul>
+    <p style="color:var(--ylw);margin-top:.4rem;font-size:.68rem;font-weight:600">NOT YET BUILT</p>
+  </div>
+</div>
+
+<!-- ═══ WHAT'S NEXT ═══ -->
+<div class="sep">Waiting</div>
+<div class="grid">
+  <div class="card ylw">
+    <h3>Airtable Direct API</h3>
+    <p>Replaces broken miniextensions RSS feeds for YouTube, Substack, Articles views</p>
+    <p style="color:var(--ylw);margin-top:.3rem">Waiting for Airtable account access</p>
+  </div>
+  <div class="card ylw">
+    <h3>Settings UI</h3>
+    <p>Config fields exist in store but no UI yet: TTS toggle, ExcludeFilings, FilteredPR keywords, AHK URL, alert sounds</p>
+    <p style="color:var(--ylw);margin-top:.3rem">Ready to build</p>
+  </div>
+</div>
+
+<div class="ft">Trade Companion &mdash; Deployment Status &mdash; April 15, 2026</div>
+</div>
+</body>
+</html>

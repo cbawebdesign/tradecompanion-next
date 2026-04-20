@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trade Companion Next — Architecture Reference</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════════════
+   MISSION CONTROL — AEROSPACE ARCHITECTURE DOCUMENT
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  --base: #0a0e1a;
+  --base-light: #0f1525;
+  --base-card: #111830;
+  --base-elevated: #162040;
+  --border: #1e2d50;
+  --border-bright: #2a3f6e;
+  --text: #c8d6e5;
+  --text-bright: #e8f0fa;
+  --text-dim: #5a6f8e;
+  --text-muted: #3a4f6e;
+  --accent: #00d4ff;
+  --accent-dim: #006a80;
+  --green: #00ff88;
+  --green-dim: #00803e;
+  --orange: #ff8800;
+  --orange-dim: #804400;
+  --red: #ff3366;
+  --red-dim: #801a33;
+  --purple: #7c4dff;
+  --yellow: #eab308;
+  --cyan: #00bcd4;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-sans: 'IBM Plex Sans', -apple-system, sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-bright) var(--base);
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--base);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Scan-line overlay */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+}
+
+/* Grid overlay */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.15;
+}
+
+/* ── HEADER ── */
+.doc-header {
+  border-bottom: 1px solid var(--border);
+  padding: 2rem 3rem;
+  background: linear-gradient(180deg, rgba(0,212,255,0.04) 0%, transparent 100%);
+  position: relative;
+}
+
+.doc-header::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+
+.header-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
+  opacity: 0.8;
+}
+
+.header-title {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-bright);
+  letter-spacing: -0.5px;
+}
+
+.header-title span {
+  color: var(--accent);
+}
+
+.header-meta {
+  display: flex;
+  gap: 2rem;
+  margin-top: 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.header-meta .label { color: var(--text-muted); margin-right: 0.5rem; }
+.header-meta .value { color: var(--text-dim); }
+.header-meta .value.live { color: var(--green); }
+
+/* ── TABLE OF CONTENTS ── */
+.toc {
+  padding: 1.5rem 3rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--base-light);
+}
+
+.toc-label {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.toc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.25rem 2rem;
+}
+
+.toc-grid a {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-dim);
+  text-decoration: none;
+  padding: 0.25rem 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: color 0.2s;
+}
+
+.toc-grid a:hover { color: var(--accent); }
+.toc-grid a .num {
+  color: var(--accent-dim);
+  font-weight: 600;
+  min-width: 2rem;
+}
+
+/* ── MAIN CONTENT ── */
+.content {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 3rem 4rem;
+}
+
+/* ── SECTIONS ── */
+.section {
+  margin-top: 2.5rem;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  cursor: default;
+}
+
+.section-num {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--base);
+  background: var(--accent);
+  padding: 2px 8px;
+  letter-spacing: 1px;
+}
+
+.section-title {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-bright);
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+/* Details/summary for collapsible */
+details.section-details {
+  margin-top: 2.5rem;
+}
+
+details.section-details > summary {
+  list-style: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+  user-select: none;
+}
+
+details.section-details > summary::-webkit-details-marker { display: none; }
+
+details.section-details > summary::after {
+  content: '▶';
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-left: auto;
+  transition: transform 0.2s;
+}
+
+details.section-details[open] > summary::after {
+  transform: rotate(90deg);
+  color: var(--accent);
+}
+
+details.section-details > summary:hover .section-title {
+  color: var(--accent);
+}
+
+/* ── CARDS ── */
+.card {
+  background: var(--base-card);
+  border: 1px solid var(--border);
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+  position: relative;
+}
+
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.card:hover::before { opacity: 1; }
+
+.card-title {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.75rem;
+}
+
+/* ── TABLES ── */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  margin-bottom: 1rem;
+}
+
+thead th {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  background: var(--base-light);
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-bright);
+  white-space: nowrap;
+}
+
+tbody td {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+
+tbody tr:hover {
+  background: rgba(0,212,255,0.03);
+}
+
+/* ── CODE / MONO HIGHLIGHTS ── */
+code, .mono {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.code-block {
+  background: var(--base);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text-dim);
+  margin-bottom: 1rem;
+}
+
+/* ── STATUS BADGES ── */
+.badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  letter-spacing: 0.5px;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.badge-ws { background: rgba(0,212,255,0.15); color: var(--accent); border: 1px solid rgba(0,212,255,0.3); }
+.badge-rest { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.25); }
+.badge-local { background: rgba(255,136,0,0.12); color: var(--orange); border: 1px solid rgba(255,136,0,0.25); }
+.badge-poll { background: rgba(234,179,8,0.12); color: var(--yellow); border: 1px solid rgba(234,179,8,0.25); }
+.badge-green { background: rgba(0,255,136,0.12); color: var(--green); border: 1px solid rgba(0,255,136,0.25); }
+.badge-red { background: rgba(255,51,102,0.12); color: var(--red); border: 1px solid rgba(255,51,102,0.25); }
+.badge-blue { background: rgba(0,212,255,0.12); color: var(--accent); border: 1px solid rgba(0,212,255,0.25); }
+.badge-purple { background: rgba(124,77,255,0.12); color: var(--purple); border: 1px solid rgba(124,77,255,0.25); }
+.badge-orange { background: rgba(255,136,0,0.12); color: var(--orange); border: 1px solid rgba(255,136,0,0.25); }
+
+.status-dot {
+  display: inline-block;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.status-dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.status-dot.red { background: var(--red); box-shadow: 0 0 6px var(--red); }
+.status-dot.orange { background: var(--orange); box-shadow: 0 0 6px var(--orange); }
+
+/* ── FLOW DIAGRAMS ── */
+.flow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 1rem 0;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+}
+
+.flow-vertical {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 1rem 0;
+}
+
+.flow-box {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--border-bright);
+  background: var(--base-card);
+  white-space: nowrap;
+  text-align: center;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.flow-box.highlight {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(0,212,255,0.15);
+}
+
+.flow-box.green-border { border-color: var(--green); box-shadow: 0 0 8px rgba(0,255,136,0.1); }
+.flow-box.red-border { border-color: var(--red); }
+.flow-box.orange-border { border-color: var(--orange); }
+.flow-box.purple-border { border-color: var(--purple); }
+
+.flow-box .box-label {
+  color: var(--text-bright);
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.flow-box .box-sub {
+  color: var(--text-muted);
+  font-size: 9px;
+  margin-top: 2px;
+}
+
+.flow-arrow {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 0 0.25rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.flow-arrow-down {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 0.15rem 0;
+  text-align: center;
+}
+
+/* ── SYSTEM DIAGRAM ── */
+.sys-diagram {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  background: var(--base);
+  border: 1px solid var(--border);
+  padding: 1.5rem;
+  overflow-x: auto;
+  white-space: pre;
+  color: var(--text-dim);
+}
+
+.sys-diagram .hl { color: var(--accent); }
+.sys-diagram .gr { color: var(--green); }
+.sys-diagram .or { color: var(--orange); }
+.sys-diagram .rd { color: var(--red); }
+.sys-diagram .pr { color: var(--purple); }
+.sys-diagram .yl { color: var(--yellow); }
+.sys-diagram .wh { color: var(--text-bright); }
+.sys-diagram .dm { color: var(--text-muted); }
+
+/* ── TREE DIAGRAM ── */
+.tree {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.8;
+  background: var(--base);
+  border: 1px solid var(--border);
+  padding: 1.25rem;
+  overflow-x: auto;
+}
+
+.tree .t-dir { color: var(--accent); font-weight: 600; }
+.tree .t-file { color: var(--text); }
+.tree .t-hook { color: var(--green); }
+.tree .t-dim { color: var(--text-muted); }
+.tree .t-comp { color: var(--orange); }
+
+/* ── CONVERGE DIAGRAM ── */
+.converge-grid {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0;
+  align-items: start;
+}
+
+.converge-sources {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.converge-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.5rem;
+  min-height: 100%;
+}
+
+.converge-targets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  justify-content: center;
+  min-height: 100%;
+}
+
+.converge-src {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--base-card);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.converge-src::after {
+  content: '→';
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.converge-tgt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--base-card);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  white-space: nowrap;
+}
+
+.converge-tgt::before {
+  content: '→';
+  color: var(--text-muted);
+}
+
+.converge-hub {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 1rem;
+  border: 2px solid var(--accent);
+  background: var(--base-card);
+  text-align: center;
+  box-shadow: 0 0 20px rgba(0,212,255,0.15);
+  color: var(--accent);
+}
+
+.converge-pipe {
+  width: 1px;
+  height: 1.5rem;
+  background: var(--border-bright);
+  margin: 0 auto;
+}
+
+/* ── STORE MAP ── */
+.store-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 0.75rem;
+}
+
+.store-slice {
+  border: 1px solid var(--border);
+  background: var(--base-card);
+  padding: 0.75rem;
+}
+
+.store-slice-name {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 0.5rem;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.store-field {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 0.15rem 0;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.store-field .sf-name { color: var(--text-bright); }
+.store-field .sf-type { color: var(--text-muted); }
+.store-field .sf-action { color: var(--green); font-size: 9px; }
+
+/* ── THEME SWATCHES ── */
+.theme-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.theme-swatch {
+  width: 40px; height: 28px;
+  border: 1px solid var(--border-bright);
+  flex-shrink: 0;
+}
+
+.theme-accent-swatch {
+  width: 16px; height: 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+  flex-shrink: 0;
+}
+
+.theme-name {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-bright);
+  min-width: 70px;
+}
+
+.theme-vars {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* ── KEYBOARD TABLE ── */
+.key-badge {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--base-elevated);
+  border: 1px solid var(--border-bright);
+  padding: 2px 8px;
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  color: var(--text-bright);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+}
+
+/* ── TYPESCRIPT BLOCKS ── */
+.ts-block {
+  background: var(--base);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.7;
+  overflow-x: auto;
+  margin-bottom: 1rem;
+}
+
+.ts-kw { color: var(--purple); }
+.ts-type { color: var(--accent); }
+.ts-str { color: var(--green); }
+.ts-num { color: var(--orange); }
+.ts-cmt { color: var(--text-muted); font-style: italic; }
+.ts-prop { color: var(--text-bright); }
+.ts-fn { color: var(--yellow); }
+
+/* ── SUBSECTION HEADERS ── */
+.sub-header {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-bright);
+  padding: 0.5rem 0;
+  margin-top: 1.25rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px dashed var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sub-header .sh-icon {
+  color: var(--accent);
+  font-size: 11px;
+}
+
+/* ── RESPONSIVE ── */
+@media (max-width: 900px) {
+  .doc-header, .toc, .content { padding-left: 1.5rem; padding-right: 1.5rem; }
+  .toc-grid { grid-template-columns: 1fr; }
+  .store-grid { grid-template-columns: 1fr; }
+  .converge-grid { grid-template-columns: 1fr; gap: 0.5rem; }
+}
+
+/* ── PRINT ── */
+@media print {
+  body::after, body::before { display: none; }
+  body { background: #fff; color: #111; font-size: 11px; }
+  .doc-header { background: none; border-bottom: 2px solid #111; }
+  .header-title { color: #111; }
+  .header-title span { color: #333; }
+  .header-eyebrow { color: #555; }
+  .section-num { background: #111; color: #fff; }
+  .section-title { color: #111; }
+  .card { border: 1px solid #ccc; background: #fafafa; }
+  .card::before { display: none; }
+  table { border: 1px solid #ccc; }
+  thead th { background: #eee; color: #333; border-bottom: 1px solid #999; }
+  tbody td { border-bottom: 1px solid #ddd; color: #333; }
+  .badge { border: 1px solid #999; color: #333; background: #eee; }
+  .flow-box { border-color: #999; background: #fafafa; }
+  .flow-box .box-label { color: #111; }
+  .sys-diagram, .tree, .code-block, .ts-block { background: #f5f5f5; border-color: #ccc; color: #333; }
+  .store-slice { border-color: #ccc; background: #fafafa; }
+  details.section-details { break-inside: avoid; }
+  details.section-details[open] > summary { break-after: avoid; }
+  .toc { background: #fafafa; border-bottom: 1px solid #ccc; }
+  .toc-grid a { color: #333; }
+  a { color: #333; }
+}
+
+p { margin-bottom: 0.75rem; }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     HEADER
+     ════════════════════════════════════════════════════════ -->
+<header class="doc-header">
+  <div class="header-eyebrow">Internal Reference Document</div>
+  <h1 class="header-title">Trade Companion <span>Next</span> — Architecture</h1>
+  <div class="header-meta">
+    <div><span class="label">STACK</span> <span class="value">Next.js 14 · React · Zustand · SignalR · Electron</span></div>
+    <div><span class="label">STATUS</span> <span class="value live">● OPERATIONAL</span></div>
+    <div><span class="label">UPDATED</span> <span class="value">2026-03-08</span></div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+     ════════════════════════════════════════════════════════ -->
+<nav class="toc">
+  <div class="toc-label">Navigation Index</div>
+  <div class="toc-grid">
+    <a href="#s1"><span class="num">01</span> System Overview</a>
+    <a href="#s2"><span class="num">02</span> Data Flow Diagrams</a>
+    <a href="#s3"><span class="num">03</span> Component Hierarchy</a>
+    <a href="#s4"><span class="num">04</span> Hooks Reference</a>
+    <a href="#s5"><span class="num">05</span> Zustand Store Map</a>
+    <a href="#s6"><span class="num">06</span> SignalR Event Reference</a>
+    <a href="#s7"><span class="num">07</span> Networking &amp; Proxy</a>
+    <a href="#s8"><span class="num">08</span> Theme System</a>
+    <a href="#s9"><span class="num">09</span> Keyboard Shortcuts</a>
+    <a href="#s10"><span class="num">10</span> Electron Integration</a>
+    <a href="#s11"><span class="num">11</span> Pop-Out Windows</a>
+    <a href="#s12"><span class="num">12</span> Type Definitions</a>
+    <a href="#s13"><span class="num">13</span> API Endpoint Reference</a>
+  </div>
+</nav>
+
+<div class="content">
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 1 — SYSTEM OVERVIEW
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s1" open>
+  <summary>
+    <span class="section-num">01</span>
+    <span class="section-title">System Overview</span>
+  </summary>
+
+  <div class="sys-diagram"><span class="dm">┌─────────────────────────────────────────────────────────────────────────────────────┐</span>
+<span class="dm">│</span>                              <span class="wh">TRADE COMPANION NEXT</span>                                     <span class="dm">│</span>
+<span class="dm">│</span>                        <span class="hl">Next.js 14 + React + Zustand</span>                                <span class="dm">│</span>
+<span class="dm">│</span>                                                                                     <span class="dm">│</span>
+<span class="dm">│</span>   <span class="gr">┌─────────────┐</span>  <span class="hl">┌──────────────┐</span>  <span class="or">┌──────────────┐</span>  <span class="pr">┌─────────────┐</span>     <span class="dm">│</span>
+<span class="dm">│</span>   <span class="gr">│ useSignalR   │</span>  <span class="hl">│ useNewsHub   │</span>  <span class="or">│ Polling x4   │</span>  <span class="pr">│ usePriceAlts│</span>     <span class="dm">│</span>
+<span class="dm">│</span>   <span class="gr">│ (WebSocket)  │</span>  <span class="hl">│ (WebSocket)  │</span>  <span class="or">│ (REST)       │</span>  <span class="pr">│ (Local)     │</span>     <span class="dm">│</span>
+<span class="dm">│</span>   <span class="gr">└──────┬───────┘</span>  <span class="hl">└──────┬───────┘</span>  <span class="or">└──────┬───────┘</span>  <span class="pr">└──────┬──────┘</span>     <span class="dm">│</span>
+<span class="dm">│</span>          <span class="gr">│</span>                 <span class="hl">│</span>                 <span class="or">│</span>                 <span class="pr">│</span>             <span class="dm">│</span>
+<span class="dm">│</span>          <span class="gr">▼</span>                 <span class="hl">▼</span>                 <span class="or">▼</span>                 <span class="pr">▼</span>             <span class="dm">│</span>
+<span class="dm">│</span>   <span class="wh">┌───────────────────────────────────────────────────────────────────┐</span>       <span class="dm">│</span>
+<span class="dm">│</span>   <span class="wh">│                    ZUSTAND STORE + PERSIST                     │</span>       <span class="dm">│</span>
+<span class="dm">│</span>   <span class="wh">│            localStorage: trade-companion-storage                │</span>       <span class="dm">│</span>
+<span class="dm">│</span>   <span class="wh">└────────────────────────┬──────────────────────────────────────┘</span>       <span class="dm">│</span>
+<span class="dm">│</span>                            <span class="wh">│</span>                                                 <span class="dm">│</span>
+<span class="dm">│</span>          <span class="wh">┌────────────────┼────────────────────┐</span>                       <span class="dm">│</span>
+<span class="dm">│</span>          <span class="wh">▼</span>                <span class="wh">▼</span>                    <span class="wh">▼</span>                       <span class="dm">│</span>
+<span class="dm">│</span>   <span class="yl">┌────────────┐</span>  <span class="yl">┌──────────────┐</span>  <span class="yl">┌────────────────┐</span>              <span class="dm">│</span>
+<span class="dm">│</span>   <span class="yl">│ Components │</span>  <span class="yl">│ BroadcastCh. │</span>  <span class="yl">│ Cross-Window   │</span>              <span class="dm">│</span>
+<span class="dm">│</span>   <span class="yl">│ (UI)       │</span>  <span class="yl">│ (Quotes)     │</span>  <span class="yl">│ Sync (localStorage)│</span>          <span class="dm">│</span>
+<span class="dm">│</span>   <span class="yl">└────────────┘</span>  <span class="yl">└──────┬───────┘</span>  <span class="yl">└───────┬────────┘</span>              <span class="dm">│</span>
+<span class="dm">│</span>                         <span class="yl">│</span>                  <span class="yl">│</span>                            <span class="dm">│</span>
+<span class="dm">│</span>                         <span class="yl">▼</span>                  <span class="yl">▼</span>                            <span class="dm">│</span>
+<span class="dm">│</span>                  <span class="yl">┌─────────────────────────────┐</span>                         <span class="dm">│</span>
+<span class="dm">│</span>                  <span class="yl">│    POP-OUT WINDOWS          │</span>                         <span class="dm">│</span>
+<span class="dm">│</span>                  <span class="yl">│  (alertbar/watchlist/etc.)  │</span>                         <span class="dm">│</span>
+<span class="dm">│</span>                  <span class="yl">└─────────────────────────────┘</span>                         <span class="dm">│</span>
+<span class="dm">└─────────────────────────────────────────────────────────────────────────────────────┘</span>
+                            <span class="dm">│         │         │</span>
+              <span class="dm">┌─────────────┘</span>         <span class="dm">│</span>         <span class="dm">└──────────────┐</span>
+              <span class="dm">▼</span>                       <span class="dm">▼</span>                        <span class="dm">▼</span>
+<span class="gr">┌──────────────────────┐</span>  <span class="hl">┌──────────────────────┐</span>  <span class="pr">┌──────────────────────┐</span>
+<span class="gr">│ Azure Function Hub   │</span>  <span class="hl">│ News Hub (SignalR)   │</span>  <span class="pr">│ Grok API             │</span>
+<span class="gr">│ tradecompanion3      │</span>  <span class="hl">│ stage.news.scanzzers │</span>  <span class="pr">│ tradecompanion-grok  │</span>
+<span class="gr">│ .azurewebsites.net   │</span>  <span class="hl">│ .com/newshub         │</span>  <span class="pr">│ .azurewebsites.net   │</span>
+<span class="gr">│                      │</span>  <span class="hl">│                      │</span>  <span class="pr">│                      │</span>
+<span class="gr">│ Quotes + Alert Relay │</span>  <span class="hl">│ Real-time PR/News    │</span>  <span class="pr">│ Doc Summarization    │</span>
+<span class="gr">└──────────────────────┘</span>  <span class="hl">└──────────┬───────────┘</span>  <span class="pr">└──────────────────────┘</span>
+                                     <span class="hl">│</span>
+                                     <span class="hl">│</span> <span class="dm">JWT Auth</span>
+                                     <span class="hl">▼</span>
+                          <span class="hl">┌──────────────────────┐</span>
+                          <span class="hl">│ Scanzzers Auth       │</span>
+                          <span class="hl">│ stage.scanzzers.com  │</span>
+                          <span class="hl">│ /auth/machine-login  │</span>
+                          <span class="hl">└──────────────────────┘</span></div>
+
+  <div class="card" style="margin-top: 1rem;">
+    <div class="card-title">CORS Proxy (localhost only)</div>
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+      On localhost, <code style="color:var(--green)">proxyUrl()</code> rewrites absolute Azure/Scanzzers URLs to relative paths.<br>
+      Next.js rewrites in <code style="color:var(--accent)">next.config.js</code> forward them to the real endpoints.<br>
+      In production, URLs pass through unchanged — no proxy needed.
+    </p>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 2 — DATA FLOW DIAGRAMS
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s2" open>
+  <summary>
+    <span class="section-num">02</span>
+    <span class="section-title">Data Flow Diagrams</span>
+  </summary>
+
+  <!-- QUOTE FLOW -->
+  <div class="sub-header"><span class="sh-icon">◆</span> Quote Flow</div>
+
+  <div class="flow">
+    <div class="flow-box green-border">
+      <div class="box-label">Azure SignalR Hub</div>
+      <div class="box-sub">tradecompanion3.azurewebsites.net</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">
+      <div class="box-label">POST /api/negotiate</div>
+      <div class="box-sub">userId = tradingViewId</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box highlight">
+      <div class="box-label">WebSocket</div>
+      <div class="box-sub">auto-reconnect [0,2s,10s,30s]</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">
+      <div class="box-label">BroadcastQuotes</div>
+      <div class="box-sub">+ BroadcastL1 + Broadcast1sBar</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box orange-border">
+      <div class="box-label">batchQuoteUpdate</div>
+      <div class="box-sub">250ms flush interval</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box highlight">
+      <div class="box-label">Zustand Store</div>
+      <div class="box-sub">quotes: Record&lt;string, Quote&gt;</div>
+    </div>
+  </div>
+
+  <div class="flow" style="padding-left: 2rem;">
+    <div class="flow-arrow" style="color: var(--accent);">↳</div>
+    <div class="flow-box">
+      <div class="box-label">Components</div>
+      <div class="box-sub">Watchlist, StockDataRibbon, Scanner</div>
+    </div>
+    <div class="flow-arrow">+</div>
+    <div class="flow-box">
+      <div class="box-label">BroadcastChannel</div>
+      <div class="box-sub">"trade-companion-quotes" — 500ms throttle</div>
+    </div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">
+      <div class="box-label">Pop-out Windows</div>
+      <div class="box-sub">useQuoteReceiver()</div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 0.5rem;">
+    <div class="card-title">Quote Subscription</div>
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+      Client → <code style="color:var(--green)">connection.invoke('SubL1', symbol)</code> with 150ms delay between each.<br>
+      Stale detection: re-subscribe if no update in 3 minutes (checked every 30s).<br>
+      Token refresh: re-negotiate every 40 minutes (Azure only).
+    </p>
+  </div>
+
+  <!-- ALERT FLOW -->
+  <div class="sub-header"><span class="sh-icon">◆</span> Alert Flow — 8 Sources</div>
+
+  <div class="converge-grid">
+    <div class="converge-sources">
+      <div class="converge-src"><span class="badge badge-ws">WS</span> <span style="color:var(--text-bright)">BroadcastAlertTrigger</span></div>
+      <div class="converge-src"><span class="badge badge-ws">WS</span> <span style="color:var(--text-bright)">newFiling</span> <span style="color:var(--cyan)">■</span></div>
+      <div class="converge-src"><span class="badge badge-ws">WS</span> <span style="color:var(--text-bright)">newTradeExchange</span> <span style="color:var(--orange)">■</span></div>
+      <div class="converge-src"><span class="badge badge-ws">WS</span> <span style="color:var(--text-bright)">newCatalystScanner</span> <span style="color:var(--purple)">■</span></div>
+      <div class="converge-src"><span class="badge badge-ws">WS</span> <span style="color:var(--text-bright)">BroadcastNews</span> <span style="color:#7c4dff">■</span></div>
+      <div class="converge-src"><span class="badge badge-ws">WS</span> <span style="color:var(--text-bright)">tradingViewAlertRaw</span> <span style="color:var(--green)">■</span></div>
+      <div class="converge-src"><span class="badge badge-poll">POLL</span> <span style="color:var(--text-bright)">tweets/filings/catalyst/TX</span></div>
+      <div class="converge-src"><span class="badge badge-ws">WS</span> <span style="color:var(--text-bright)">NewsHub Direct</span> <span style="color:#7c4dff">■</span></div>
+    </div>
+    <div class="converge-center">
+      <div class="converge-pipe"></div>
+      <div class="converge-hub">addAlert()<br><span style="font-size:9px;color:var(--text-dim)">dedup: symbol+message+type</span></div>
+      <div class="converge-pipe"></div>
+    </div>
+    <div class="converge-targets">
+      <div class="converge-tgt"><span style="color:var(--text-bright)">Zustand alerts[]</span> <span style="color:var(--text-muted)">(max 500)</span></div>
+      <div class="converge-tgt"><span style="color:var(--orange)">AlertBar</span> <span style="color:var(--text-muted)">(bottom ticker)</span></div>
+      <div class="converge-tgt"><span style="color:var(--accent)">Watchlist</span> <span style="color:var(--text-muted)">(right pane)</span></div>
+      <div class="converge-tgt"><span style="color:var(--green)">Audio Alert</span> <span style="color:var(--text-muted)">(800Hz sine, 100ms)</span></div>
+      <div class="converge-tgt"><span style="color:var(--purple)">Mascot</span> <span style="color:var(--text-muted)">(celebration trigger)</span></div>
+    </div>
+  </div>
+
+  <!-- AUTH FLOW -->
+  <div class="sub-header"><span class="sh-icon">◆</span> Authentication Flows</div>
+
+  <div class="card">
+    <div class="card-title">App Login</div>
+    <div class="flow">
+      <div class="flow-box"><div class="box-label">Login Form</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box"><div class="box-label">POST /api/tcadmin/login</div><div class="box-sub">3 retries for 503</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box green-border"><div class="box-label">sessionStorage</div><div class="box-sub">tc_session</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box"><div class="box-label">pullUserData()</div><div class="box-sub">GET /api/user/${key}</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight"><div class="box-label">App Renders</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">News Hub JWT Auth</div>
+    <div class="flow">
+      <div class="flow-box"><div class="box-label">config.newsApiKey</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box"><div class="box-label">POST machine-login</div><div class="box-sub">stage.scanzzers.com/auth</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box green-border"><div class="box-label">JWT Token</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box highlight"><div class="box-label">accessTokenFactory</div><div class="box-sub">SignalR WebSocket</div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box"><div class="box-label">BroadcastNews</div><div class="box-sub">stage.news.scanzzers.com</div></div>
+    </div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 3 — COMPONENT HIERARCHY
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s3" open>
+  <summary>
+    <span class="section-num">03</span>
+    <span class="section-title">Component Hierarchy</span>
+  </summary>
+
+  <div class="sub-header"><span class="sh-icon">◆</span> Main App Tree</div>
+  <div class="tree"><span class="t-dir">Providers</span> <span class="t-dim">(app/providers.tsx)</span>
+├── <span class="t-comp">QueryClientProvider</span> <span class="t-dim">@tanstack/react-query</span>
+├── <span class="t-comp">ThemeProvider</span> <span class="t-dim">sets data-theme on &lt;html&gt;</span>
+├── <span class="t-comp">LoginGate</span> <span class="t-dim">sessionStorage auth gate</span>
+│   └── <span class="t-comp">CloseConfirmation</span> <span class="t-dim">beforeunload handler</span>
+│   └── <span class="t-dir">SignalRProvider</span> <span class="t-dim">(runs ALL hooks)</span>
+│       │
+│       │  <span class="t-hook">── Hooks ──</span>
+│       │  <span class="t-hook">useSignalR()</span>           <span class="t-dim">Azure/local hub connection</span>
+│       │  <span class="t-hook">useTweetsPolling()</span>     <span class="t-dim">30s tweet polling</span>
+│       │  <span class="t-hook">useFilingsPolling()</span>    <span class="t-dim">60s filing polling</span>
+│       │  <span class="t-hook">useTradeExchangePolling()</span> <span class="t-dim">30s TX polling</span>
+│       │  <span class="t-hook">useCatalystPolling()</span>   <span class="t-dim">60s catalyst polling</span>
+│       │  <span class="t-hook">useNewsHub()</span>           <span class="t-dim">direct news SignalR</span>
+│       │  <span class="t-hook">usePrevCloses()</span>        <span class="t-dim">60min prev close fetch</span>
+│       │  <span class="t-hook">usePriceAlerts()</span>       <span class="t-dim">local price monitoring</span>
+│       │  <span class="t-hook">useCrossWindowSync()</span>   <span class="t-dim">localStorage listener</span>
+│       │  <span class="t-hook">useQuoteBroadcaster()</span>  <span class="t-dim">BroadcastChannel sender</span>
+│       │
+│       ├── <span class="t-dir">Page</span> <span class="t-dim">(tab-based, app/page.tsx)</span>
+│       │   ├── <span class="t-dim">Tab 0:</span> <span class="t-comp">Home</span>
+│       │   ├── <span class="t-dim">Tab 1:</span> <span class="t-comp">AlertsPage</span> <span class="t-dim">alert history + filtering</span>
+│       │   ├── <span class="t-dim">Tab 2:</span> <span class="t-comp">Watchlist</span>
+│       │   │   ├── <span class="t-file">Left Pane: Symbol Table</span> <span class="t-dim">(flags, prices, alerts)</span>
+│       │   │   └── <span class="t-file">Right Pane: Symbol Alerts</span>
+│       │   │       └── <span class="t-comp">StockDataRibbon</span> <span class="t-dim">detailed quote data</span>
+│       │   ├── <span class="t-dim">Tab 3:</span> <span class="t-comp">ScannerPage</span> <span class="t-dim">4%+ movers by session/bucket</span>
+│       │   ├── <span class="t-dim">Tab 4:</span> <span class="t-comp">AdminPage</span>
+│       │   └── <span class="t-dim">Tab 5:</span> <span class="t-comp">SettingsPage</span>
+│       │
+│       ├── <span class="t-comp">AlertBar</span> <span class="t-dim">(bottom ticker — always visible)</span>
+│       ├── <span class="t-comp">AlertMascot</span> <span class="t-dim">(floating — draggable, celebrate on alerts)</span>
+│       ├── <span class="t-comp">ChartPanel</span> <span class="t-dim">(floating TradingView chart)</span>
+│       └── <span class="t-comp">ConnectionStatus</span> <span class="t-dim">(hub state indicator)</span></div>
+
+  <div class="sub-header"><span class="sh-icon">◆</span> Pop-out Window Tree</div>
+  <div class="tree"><span class="t-dir">PopoutProviders</span> <span class="t-dim">(app/pop/providers.tsx) — MINIMAL</span>
+├── <span class="t-comp">QueryClientProvider</span>
+├── <span class="t-comp">ThemeProvider</span>
+├── <span class="t-hook">useCrossWindowSync()</span>   <span class="t-dim">← receives state from main</span>
+├── <span class="t-hook">useQuoteReceiver()</span>     <span class="t-dim">← receives quotes via BroadcastChannel</span>
+│
+└── <span class="t-comp">[Component]</span> <span class="t-dim">one of:</span>
+    ├── <span class="t-file">/pop/alertbar</span>   → <span class="t-comp">AlertBar</span>
+    ├── <span class="t-file">/pop/alerts</span>     → <span class="t-comp">AlertsPage</span>
+    ├── <span class="t-file">/pop/watchlist</span>  → <span class="t-comp">Watchlist</span> <span class="t-dim">isPopout=true</span>
+    ├── <span class="t-file">/pop/scanner</span>   → <span class="t-comp">ScannerPage</span>
+    └── <span class="t-file">/pop/mascot</span>    → <span class="t-comp">AlertMascot</span> <span class="t-dim">transparent, Electron</span>
+
+<span class="t-dim">⚠ Pop-outs do NOT run: useSignalR, polling hooks, useNewsHub, usePriceAlerts</span>
+<span class="t-dim">  This prevents duplicate alerts and connections.</span></div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 4 — HOOKS REFERENCE
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s4" open>
+  <summary>
+    <span class="section-num">04</span>
+    <span class="section-title">Hooks Reference</span>
+  </summary>
+
+  <div style="overflow-x: auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Hook</th>
+        <th>Type</th>
+        <th>Endpoint / URL</th>
+        <th>Interval</th>
+        <th>Dedup Strategy</th>
+        <th>Init Delay</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code style="color:var(--green)">useSignalR</code></td>
+        <td><span class="badge badge-ws">WebSocket</span></td>
+        <td><code>/api/negotiate</code> (Azure) or direct <code>localhost:5000/lxhub</code></td>
+        <td>Persistent. Token refresh: 40min. Stale re-sub: 30s check / 3min threshold. Batch: 250ms</td>
+        <td>Per-event (see SignalR events table)</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">useNewsHub</code></td>
+        <td><span class="badge badge-ws">WebSocket</span></td>
+        <td><code>stage.news.scanzzers.com/newshub</code><br>JWT via <code>POST /auth/machine-login</code></td>
+        <td>Persistent. Reconnect check: 30s. JWT refresh on reconnect</td>
+        <td>Same as addAlert() dedup (symbol+msg+type)</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">useTweetsPolling</code></td>
+        <td><span class="badge badge-poll">REST Poll</span></td>
+        <td><code>GET /api/tweets?since=${id_long}</code></td>
+        <td>30s</td>
+        <td>Track <code>id_long</code> in <code>seenTweetIdsRef</code>. Initial: limit 100</td>
+        <td>500ms</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">useFilingsPolling</code></td>
+        <td><span class="badge badge-poll">REST Poll</span></td>
+        <td><code>GET /api/Filings?since=${date}</code></td>
+        <td>60s</td>
+        <td>By <code>dcn</code> or <code>${symbol}-${form}-${time_et}</code>. Filters to watchlist symbols</td>
+        <td>2s</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">useCatalystPolling</code></td>
+        <td><span class="badge badge-poll">REST Poll</span></td>
+        <td><code>GET /api/Catalyst?since=${date}</code></td>
+        <td>60s</td>
+        <td>By <code>${symbol}-${saveTime_et}</code>. Filters to watchlist symbols (high volume)</td>
+        <td>5s</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">useTradeExchangePolling</code></td>
+        <td><span class="badge badge-poll">REST Poll</span></td>
+        <td><code>GET /api/TradeExchangeGet?since=${date}</code></td>
+        <td>30s</td>
+        <td>By <code>id</code>. Parses $CASHTAG + leading ticker from content</td>
+        <td>3.5s</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">usePrevCloses</code></td>
+        <td><span class="badge badge-rest">REST</span></td>
+        <td><code>GET /api/PrevCloses</code></td>
+        <td>60min</td>
+        <td>N/A — overwrites. Seeds quotes for symbols without live data</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">usePriceAlerts</code></td>
+        <td><span class="badge badge-local">Local</span></td>
+        <td>—</td>
+        <td>On quote update (reactive)</td>
+        <td>Key: <code>upper-${symbol}-${price}</code> or <code>lower-...</code></td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">useCrossWindowSync</code></td>
+        <td><span class="badge badge-local">Local</span></td>
+        <td>localStorage <code>trade-companion-storage</code></td>
+        <td>On storage event</td>
+        <td>Deep equality (JSON.stringify) skip if same</td>
+        <td>—</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">useQuoteBroadcaster</code></td>
+        <td><span class="badge badge-local">Local</span></td>
+        <td>BroadcastChannel <code>trade-companion-quotes</code></td>
+        <td>500ms throttle</td>
+        <td>N/A — latest state wins</td>
+        <td>—</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 5 — ZUSTAND STORE MAP
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s5" open>
+  <summary>
+    <span class="section-num">05</span>
+    <span class="section-title">Zustand Store Map</span>
+  </summary>
+
+  <div class="card" style="margin-bottom: 1.25rem;">
+    <div class="card-title">Persistence</div>
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+      <span style="color:var(--text-bright)">Key:</span> <code>"trade-companion-storage"</code> (localStorage)<br>
+      <span style="color:var(--text-bright)">Partialize:</span> All slices EXCEPT <code>connectionState</code><br>
+      <span style="color:var(--text-bright)">Rehydrate:</span> Converts <code>flaggedSymbols</code> and <code>hiddenAlertIds</code> from arrays → Sets
+    </p>
+  </div>
+
+  <div class="store-grid">
+    <div class="store-slice">
+      <div class="store-slice-name">Connection</div>
+      <div class="store-field"><span class="sf-name">connectionState</span> <span class="sf-type">ConnectionState</span></div>
+      <div class="store-field"><span class="sf-action">setConnectionState(state)</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">UI / Navigation</div>
+      <div class="store-field"><span class="sf-name">activePane</span> <span class="sf-type">PaneId | null</span></div>
+      <div class="store-field"><span class="sf-name">activeTab</span> <span class="sf-type">number</span> <span class="sf-type">(0-5)</span></div>
+      <div class="store-field"><span class="sf-name">selectedSymbol</span> <span class="sf-type">string | null</span></div>
+      <div class="store-field"><span class="sf-name">selectedWatchlistId</span> <span class="sf-type">string | null</span></div>
+      <div class="store-field"><span class="sf-name">chartMode</span> <span class="sf-type">boolean</span></div>
+      <div class="store-field"><span class="sf-action">setActivePane() setActiveTab() setSelectedSymbol()</span></div>
+      <div class="store-field"><span class="sf-action">setSelectedWatchlistId() setChartMode() toggleChartMode()</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Quotes</div>
+      <div class="store-field"><span class="sf-name">quotes</span> <span class="sf-type">Record&lt;string, Quote&gt;</span></div>
+      <div class="store-field"><span class="sf-name">prevCloses</span> <span class="sf-type">Record&lt;string, number&gt;</span></div>
+      <div class="store-field"><span class="sf-action">updateQuote(q) updateQuotes(q[]) setPrevCloses(pc)</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Alerts</div>
+      <div class="store-field"><span class="sf-name">alerts</span> <span class="sf-type">Alert[]</span> <span class="sf-type">(max 500)</span></div>
+      <div class="store-field"><span class="sf-name">hiddenAlertIds</span> <span class="sf-type">Set&lt;string&gt;</span></div>
+      <div class="store-field"><span class="sf-action">addAlert(a) addAlerts(a[]) markAlertRead(id)</span></div>
+      <div class="store-field"><span class="sf-action">clearAlerts() hideAlert(id) removeAlert(id)</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Watchlists</div>
+      <div class="store-field"><span class="sf-name">watchlists</span> <span class="sf-type">Watchlist[]</span></div>
+      <div class="store-field"><span class="sf-action">setWatchlists(wl[]) addWatchlist(name)</span></div>
+      <div class="store-field"><span class="sf-action">removeWatchlist(id) addSymbolToWatchlist(wlId, sym)</span></div>
+      <div class="store-field"><span class="sf-action">removeSymbolFromWatchlist(wlId, sym)</span></div>
+      <div class="store-field"><span class="sf-action">updateSymbolInWatchlist(wlId, sym)</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Flags</div>
+      <div class="store-field"><span class="sf-name">flaggedSymbols</span> <span class="sf-type">Set&lt;string&gt;</span></div>
+      <div class="store-field"><span class="sf-action">toggleFlag(sym) isFlagged(sym)</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Scanner</div>
+      <div class="store-field"><span class="sf-name">scannerAlerts</span> <span class="sf-type">ScannerAlert[]</span> <span class="sf-type">(max 500)</span></div>
+      <div class="store-field"><span class="sf-action">addScannerAlert(a) clearScannerAlerts()</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Price Alert Dedup</div>
+      <div class="store-field"><span class="sf-name">triggeredPriceAlerts</span> <span class="sf-type">Set&lt;string&gt;</span></div>
+      <div class="store-field"><span class="sf-action">addTriggeredPriceAlert(key) clearTriggeredPriceAlerts()</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Subscriptions</div>
+      <div class="store-field"><span class="sf-name">alertSubscriptions</span> <span class="sf-type">AlertSubscription[]</span></div>
+      <div class="store-field"><span class="sf-action">addAlertSubscription(type, wlId)</span></div>
+      <div class="store-field"><span class="sf-action">removeAlertSubscription(id)</span></div>
+      <div class="store-field"><span class="sf-action">toggleAlertSubscriptionAudio(id)</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Config</div>
+      <div class="store-field"><span class="sf-name">config</span> <span class="sf-type">AppConfig</span></div>
+      <div class="store-field"><span class="sf-action">updateConfig(partial)</span></div>
+      <div class="store-field" style="margin-top:0.25rem; border-top:1px solid var(--border); padding-top:0.25rem;">
+        <span class="sf-type">hubUrl, apiKey, tradingViewId, theme,</span>
+      </div>
+      <div class="store-field"><span class="sf-type">audioEnabled, alertBarHeight, watchlistSplitPercent,</span></div>
+      <div class="store-field"><span class="sf-type">marketCapMin/Max, grokApiKey, userKey,</span></div>
+      <div class="store-field"><span class="sf-type">mascotEnabled/Size/Character, newsApiKey</span></div>
+    </div>
+
+    <div class="store-slice">
+      <div class="store-slice-name">Mascot</div>
+      <div class="store-field"><span class="sf-name">mascotPosition</span> <span class="sf-type">{x: number, y: number}</span></div>
+      <div class="store-field"><span class="sf-action">setMascotPosition(pos)</span></div>
+    </div>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 6 — SIGNALR EVENT REFERENCE
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s6" open>
+  <summary>
+    <span class="section-num">06</span>
+    <span class="section-title">SignalR Event Reference</span>
+  </summary>
+
+  <div style="overflow-x: auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Event</th>
+        <th>Dir</th>
+        <th>Data Shape</th>
+        <th>Handler</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code style="color:var(--green)">BroadcastQuotes</code></td>
+        <td>S→C</td>
+        <td><code>[{s, b, a, l, v, change, changePercent}]</code></td>
+        <td>batchQuoteUpdate</td>
+        <td>250ms batch flush</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">BroadcastL1</code></td>
+        <td>S→C</td>
+        <td><code>{AAPL: {l, b, a, bz, az, t, ti}}</code></td>
+        <td>batchQuoteUpdate</td>
+        <td>Per-symbol object keyed by ticker</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">Broadcast1sBar</code></td>
+        <td>S→C</td>
+        <td><code>[{s, c (close), v}]</code></td>
+        <td>batchQuoteUpdate</td>
+        <td>1-second candlestick bars</td>
+      </tr>
+      <tr style="border-top: 2px solid var(--border-bright);">
+        <td><code style="color:var(--orange)">BroadcastAlertTrigger</code></td>
+        <td>S→C</td>
+        <td><code>{time, alert, alertName, watchlist, message, symbol, color}</code></td>
+        <td>addAlert</td>
+        <td>Legacy format. Parses alert JSON for url</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--cyan)">newFiling</code></td>
+        <td>S→C</td>
+        <td><code>{symbol, alert, message, title, form_type, url, Url}</code></td>
+        <td>addAlert</td>
+        <td>Color <span style="color:#00bcd4">■</span> #00bcd4</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--orange)">newTradeExchange</code></td>
+        <td>S→C</td>
+        <td><code>{data}</code></td>
+        <td>addAlert</td>
+        <td>Color <span style="color:#ff9800">■</span> #ff9800</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--purple)">newCatalystScanner</code></td>
+        <td>S→C</td>
+        <td><code>{data}</code></td>
+        <td>addAlert</td>
+        <td>Color <span style="color:#9c27b0">■</span> #9c27b0</td>
+      </tr>
+      <tr>
+        <td><code style="color:#7c4dff">BroadcastNews</code></td>
+        <td>S→C</td>
+        <td><code>{symbol, headline, story_id, savetime_et, time_et}</code></td>
+        <td>addAlert</td>
+        <td>Color <span style="color:#7c4dff">■</span> #7c4dff. URL: <code>ampspr?id=${story_id}</code></td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--green)">tradingViewAlertRaw</code></td>
+        <td>S→C</td>
+        <td><code>{id, raw_text, received_utc}</code></td>
+        <td>addAlert</td>
+        <td>Color <span style="color:#4caf50">■</span> #4caf50. Dedup by id. Backfill on start</td>
+      </tr>
+      <tr>
+        <td><code style="color:var(--yellow)">ScannerAlert</code></td>
+        <td>S→C</td>
+        <td><code>{symbol, pctChange, price, prevClose, session, bucket}</code></td>
+        <td>addScannerAlert</td>
+        <td>Goes to <code>scannerAlerts[]</code>, NOT <code>alerts[]</code></td>
+      </tr>
+      <tr style="border-top: 2px solid var(--border-bright);">
+        <td><code style="color:var(--accent)">SubL1</code></td>
+        <td>C→S</td>
+        <td><code>symbol: string</code></td>
+        <td>—</td>
+        <td>Subscribe to quotes. 150ms delay between each invoke</td>
+      </tr>
+    </tbody>
+  </table>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 7 — NETWORKING & PROXY
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s7">
+  <summary>
+    <span class="section-num">07</span>
+    <span class="section-title">Networking &amp; Proxy</span>
+  </summary>
+
+  <div class="sub-header"><span class="sh-icon">◆</span> Next.js Rewrites (next.config.js)</div>
+  <table>
+    <thead>
+      <tr><th>Local Path</th><th>→</th><th>Remote Destination</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>/tc3-test/:path*</code></td><td>→</td><td><code>tradecompanion3-test.azurewebsites.net/:path*</code></td><td>Dev/test backend</td></tr>
+      <tr><td><code>/tc3/:path*</code></td><td>→</td><td><code>tradecompanion3.azurewebsites.net/:path*</code></td><td>Production backend</td></tr>
+      <tr><td><code>/tc-grok/:path*</code></td><td>→</td><td><code>tradecompanion-grok.azurewebsites.net/:path*</code></td><td>Grok summarization API</td></tr>
+      <tr><td><code>/scanzzers/:path*</code></td><td>→</td><td><code>stage.scanzzers.com/:path*</code></td><td>JWT auth (machine-login)</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sub-header"><span class="sh-icon">◆</span> proxyUrl() (lib/proxyUrl.ts)</div>
+  <div class="card">
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+      <span style="color:var(--text-bright)">Active only on localhost</span> (checks <code>window.location.hostname</code>).<br>
+      Maps full URLs to proxy paths: <code style="color:var(--green)">https://tradecompanion3.azurewebsites.net/api/foo</code> → <code style="color:var(--accent)">/tc3/api/foo</code><br>
+      In production, returns the URL unchanged — browser calls the external service directly.
+    </p>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 8 — THEME SYSTEM
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s8">
+  <summary>
+    <span class="section-num">08</span>
+    <span class="section-title">Theme System</span>
+  </summary>
+
+  <p style="margin-bottom: 1rem; font-size: 12px; color: var(--text-dim);">
+    Themes are applied via <code style="color:var(--accent)">data-theme</code> attribute on <code>&lt;html&gt;</code>.
+    CSS variables cascade to all components. Switching is instant — no component re-renders.
+  </p>
+
+  <div class="theme-row">
+    <div class="theme-swatch" style="background: #111827;"></div>
+    <div class="theme-name">dark</div>
+    <div class="theme-accent-swatch" style="background: #6b7280;"></div>
+    <div class="theme-vars">base: #111827 · accent: gray · text: #e5e7eb</div>
+  </div>
+  <div class="theme-row">
+    <div class="theme-swatch" style="background: #020617;"></div>
+    <div class="theme-name" style="color: #38bdf8;">blue ★</div>
+    <div class="theme-accent-swatch" style="background: #38bdf8;"></div>
+    <div class="theme-vars">base: #020617 · accent: #38bdf8 (sky blue) · text: #e0f2fe · DEFAULT</div>
+  </div>
+  <div class="theme-row">
+    <div class="theme-swatch" style="background: #0d1117;"></div>
+    <div class="theme-name" style="color: #10b981;">wallst</div>
+    <div class="theme-accent-swatch" style="background: #10b981;"></div>
+    <div class="theme-vars">base: #0d1117 · accent: #10b981 (emerald) · text: #d1fae5</div>
+  </div>
+  <div class="theme-row">
+    <div class="theme-swatch" style="background: #1a0a0a;"></div>
+    <div class="theme-name" style="color: #ef4444;">crimson</div>
+    <div class="theme-accent-swatch" style="background: #ef4444;"></div>
+    <div class="theme-vars">base: #1a0a0a · accent: #ef4444 (red) · text: #fecaca</div>
+  </div>
+  <div class="theme-row" style="border-bottom: none;">
+    <div class="theme-swatch" style="background: #0f0720;"></div>
+    <div class="theme-name" style="color: #a78bfa;">nebula</div>
+    <div class="theme-accent-swatch" style="background: #a78bfa;"></div>
+    <div class="theme-vars">base: #0f0720 · accent: #a78bfa (violet) · text: #ede9fe</div>
+  </div>
+
+  <div class="card" style="margin-top: 1rem;">
+    <div class="card-title">CSS Variable Categories</div>
+    <p style="font-family: var(--font-mono); font-size: 10px; color: var(--text-dim); line-height: 1.8;">
+      --bg-base, --bg-primary, --bg-secondary, --bg-tertiary, --bg-glass, --bg-glass-light<br>
+      --border-primary, --border-glass<br>
+      --text-primary, --text-secondary, --text-muted<br>
+      --accent-primary, --accent-glow<br>
+      --shadow-color
+    </p>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 9 — KEYBOARD SHORTCUTS
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s9">
+  <summary>
+    <span class="section-num">09</span>
+    <span class="section-title">Keyboard Shortcuts</span>
+  </summary>
+
+  <table>
+    <thead>
+      <tr><th>Key</th><th>Context</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="key-badge">↑</span> <span class="key-badge">↓</span></td><td>Watchlist pane active</td><td>Navigate symbols in current watchlist</td></tr>
+      <tr><td><span class="key-badge">←</span> <span class="key-badge">→</span></td><td>Watchlist pane active</td><td>Switch to previous/next watchlist tab (no wrap)</td></tr>
+      <tr><td><span class="key-badge">Space</span></td><td>Watchlist pane active</td><td>Toggle flag on selected symbol</td></tr>
+      <tr><td><span class="key-badge">Delete</span></td><td>Watchlist pane active</td><td>Remove selected symbol from watchlist</td></tr>
+      <tr><td><span class="key-badge">↑</span> <span class="key-badge">↓</span></td><td>AlertBar pane active</td><td>Navigate alerts</td></tr>
+      <tr><td><span class="key-badge">Enter</span></td><td>AlertBar pane active</td><td>Open selected alert URL</td></tr>
+      <tr><td><span class="key-badge">PgUp</span> <span class="key-badge">PgDn</span></td><td>Global</td><td>Switch main tabs (0-5)</td></tr>
+      <tr><td><span class="key-badge">Esc</span></td><td>Global</td><td>Cancel inline actions, close context menus</td></tr>
+    </tbody>
+  </table>
+
+  <div class="card" style="margin-top: 1rem;">
+    <div class="card-title">Focus Management</div>
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+      <code style="color:var(--accent)">activePane</code> determines which pane receives keyboard events.<br>
+      Set by clicking within a pane container (<code>mousedown</code> listener).<br>
+      Arrow keys skip when focus is in <code>&lt;input&gt;</code> / <code>&lt;textarea&gt;</code> / <code>&lt;select&gt;</code>.
+    </p>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 10 — ELECTRON
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s10">
+  <summary>
+    <span class="section-num">10</span>
+    <span class="section-title">Electron Integration</span>
+  </summary>
+
+  <table>
+    <thead><tr><th>Window</th><th>Size</th><th>Options</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><span style="color:var(--text-bright)">Main</span></td>
+        <td><code>1400 × 900</code></td>
+        <td>macOS <code>hiddenInset</code> titleBar. Loads <code>TC_URL || http://localhost:3000</code></td>
+      </tr>
+      <tr>
+        <td><span style="color:var(--text-bright)">Mascot</span></td>
+        <td><code>280 × 360</code></td>
+        <td><code>transparent: true, frame: false, alwaysOnTop: true, skipTaskbar: true</code>. Bottom-right corner.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="card" style="margin-top: 1rem;">
+    <div class="card-title">window.open Interception</div>
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+      <code>mainWindow.webContents.setWindowOpenHandler(({ url }) => { ... })</code><br>
+      If URL contains <code>/pop/mascot</code> → <code>createMascotWindow()</code> + return <code>{ action: 'deny' }</code><br>
+      All others → <code>{ action: 'allow' }</code> (opens in normal browser window)
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-title">System Tray Menu</div>
+    <p style="font-family: var(--font-mono); font-size: 11px; color: var(--text-dim);">
+      Show App · Show Mascot · Hide Mascot · Always on Top (checkbox) · Quit
+    </p>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 11 — POP-OUT WINDOWS
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s11">
+  <summary>
+    <span class="section-num">11</span>
+    <span class="section-title">Pop-Out Window Architecture</span>
+  </summary>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+    <div class="card">
+      <div class="card-title" style="color: var(--green);">Main Window — Full Stack</div>
+      <div style="font-family: var(--font-mono); font-size: 10px; line-height: 1.8; color: var(--text-dim);">
+        <span style="color:var(--green)">●</span> useSignalR<br>
+        <span style="color:var(--green)">●</span> useNewsHub<br>
+        <span style="color:var(--green)">●</span> useTweetsPolling<br>
+        <span style="color:var(--green)">●</span> useFilingsPolling<br>
+        <span style="color:var(--green)">●</span> useCatalystPolling<br>
+        <span style="color:var(--green)">●</span> useTradeExchangePolling<br>
+        <span style="color:var(--green)">●</span> usePrevCloses<br>
+        <span style="color:var(--green)">●</span> usePriceAlerts<br>
+        <span style="color:var(--green)">●</span> useCrossWindowSync<br>
+        <span style="color:var(--green)">●</span> useQuoteBroadcaster
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title" style="color: var(--orange);">Pop-out Window — Receiver Only</div>
+      <div style="font-family: var(--font-mono); font-size: 10px; line-height: 1.8; color: var(--text-dim);">
+        <span style="color:var(--green)">●</span> useCrossWindowSync <span style="color:var(--text-muted)">← full state from localStorage</span><br>
+        <span style="color:var(--green)">●</span> useQuoteReceiver <span style="color:var(--text-muted)">← quotes via BroadcastChannel</span><br>
+        <span style="color:var(--red)">○</span> <span style="color:var(--text-muted)">No SignalR connections</span><br>
+        <span style="color:var(--red)">○</span> <span style="color:var(--text-muted)">No polling hooks</span><br>
+        <span style="color:var(--red)">○</span> <span style="color:var(--text-muted)">No price alert monitoring</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top: 0.5rem;">
+    <div class="card-title">Sync Mechanisms</div>
+    <table style="margin:0">
+      <thead><tr><th>Channel</th><th>Data</th><th>Frequency</th><th>Method</th></tr></thead>
+      <tbody>
+        <tr><td>localStorage</td><td>Full state (watchlists, alerts, config, flags, scanner)</td><td>On every Zustand persist</td><td><code>storage</code> event listener</td></tr>
+        <tr><td>BroadcastChannel</td><td>Quotes only</td><td>500ms throttle</td><td><code>trade-companion-quotes</code> channel</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Pop-out Routes</div>
+    <table style="margin: 0;">
+      <thead><tr><th>Route</th><th>Component</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td><code>/pop/alertbar</code></td><td>AlertBar</td><td>Standalone alert ticker</td></tr>
+        <tr><td><code>/pop/alerts</code></td><td>AlertsPage</td><td>Alert history + filters</td></tr>
+        <tr><td><code>/pop/watchlist</code></td><td>Watchlist</td><td><code>isPopout=true</code> (no PopOutButton)</td></tr>
+        <tr><td><code>/pop/scanner</code></td><td>ScannerPage</td><td>4%+ mover leaderboard</td></tr>
+        <tr><td><code>/pop/mascot</code></td><td>AlertMascot</td><td>Transparent BG (Electron only)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 12 — TYPE DEFINITIONS
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s12">
+  <summary>
+    <span class="section-num">12</span>
+    <span class="section-title">Type Definitions</span>
+  </summary>
+
+  <div class="ts-block"><span class="ts-kw">interface</span> <span class="ts-type">Quote</span> {
+  <span class="ts-prop">symbol</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">bid</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">ask</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">last</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">volume</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">change</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">changePercent</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">timestamp</span>: <span class="ts-type">Date</span>
+}
+
+<span class="ts-kw">interface</span> <span class="ts-type">Alert</span> {
+  <span class="ts-prop">id</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">symbol</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">message</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">type</span>: <span class="ts-str">'price'</span> | <span class="ts-str">'filing'</span> | <span class="ts-str">'news'</span> | <span class="ts-str">'catalyst'</span> | <span class="ts-str">'trade_exchange'</span> | <span class="ts-str">'scanner'</span>
+  <span class="ts-prop">color</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">timestamp</span>: <span class="ts-type">Date</span>
+  <span class="ts-prop">read</span>: <span class="ts-type">boolean</span>
+  <span class="ts-prop">url</span>?: <span class="ts-type">string</span>
+}
+
+<span class="ts-kw">interface</span> <span class="ts-type">WatchlistSymbol</span> {
+  <span class="ts-prop">symbol</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">upperAlert</span>: <span class="ts-type">number</span> | <span class="ts-type">null</span>
+  <span class="ts-prop">lowerAlert</span>: <span class="ts-type">number</span> | <span class="ts-type">null</span>
+  <span class="ts-prop">notes</span>: <span class="ts-type">string</span>
+}
+
+<span class="ts-kw">interface</span> <span class="ts-type">Watchlist</span> {
+  <span class="ts-prop">id</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">name</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">symbols</span>: <span class="ts-type">WatchlistSymbol</span>[]
+}
+
+<span class="ts-kw">interface</span> <span class="ts-type">ScannerAlert</span> {
+  <span class="ts-prop">symbol</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">pctChange</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">price</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">prevClose</span>: <span class="ts-type">number</span>
+  <span class="ts-prop">session</span>: <span class="ts-str">'PRE'</span> | <span class="ts-str">'MKT'</span> | <span class="ts-str">'AH'</span> | <span class="ts-str">'ON'</span>
+  <span class="ts-prop">bucket</span>: <span class="ts-str">'NANO'</span> | <span class="ts-str">'MICRO'</span> | <span class="ts-str">'SMALL'</span> | <span class="ts-str">'MID'</span> | <span class="ts-str">'LARGE'</span> | <span class="ts-str">'MEGA'</span> | <span class="ts-type">null</span>
+  <span class="ts-prop">timestamp</span>: <span class="ts-type">string</span>  <span class="ts-cmt">// ISO 8601</span>
+}
+
+<span class="ts-kw">interface</span> <span class="ts-type">AppConfig</span> {
+  <span class="ts-prop">tradingViewId</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">apiKey</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">hubUrl</span>: <span class="ts-type">string</span>          <span class="ts-cmt">// default: 'https://tradecompanion3.azurewebsites.net/api'</span>
+  <span class="ts-prop">audioEnabled</span>: <span class="ts-type">boolean</span>    <span class="ts-cmt">// default: true</span>
+  <span class="ts-prop">alertBarHeight</span>: <span class="ts-type">number</span>   <span class="ts-cmt">// default: 200</span>
+  <span class="ts-prop">watchlistSplitPercent</span>: <span class="ts-type">number</span>  <span class="ts-cmt">// default: 50</span>
+  <span class="ts-prop">marketCapMin</span>: <span class="ts-type">number</span>     <span class="ts-cmt">// default: 0</span>
+  <span class="ts-prop">marketCapMax</span>: <span class="ts-type">number</span>     <span class="ts-cmt">// default: 999999999999</span>
+  <span class="ts-prop">theme</span>: <span class="ts-type">AppTheme</span>         <span class="ts-cmt">// default: 'blue'</span>
+  <span class="ts-prop">grokApiKey</span>: <span class="ts-type">string</span>
+  <span class="ts-prop">userKey</span>: <span class="ts-type">string</span>          <span class="ts-cmt">// set at login = username</span>
+  <span class="ts-prop">mascotEnabled</span>: <span class="ts-type">boolean</span>   <span class="ts-cmt">// default: true</span>
+  <span class="ts-prop">mascotSize</span>: <span class="ts-str">'sm'</span> | <span class="ts-str">'md'</span> | <span class="ts-str">'lg'</span>
+  <span class="ts-prop">mascotCharacter</span>: <span class="ts-type">MascotCharacter</span>
+  <span class="ts-prop">newsApiKey</span>: <span class="ts-type">string</span>       <span class="ts-cmt">// for NewsHub JWT auth</span>
+}
+
+<span class="ts-kw">type</span> <span class="ts-type">AppTheme</span> = <span class="ts-str">'dark'</span> | <span class="ts-str">'blue'</span> | <span class="ts-str">'wallst'</span> | <span class="ts-str">'crimson'</span> | <span class="ts-str">'nebula'</span>
+<span class="ts-kw">type</span> <span class="ts-type">PaneId</span> = <span class="ts-str">'watchlist'</span> | <span class="ts-str">'alertbar'</span> | <span class="ts-str">'alerts'</span> | <span class="ts-str">'scanner'</span>
+<span class="ts-kw">type</span> <span class="ts-type">ConnectionState</span> = <span class="ts-str">'connecting'</span> | <span class="ts-str">'connected'</span> | <span class="ts-str">'reconnecting'</span> | <span class="ts-str">'disconnected'</span>
+<span class="ts-kw">type</span> <span class="ts-type">AlertType</span> = <span class="ts-str">'PRs'</span> | <span class="ts-str">'Filings'</span> | <span class="ts-str">'X'</span> | <span class="ts-str">'FilteredPRs'</span> | <span class="ts-str">'TradeExchange'</span> | <span class="ts-str">'TradeExchangeFiltered'</span> | <span class="ts-str">'AfternoonBreakout'</span> | <span class="ts-str">'TradingViewWebhooks'</span></div>
+</details>
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION 13 — API ENDPOINT REFERENCE
+     ══════════════════════════════════════════════════════════ -->
+<details class="section-details" id="s13" open>
+  <summary>
+    <span class="section-num">13</span>
+    <span class="section-title">API Endpoint Reference</span>
+  </summary>
+
+  <div class="sub-header"><span class="sh-icon">◆</span> Azure Function Hub (tradecompanion3.azurewebsites.net)</div>
+  <div style="overflow-x: auto;">
+  <table>
+    <thead>
+      <tr><th>Method</th><th>Endpoint</th><th>Purpose</th><th>Caller</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="badge badge-orange">POST</span></td><td><code>/api/negotiate?userId=${tradingViewId}</code></td><td>SignalR connection negotiation</td><td>useSignalR</td></tr>
+      <tr><td><span class="badge badge-orange">POST</span></td><td><code>/api/tcadmin/login</code></td><td>Authenticate user (username, password)</td><td>LoginGate</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/user/${userKey}</code></td><td>Fetch watchlists + settings from server</td><td>LoginGate, SettingsPage</td></tr>
+      <tr><td><span class="badge badge-orange">POST</span></td><td><code>/api/user/register</code></td><td>Generate new user key</td><td>SettingsPage</td></tr>
+      <tr><td><span class="badge badge-orange">POST</span></td><td><code>/api/user/push</code></td><td>Push local state to server</td><td>SettingsPage</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/PrevCloses</code></td><td>Previous closing prices for all symbols</td><td>usePrevCloses</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/tweets?since=${id_long}</code></td><td>Poll tweets (cursor-based)</td><td>useTweetsPolling</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/Filings?since=${date}</code></td><td>Poll SEC filings (date-based)</td><td>useFilingsPolling</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/Catalyst?since=${date}</code></td><td>Poll catalyst PRs (date-based)</td><td>useCatalystPolling</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/TradeExchangeGet?since=${date}</code></td><td>Poll Trade Exchange posts (date-based)</td><td>useTradeExchangePolling</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/AlertsBySymbol?symbol=${sym}</code></td><td>DB alerts for selected symbol</td><td>Watchlist</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/tv/alerts?userid=${tvId}</code></td><td>TradingView alert backfill (dedup seed)</td><td>useSignalR</td></tr>
+    </tbody>
+  </table>
+  </div>
+
+  <div class="sub-header"><span class="sh-icon">◆</span> Scanzzers Services</div>
+  <table>
+    <thead><tr><th>Method</th><th>Endpoint</th><th>Purpose</th><th>Caller</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-orange">POST</span></td><td><code>stage.scanzzers.com/auth/machine-login</code></td><td>Exchange API key for JWT</td><td>useNewsHub</td></tr>
+      <tr><td><span class="badge badge-green">GET</span></td><td><code>stage.scanzzers.com/api/ampspr?id=${storyId}</code></td><td>PR/news article content</td><td>Alert URLs</td></tr>
+    </tbody>
+  </table>
+
+  <div class="sub-header"><span class="sh-icon">◆</span> Grok API</div>
+  <table>
+    <thead><tr><th>Method</th><th>Endpoint</th><th>Purpose</th><th>Caller</th></tr></thead>
+    <tbody>
+      <tr><td><span class="badge badge-orange">POST</span></td><td><code>tradecompanion-grok.azurewebsites.net/grok/</code></td><td>Summarize document URL via Grok</td><td>GrokButton</td></tr>
+    </tbody>
+  </table>
+</details>
+
+</div><!-- /content -->
+
+<!-- Footer -->
+<footer style="border-top: 1px solid var(--border); padding: 1.5rem 3rem; text-align: center;">
+  <p style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); letter-spacing: 1px;">
+    TRADE COMPANION NEXT — INTERNAL ARCHITECTURE REFERENCE — LAST UPDATED 2026-03-08
+  </p>
+</footer>
+
+</body>
+</html>

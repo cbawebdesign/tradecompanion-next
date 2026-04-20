@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>TC Agent Ecosystem — Master Plan</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  :root {
+    --bg: #0b0d10;
+    --panel: #13171c;
+    --border: #1f262e;
+    --text: #e8ecef;
+    --muted: #8a95a0;
+    --accent: #67e8f9;
+    --accent-2: #34d399;
+    --warn: #fcd34d;
+    --danger: #f87171;
+    --code: #0f1317;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; line-height: 1.6; }
+  body { max-width: 1040px; margin: 0 auto; padding: 48px 32px 120px; }
+  h1 { font-size: 36px; margin: 0 0 4px; letter-spacing: -0.5px; }
+  h2 { font-size: 24px; margin: 56px 0 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border); letter-spacing: -0.3px; }
+  h3 { font-size: 18px; margin: 32px 0 10px; color: var(--accent); }
+  h4 { font-size: 15px; margin: 20px 0 8px; color: var(--accent-2); letter-spacing: 0.3px; }
+  p, li { color: var(--text); }
+  .lede { color: var(--muted); font-size: 17px; margin-bottom: 32px; line-height: 1.5; }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 32px; }
+  code, pre { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; }
+  code { background: var(--code); border: 1px solid var(--border); padding: 1px 6px; border-radius: 4px; color: var(--accent-2); }
+  pre { background: var(--code); border: 1px solid var(--border); padding: 16px; border-radius: 8px; overflow-x: auto; line-height: 1.5; }
+  pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 14px; }
+  th { color: var(--muted); font-weight: 500; font-size: 12px; letter-spacing: 0.5px; text-transform: uppercase; }
+  ul, ol { padding-left: 20px; }
+  li { margin: 4px 0; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin: 16px 0; }
+  .panel-accent { border-left: 3px solid var(--accent); }
+  .panel-warn { border-left: 3px solid var(--warn); }
+  .panel-success { border-left: 3px solid var(--accent-2); }
+  .panel-danger { border-left: 3px solid var(--danger); }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.5px; margin-right: 4px; }
+  .tag-done { background: rgba(52, 211, 153, 0.15); color: var(--accent-2); }
+  .tag-partial { background: rgba(103, 232, 249, 0.15); color: var(--accent); }
+  .tag-pending { background: rgba(138, 149, 160, 0.2); color: var(--muted); }
+  .tag-low { background: rgba(52, 211, 153, 0.15); color: var(--accent-2); }
+  .tag-med { background: rgba(252, 211, 77, 0.15); color: var(--warn); }
+  .tag-high { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
+  .phase { display: grid; grid-template-columns: 120px 1fr; gap: 20px; padding: 20px 0; border-top: 1px solid var(--border); }
+  .phase:first-of-type { border-top: 0; }
+  .phase-label { font-weight: 600; font-size: 15px; }
+  .phase-hours { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .twocol { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 800px) { .twocol { grid-template-columns: 1fr; } .phase { grid-template-columns: 1fr; gap: 8px; } body { padding: 24px 16px 80px; } }
+  .footer-note { color: var(--muted); font-size: 13px; margin-top: 48px; padding-top: 24px; border-top: 1px solid var(--border); }
+  .kbd { background: var(--code); border: 1px solid var(--border); padding: 2px 6px; border-radius: 4px; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+  .toc { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; margin: 24px 0 40px; }
+  .toc ol { margin: 8px 0 0; padding-left: 24px; column-count: 2; column-gap: 24px; }
+  .toc a { color: var(--text); text-decoration: none; }
+  .toc a:hover { color: var(--accent); }
+  @media (max-width: 800px) { .toc ol { column-count: 1; } }
+  .agent-card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; margin: 16px 0; }
+  .agent-card.done { border-left: 3px solid var(--accent-2); }
+  .agent-card.partial { border-left: 3px solid var(--accent); }
+  .agent-card.pending { border-left: 3px solid var(--muted); }
+</style>
+</head>
+<body>
+
+<h1>Trade Companion — Agent Ecosystem &amp; Integration Plan</h1>
+<div class="meta">Master plan / last updated 2026-04-18 / covers the full stack: legacy + web + Azure Function + admin + agents</div>
+<p class="lede">
+  One document for everything going on with TC. What's shipped, what's planned, what's deferred, and how the five autonomous/assisted agents fit together with the web app, the legacy desktop, and the Azure Function backend.
+</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#state">Current state — what shipped tonight</a></li>
+    <li><a href="#web-outstanding">Web version — outstanding items</a></li>
+    <li><a href="#agents">The 5-agent ecosystem</a></li>
+    <li><a href="#intake">Agent Intake (human-fired triage)</a></li>
+    <li><a href="#visualqa">Visual QA Agent</a></li>
+    <li><a href="#integrity">Alert Integrity Agent</a></li>
+    <li><a href="#perf">Performance Monitor Agent</a></li>
+    <li><a href="#report">Report Aggregator</a></li>
+    <li><a href="#shared">Shared infrastructure</a></li>
+    <li><a href="#rollout">End-to-end phased rollout</a></li>
+    <li><a href="#risks">Risks &amp; costs</a></li>
+    <li><a href="#questions">Open questions</a></li>
+    <li><a href="#notplanned">Explicitly not planned</a></li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="state">1. Current state — what shipped tonight (2026-04-17 → 04-18)</h2>
+
+<div class="panel panel-success">
+  <strong>Legacy TC</strong> — <code>equitydynamics/Trade-Companion</code>, branch <code>fix/rss-mail-startup-flood</code>, all 7 fixes stacked, Justin pulls once:
+  <ul>
+    <li><span class="tag tag-done">DONE</span> Strip refetch on watchlist mutation (TradeExchange, X)</li>
+    <li><span class="tag tag-done">DONE</span> Ambulance-chaser PR blacklist (<code>ExcludePRPatterns</code>, 25 law firms default, case-insensitive)</li>
+    <li><span class="tag tag-done">DONE</span> RSS swap — dead <code>CZ6…</code> URL replaced with working <code>75x9…</code>, split into YT / SUB / ART streams with age caps</li>
+    <li><span class="tag tag-done">DONE</span> PR backfill fix — Jon's broken <code>?since=</code> param dropped, client-side filter; now 106 headlines vs 1</li>
+    <li><span class="tag tag-done">DONE</span> TradingView backfill diagnostic logging</li>
+    <li><span class="tag tag-done">DONE</span> RSS startup flood fix — persisted <code>seenGuids</code> + real pubDate timestamps</li>
+    <li><span class="tag tag-done">DONE</span> Malformed multi-URL RSS item skip (caught a real bug live)</li>
+    <li><span class="tag tag-done">DONE</span> Editable blacklist textarea in ConfigPage</li>
+  </ul>
+</div>
+
+<div class="panel panel-success">
+  <strong>Web TC</strong> — <code>cbawebdesign/tradecompanion-next</code>, merged to <code>master</code>, Vercel auto-deployed:
+  <ul>
+    <li><span class="tag tag-done">DONE</span> Ambulance-chaser blacklist in <code>useSignalR</code> + <code>useNewsHub</code> BroadcastNews handlers</li>
+    <li><span class="tag tag-done">DONE</span> Editable <code>excludePrPatterns</code> textarea in SettingsPage</li>
+    <li><span class="tag tag-done">DONE</span> Shared helper lib <code>lib/excludePrPatterns.ts</code></li>
+  </ul>
+</div>
+
+<div class="panel panel-success">
+  <strong>tc-qa-agent v0.1</strong> — new project at <code>/Users/cwebmac/Documents/MasterTC/tc-qa-agent/</code>, initial commit in place:
+  <ul>
+    <li><span class="tag tag-done">DONE</span> Playwright + Anthropic SDK + TypeScript project</li>
+    <li><span class="tag tag-done">DONE</span> 8 check categories running, smoke-test passing against Vercel</li>
+    <li><span class="tag tag-done">DONE</span> Ribbon timing measured per symbol</li>
+    <li><span class="tag tag-done">DONE</span> Per-endpoint latency rollup for Jon's REST APIs</li>
+    <li><span class="tag tag-done">DONE</span> GitHub Actions cron workflow (every 5 min during market hours)</li>
+    <li><span class="tag tag-done">DONE</span> Claude triage on failure</li>
+  </ul>
+</div>
+
+<div class="panel panel-warn">
+  <strong>Parked / deferred</strong>
+  <ul>
+    <li><strong>Filings-as-PRs (Phase 2a)</strong> — original theory wrong. Evidence in Catalyst logs shows wire-service PRs <em>about</em> filings (e.g. "FVRR Files Annual Report on Form 20-F"), not misrouted filing metadata. Waiting on Justin for a specific example headline to verify.</li>
+    <li><strong>Centralized admin dashboard for PR blacklist (Phase 3c full)</strong> — 4-repo change, deferred until a second use case appears. 3c-lite (per-app editable Settings field) covers the "I need to update it" need.</li>
+    <li><strong>Since-previous-close backfill on web (Phase 3d)</strong> — <code>useAlertAuditor</code> + dedupKey already cover this in practice. Adding a third redundant path without a user-visible gap signal is premature.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="web-outstanding">2. Web version — what's actually still outstanding</h2>
+
+<p>Stepping through the web app explicitly so nothing hides:</p>
+
+<table>
+  <thead><tr><th>Area</th><th>Status</th><th>Notes</th></tr></thead>
+  <tbody>
+    <tr><td>Ambulance-chaser blacklist</td><td><span class="tag tag-done">DONE</span></td><td>Merged + deployed tonight</td></tr>
+    <tr><td>Editable blacklist in Settings</td><td><span class="tag tag-done">DONE</span></td><td>Textarea under "Exclude Filing Types"</td></tr>
+    <tr><td>RSS / Substack / YouTube</td><td><span class="tag tag-done">DONE</span></td><td>Web uses Airtable direct API — never had the miniextensions dead-URL bug</td></tr>
+    <tr><td>Watchlist mutation refetch</td><td><span class="tag tag-done">DONE</span></td><td>Web never had this bug — mutations only push up, don't pull down</td></tr>
+    <tr><td>Filings-as-PRs routing</td><td><span class="tag tag-partial">PARTIAL</span></td><td>Not a bug per investigation; re-open if Justin supplies an example</td></tr>
+    <tr><td>Startup backfill parity</td><td><span class="tag tag-pending">PENDING</span></td><td>Auditor covers most; explicit per-source "since close" pull deferred</td></tr>
+    <tr><td>Centralized blacklist config (Cosmos)</td><td><span class="tag tag-pending">PENDING</span></td><td>Would let admin dashboard edit once, clients pull on boot — not blocking</td></tr>
+    <tr><td>Visual QA coverage of web</td><td><span class="tag tag-partial">PARTIAL</span></td><td>tc-qa-agent v0.1 runs against Vercel URL; CI cron not yet wired to a GitHub repo</td></tr>
+    <tr><td>Performance monitoring on web</td><td><span class="tag tag-pending">PENDING</span></td><td>Planned as its own agent — see section 7</td></tr>
+    <tr><td>Autonomous findings → TcIssues Cosmos</td><td><span class="tag tag-pending">PENDING</span></td><td>Ties agents to the intake inbox; needs Phase A of Intake first</td></tr>
+    <tr><td>Catalyst PR clickable URLs</td><td><span class="tag tag-done">DONE</span></td><td>resource_id flows backend → frontend</td></tr>
+    <tr><td>FilteredPR keyword matching</td><td><span class="tag tag-done">DONE</span></td><td>Ported regex from legacy (comma=OR, &amp;=AND, !=NOT, *=wildcard)</td></tr>
+    <tr><td>Multi-symbol tweet fix</td><td><span class="tag tag-done">DONE</span></td><td>Fires for each watchlisted symbol, not just first</td></tr>
+    <tr><td>ExcludeFilings (pipe-separated)</td><td><span class="tag tag-done">DONE</span></td><td>Same config field as legacy</td></tr>
+    <tr><td>Alert Auditor safety net</td><td><span class="tag tag-done">DONE</span></td><td>Polls <code>/api/AlertsBySymbol</code> every 60s</td></tr>
+    <tr><td>DedupKey tagging</td><td><span class="tag tag-done">DONE</span></td><td>Explicit keys per source</td></tr>
+    <tr><td>Grok AI summaries on PRs/filings</td><td><span class="tag tag-done">DONE</span></td><td>Web-only feature</td></tr>
+    <tr><td>Text-to-Speech (Web Speech API)</td><td><span class="tag tag-done">DONE</span></td><td>Web-only feature</td></tr>
+    <tr><td>Per-type alert sounds</td><td><span class="tag tag-done">DONE</span></td><td>Configurable freq/duration</td></tr>
+    <tr><td>Mascot animation</td><td><span class="tag tag-done">DONE</span></td><td>Web-only feature</td></tr>
+    <tr><td>Pop-out windows (AlertBar, Watchlist, etc)</td><td><span class="tag tag-done">DONE</span></td><td>Web-only feature</td></tr>
+    <tr><td>Cosmos watchlist sync</td><td><span class="tag tag-done">DONE</span></td><td>Survives browser clear</td></tr>
+    <tr><td>Cross-window BroadcastChannel sync</td><td><span class="tag tag-done">DONE</span></td><td>Web-only feature</td></tr>
+    <tr><td>AHK companion server</td><td><span class="tag tag-done">DONE</span></td><td>Local Node.js bridge on localhost:9876</td></tr>
+    <tr><td>Settings UI for all config fields</td><td><span class="tag tag-done">DONE</span></td><td>Includes AHK config with 5-step setup</td></tr>
+    <tr><td>Localstorage robustness</td><td><span class="tag tag-pending">PENDING</span></td><td>Seeding partial persist state crashes app — tc-qa-agent caught this tonight. Should add validation in persist migration.</td></tr>
+  </tbody>
+</table>
+
+<div class="panel panel-accent">
+  <strong>Net:</strong> web is at full parity on feature delivery. Only pending items are architecture-level (centralized config, persist robustness, agent integrations), not functional gaps.
+</div>
+
+<!-- ============================================================ -->
+<h2 id="agents">3. The 5-agent ecosystem — overview</h2>
+
+<p>Five different agents, different missions, different triggers, different priority.</p>
+
+<table>
+  <thead><tr><th>Agent</th><th>Role</th><th>Trigger</th><th>Status</th><th>Priority</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><a href="#intake">Agent Intake</a></td>
+      <td>Triage human-fired issues</td>
+      <td>Justin submits form</td>
+      <td><span class="tag tag-pending">PLANNED</span></td>
+      <td>P1</td>
+    </tr>
+    <tr>
+      <td><a href="#visualqa">Visual QA</a></td>
+      <td>Watches UI for dupes, freezes, broken layouts, ribbon perf</td>
+      <td>Timer, market hours</td>
+      <td><span class="tag tag-partial">v0.1 BUILT</span></td>
+      <td>P1</td>
+    </tr>
+    <tr>
+      <td><a href="#integrity">Alert Integrity</a></td>
+      <td>Backend-vs-frontend alert delivery comparison</td>
+      <td>Timer every 60s</td>
+      <td><span class="tag tag-partial">PARTIAL</span></td>
+      <td>P1 (metric fix)</td>
+    </tr>
+    <tr>
+      <td><a href="#perf">Performance Monitor</a></td>
+      <td>Tracks memory, FPS, DOM, long tasks</td>
+      <td>Continuous / sampled</td>
+      <td><span class="tag tag-pending">NOT BUILT</span></td>
+      <td>P3</td>
+    </tr>
+    <tr>
+      <td><a href="#report">Report Aggregator</a></td>
+      <td>Daily summary combining the above</td>
+      <td>Cron at 4:30pm ET</td>
+      <td><span class="tag tag-pending">NOT BUILT</span></td>
+      <td>P2</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="intake">4. Agent Intake (human-fired triage)</h2>
+
+<div class="agent-card pending">
+  <h3 style="margin-top:0">What it is</h3>
+  <p>Justin fires an issue into an admin form → agent assembles context across all 3 TC repos → produces a triage diagnosis → pings Chris → Chris reviews and walks through the fix.</p>
+  <p><strong>Is not:</strong> autonomous PRs, chat interface for Justin, real-time debugging.</p>
+
+  <h4>Data flow</h4>
+  <pre><code>Justin (tc-admin)
+  → submits issue form
+  → POST /api/tcadmin/issues → Cosmos TcIssues (status: pending)
+  → Azure Function triggers triage (async)
+      → CLAUDE.md files + git log + keyword code search
+      → Claude API (Sonnet 4.6)
+      → diagnosis JSON
+  → Cosmos updated (status: triaged)
+  → Notification to Chris
+  → Chris reviews, walks Justin through or assigns to me</code></pre>
+
+  <h4>Cosmos schema — <code>TcIssues</code></h4>
+  <pre><code>{
+  "id": "guid",
+  "createdAt": "iso8601",
+  "submittedBy": "justin|chris|agent:visual-qa|agent:integrity",
+  "title": "string",
+  "description": "markdown",
+  "repoHint": "legacy|web|azure|any",
+  "screenshotUrl": "blob url | null",
+  "status": "pending|triaging|triaged|resolved|dismissed",
+  "source": "manual|visual-qa|alert-integrity|perf-monitor",
+  "diagnosis": {
+    "summary": "1-sentence",
+    "rootCauseHypothesis": "detailed, cites file:line",
+    "relevantFiles": [{ "path": "", "reason": "", "lineRange": "" }],
+    "suggestedApproach": "for Chris to evaluate",
+    "riskAssessment": "low|med|high",
+    "followupQuestions": ["string"]
+  },
+  "chrisNotes": "string | null",
+  "resolution": "string | null"
+}</code></pre>
+
+  <h4>Phases</h4>
+  <div class="phase">
+    <div><div class="phase-label">A</div><div class="phase-hours">4–6 hours</div></div>
+    <div>
+      <strong>Foundation — no AI yet.</strong> Cosmos repo, Azure Function CRUD endpoints, tc-admin pages (list + detail + submit form). Prove the loop end-to-end.
+    </div>
+  </div>
+  <div class="phase">
+    <div><div class="phase-label">B</div><div class="phase-hours">4–6 hours</div></div>
+    <div>
+      <strong>Agent triage.</strong> <code>Services/IssueTriageService.cs</code> — assembles context (CLAUDE.mds + recent commits via GitHub API), calls Anthropic, writes diagnosis, sends Chris notification.
+    </div>
+  </div>
+  <div class="phase">
+    <div><div class="phase-label">C</div><div class="phase-hours">2–4 hours</div></div>
+    <div>
+      <strong>Keyword code-search context.</strong> GitHub <code>/search/code</code> API → top 10 relevant files included in prompt. Big quality jump.
+    </div>
+  </div>
+  <div class="phase">
+    <div><div class="phase-label">D</div><div class="phase-hours">2–4 hours</div></div>
+    <div>
+      <strong>Polish.</strong> Screenshot upload → Azure Blob. Status transitions. Chris comment thread. Resolution notifications to Justin. Rate limit.
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="visualqa">5. Visual QA Agent</h2>
+
+<div class="agent-card partial">
+  <h3 style="margin-top:0">What it is — AND IT'S BUILT</h3>
+  <p><strong>v0.1 lives at <code>/Users/cwebmac/Documents/MasterTC/tc-qa-agent/</code>.</strong> Headless Playwright opens the Vercel URL every 5 min during market hours, runs 8 check categories, hands failures to Claude for a triage hypothesis, writes artifacts.</p>
+
+  <h4>Checks running today</h4>
+  <ul>
+    <li><code>page-loaded</code> — HTTP status, title present</li>
+    <li><code>alert-rows</code> — text length bounds (catches the giant-text-blob we hit tonight), duplicate detection</li>
+    <li><code>dom-size</code> — memory-leak sentinel</li>
+    <li><code>console-errors</code> — JS exceptions during lifecycle</li>
+    <li><code>network-failures</code> — 5xx / failed critical requests</li>
+    <li><code>ribbon:&lt;symbol&gt;</code> — click symbol, measure settle time, bucket</li>
+    <li><code>endpoint:&lt;label&gt;</code> — per-endpoint latency rollup for Jon's REST APIs with 5xx tracking</li>
+  </ul>
+
+  <h4>Smoke test result (just ran)</h4>
+  <pre><code>⚠ tc-qa-agent — https://trade-companion-next.vercel.app — 12346ms — overall: YELLOW
+  ✓ page-loaded: HTTP 200
+  ✓ page-title: "Trade Companion"
+  ⚠ alert-rows: No alert rows rendered (fresh session)
+  ✓ dom-size: 371 nodes
+  ✓ console-errors: none
+  ✓ network-failures: none
+  ✓ ribbon:NVDA: 1516ms
+  ✓ ribbon:SPY: 1506ms
+  ⚠ ribbon:AAPL: off-screen (box=-123,8) — can't click, skipping</code></pre>
+
+  <h4>Real findings already surfaced</h4>
+  <ul>
+    <li><strong>localStorage persist crash</strong> — seeding a partial Zustand state throws "Application error" on load. Filed; web app should handle malformed persist gracefully.</li>
+    <li><strong>AAPL off-screen</strong> — horizontal scroll pane hiding watchlist rows. Real usability issue.</li>
+  </ul>
+
+  <h4>Phases</h4>
+  <div class="phase">
+    <div><div class="phase-label">v0.1</div><div class="phase-hours">BUILT</div></div>
+    <div>
+      Pure Playwright assertions + Claude on failure. GitHub Actions cron every 5 min, 14-day artifact retention. Exit codes: 2=red, 1=yellow, 0=green. <strong>Next step:</strong> push to a GitHub repo (not pushed yet) + add <code>ANTHROPIC_API_KEY</code> secret.
+    </div>
+  </div>
+  <div class="phase">
+    <div><div class="phase-label">v0.2</div><div class="phase-hours">2–4 hours</div></div>
+    <div>
+      Extend interaction coverage: click alerts → verify new-tab URL, scroll watchlist → verify render, flag/unflag → verify no reflow flood. Use <code>data-*</code> attributes (needs adding to web app) for stable selectors.
+    </div>
+  </div>
+  <div class="phase">
+    <div><div class="phase-label">v0.3</div><div class="phase-hours">2–3 hours</div></div>
+    <div>
+      Ambient Claude screenshot checks every Nth run (even without a Playwright failure). Catches CSS regressions, subtle layout drift. Writes findings into TcIssues Cosmos (ties into Intake).
+    </div>
+  </div>
+  <div class="phase">
+    <div><div class="phase-label">v2 (skip)</div><div class="phase-hours">—</div></div>
+    <div>
+      Claude Computer Use — autonomous browser control. Skipped on purpose: $4–12k/mo vs $0–120/mo for v0.x, minimal extra coverage for the kinds of bugs that actually happen.
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="integrity">6. Alert Integrity Agent</h2>
+
+<div class="agent-card partial">
+  <h3 style="margin-top:0">What it is</h3>
+  <p>Continuously verifies that alerts the backend received were also fired on the client. Generates a delivery score. Flags <code>MISSED</code> / <code>DELAYED</code> / <code>DUPLICATE</code> / <code>MATCHED</code>.</p>
+
+  <h4>Current state</h4>
+  <p>Partially built. <code>AlertAuditTimer</code> runs in the Azure Function and produces a delivery score. <strong>The score is broken</strong> — it reports ~11.9% because it counts "alert exists on backend but no client acknowledged" as a miss, even when no client was open to ack. Meaningless metric right now.</p>
+
+  <h4>Fix (P1)</h4>
+  <ol>
+    <li>Only compute delivery score for windows where at least one active client session existed (tracked via SignalR connection count).</li>
+    <li>Split the metric: <em>delivery when online</em> vs <em>recovered by auditor safety net</em> vs <em>never-delivered-and-never-recovered</em>. The third is the one that matters.</li>
+    <li>Surface per-alert-type breakdown (PR delivery vs Filing delivery vs Tweet delivery, etc).</li>
+    <li>Write to Cosmos <code>AlertIntegrityMetrics</code> for tc-admin dashboard charts.</li>
+  </ol>
+
+  <h4>Future (v2)</h4>
+  <ul>
+    <li>Auto-create a <code>TcIssues</code> entry when a specific alert type's delivery drops &gt; 10% below baseline (ties into Intake).</li>
+    <li>Detect deduplication regressions — same alert firing &gt; N times in &lt; M seconds across sessions.</li>
+  </ul>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="perf">7. Performance Monitor Agent</h2>
+
+<div class="agent-card pending">
+  <h3 style="margin-top:0">What it is</h3>
+  <p>Tracks browser performance during a trading session: heap size, frame drops, long tasks (&gt;50ms), DOM node count.</p>
+
+  <h4>Scope</h4>
+  <p>Can share infrastructure with Visual QA (both use headless Chromium). In practice: extend <code>tc-qa-agent</code> to emit a secondary <code>performance</code> report alongside the QA report on every run.</p>
+
+  <h4>Metrics</h4>
+  <ul>
+    <li>Heap size via <code>performance.measureUserAgentSpecificMemory()</code> if available, fallback <code>performance.memory.usedJSHeapSize</code></li>
+    <li>Long tasks via PerformanceObserver (<code>type: 'longtask'</code>)</li>
+    <li>Frame drops via requestAnimationFrame sampling</li>
+    <li>DOM mutation rate via MutationObserver (already exposed by Playwright via CDP)</li>
+  </ul>
+
+  <h4>Baseline establishment</h4>
+  <p>First N runs build a baseline ("steady state is 120MB heap, 800 DOM nodes"). Subsequent runs alert on deviations &gt; 2× baseline.</p>
+
+  <h4>Effort</h4>
+  <p>~4–6 hours as an extension to tc-qa-agent. P3 — not blocking.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="report">8. Report Aggregator</h2>
+
+<div class="agent-card pending">
+  <h3 style="margin-top:0">What it is</h3>
+  <p>Daily summary, runs automatically at 4:30pm ET (after market close). Pulls from:</p>
+  <ul>
+    <li>Alert Integrity Agent — delivery score + misses</li>
+    <li>Visual QA Agent — all Playwright runs from the day, aggregated pass/fail</li>
+    <li>Performance Monitor — memory/FPS trend for the session</li>
+    <li>Agent Intake — issues submitted, triaged, resolved</li>
+  </ul>
+  <p>Output: a single daily report posted to tc-admin, with a notification to Chris if anything regressed vs previous day.</p>
+
+  <h4>Scope</h4>
+  <p>Requires Integrity metric fix (section 6) and Visual QA findings going to Cosmos (v0.3) before it has real data to aggregate. <strong>P2</strong> — after Intake foundation + Integrity fix.</p>
+
+  <h4>Effort</h4>
+  <p>~4–6 hours. Mostly a Cosmos query + templating layer.</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="shared">9. Shared infrastructure</h2>
+
+<p>The five agents share enough plumbing that planning them together is cleaner than five separate projects.</p>
+
+<table>
+  <thead><tr><th>Component</th><th>Used by</th><th>State</th></tr></thead>
+  <tbody>
+    <tr><td>Cosmos <code>TcIssues</code> container</td><td>Intake, Visual QA (v0.3+), Integrity (v2), Perf (v2)</td><td>Not created yet — first deliverable of Intake Phase A</td></tr>
+    <tr><td>Cosmos <code>AlertIntegrityMetrics</code></td><td>Integrity, Report Aggregator</td><td>Part of Integrity metric fix</td></tr>
+    <tr><td>Cosmos <code>TcPerfMetrics</code></td><td>Perf Monitor, Report Aggregator</td><td>Part of Perf Monitor build</td></tr>
+    <tr><td>Azure Blob Storage (screenshots)</td><td>Intake, Visual QA</td><td>Account exists (<code>group18615</code>); needs container</td></tr>
+    <tr><td>Anthropic API key</td><td>Intake triage, Visual QA triage</td><td>Needs env var on Azure Function + GitHub Actions secret</td></tr>
+    <tr><td>GitHub token (code search)</td><td>Intake Phase C, Visual QA v0.2+</td><td>Needs a fine-grained PAT with <code>code:read</code> scope</td></tr>
+    <tr><td>Notification channel to Chris</td><td>All agents</td><td><strong>OPEN QUESTION</strong> — see §12</td></tr>
+    <tr><td>tc-admin dashboard</td><td>Intake UI, daily reports, perf charts</td><td>Scaffold exists; needs new pages</td></tr>
+    <tr><td>Azure Function env vars</td><td>Intake, Integrity</td><td>Existing; add new keys incrementally</td></tr>
+  </tbody>
+</table>
+
+<!-- ============================================================ -->
+<h2 id="rollout">10. End-to-end phased rollout</h2>
+
+<p>Honest sequencing with dependencies. Every phase is ~1 session unless noted.</p>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 0</div><div class="phase-hours">DONE tonight</div></div>
+  <div>
+    Legacy + web fixes shipped; tc-qa-agent v0.1 built and verified locally. Branches pushed, web auto-deployed.
+  </div>
+</div>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 1</div><div class="phase-hours">~8 hours</div></div>
+  <div>
+    <strong>Foundation — Cosmos + Agent Intake Phase A + push tc-qa-agent to CI.</strong>
+    <ul>
+      <li>Create <code>TcIssues</code> Cosmos container + repo in Azure Function</li>
+      <li>Intake CRUD endpoints (no AI yet)</li>
+      <li>tc-admin <code>/issues</code> list + submit + detail pages</li>
+      <li>Push tc-qa-agent to a GitHub repo; add <code>ANTHROPIC_API_KEY</code> secret; enable cron</li>
+    </ul>
+  </div>
+</div>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 2</div><div class="phase-hours">~6 hours</div></div>
+  <div>
+    <strong>Agent Intake Phase B — real triage + notifications.</strong>
+    <ul>
+      <li><code>IssueTriageService.cs</code> + Anthropic SDK</li>
+      <li>CLAUDE.md files + git log context assembly</li>
+      <li>Notification channel to Chris (depends on §12 answer)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 3</div><div class="phase-hours">~4 hours</div></div>
+  <div>
+    <strong>Alert Integrity metric fix.</strong>
+    <ul>
+      <li>Separate "delivery when online" from "never recovered"</li>
+      <li>Per-alert-type breakdown</li>
+      <li>Write to <code>AlertIntegrityMetrics</code>, surface in tc-admin</li>
+    </ul>
+  </div>
+</div>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 4</div><div class="phase-hours">~3 hours</div></div>
+  <div>
+    <strong>tc-qa-agent v0.3 — findings into TcIssues.</strong>
+    <ul>
+      <li>When a Playwright check fails red, POST to <code>/api/tcadmin/issues</code> with <code>source: "visual-qa"</code></li>
+      <li>Ambient Claude screenshot checks</li>
+      <li>Deduplicate: don't re-create if same signature exists in last 24h</li>
+    </ul>
+  </div>
+</div>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 5</div><div class="phase-hours">~6 hours</div></div>
+  <div>
+    <strong>Report Aggregator + Intake Phase C (code-search context).</strong>
+    <ul>
+      <li>Aggregator pulls from Intake + Integrity + QA runs</li>
+      <li>Posted to tc-admin dashboard daily</li>
+      <li>Intake triage quality jump via GitHub code search</li>
+    </ul>
+  </div>
+</div>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 6</div><div class="phase-hours">~6 hours</div></div>
+  <div>
+    <strong>Performance Monitor + Intake Phase D polish.</strong>
+  </div>
+</div>
+
+<div class="phase">
+  <div><div class="phase-label">Phase 7</div><div class="phase-hours">~4 hours</div></div>
+  <div>
+    <strong>Centralized blacklist config (Cosmos).</strong>
+    <ul>
+      <li>Move <code>ExcludePRPatterns</code> into Cosmos, admin UI edits it once, clients pull on boot with local fallback</li>
+      <li>Upgrades Phase 3c-lite to full 3c</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="risks">11. Risks &amp; costs</h2>
+
+<div class="twocol">
+  <div class="panel">
+    <h4>Monthly cost estimate</h4>
+    <table>
+      <tr><td>Visual QA (tc-qa-agent)</td><td>~$0 (GitHub Actions free tier)</td></tr>
+      <tr><td>Claude triage on failures</td><td>~$5–20/mo at 10 issues/day</td></tr>
+      <tr><td>Intake triage calls</td><td>~$60/mo at 10 submissions/day on Sonnet 4.6</td></tr>
+      <tr><td>Cosmos (new containers)</td><td>~$0 at this volume</td></tr>
+      <tr><td>Blob storage (screenshots)</td><td>~$1–3/mo</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>~$70–100/mo</strong></td></tr>
+    </table>
+  </div>
+  <div class="panel">
+    <h4>Key risks</h4>
+    <ul>
+      <li>Bad agent diagnoses waste your time → frame everything as triage, never auto-fix</li>
+      <li>API key leaks via issue descriptions → add redaction pass</li>
+      <li>Agent hallucinates file paths → post-validate against GitHub search</li>
+      <li>Visual QA false positives → stable selectors (data-*), iterate thresholds</li>
+      <li>Notification fatigue → rate limit, severity thresholds, daily digest for low-urgency</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="questions">12. Open questions — answer before next build session</h2>
+
+<div class="panel panel-warn">
+  <ol>
+    <li><strong>Notification channel to Chris.</strong> Not Slack (you're off it). Options: in-app badge in tc-admin, email, Pushover, Apple Push, iMessage via shortcuts. Which?</li>
+    <li><strong>tc-qa-agent GitHub repo.</strong> New repo under <code>cbawebdesign</code>, or under <code>equitydynamics</code>? Push now or later?</li>
+    <li><strong>Anthropic API key.</strong> Use the existing AgentBox key, or mint a separate TC-only key so spending is trackable?</li>
+    <li><strong>Issue submission auth.</strong> Justin uses a shared admin login? Or does tc-admin already have per-user accounts?</li>
+    <li><strong>Auto-create GitHub issues on triage?</strong> Useful for tracking, noisy if Justin submits a lot. Default off, togglable?</li>
+    <li><strong>Model choice for triage.</strong> Sonnet 4.6 default; Haiku 4.5 for classification; Opus 4.6 reserved. OK to default to Sonnet?</li>
+  </ol>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="notplanned">13. Explicitly not planned</h2>
+
+<ul>
+  <li><strong>Agent-written PRs</strong> — too risky for trading code</li>
+  <li><strong>Full-codebase RAG via pgvector</strong> — unnecessary until keyword search proves insufficient</li>
+  <li><strong>Claude Computer Use</strong> — 100× cost of tc-qa-agent, minimal extra coverage</li>
+  <li><strong>Voice input from Justin</strong> — fun, not the bottleneck</li>
+  <li><strong>Multi-tenant intake</strong> — Justin is the only external submitter</li>
+  <li><strong>Real-time log streaming / APM</strong> — separate scope, use Sentry or Azure App Insights if needed</li>
+  <li><strong>Autonomous fix-and-deploy loop</strong> — no</li>
+</ul>
+
+<div class="footer-note">
+  File: <code>trade-companion-next/AGENT-INTAKE-PLAN.html</code>. Built on top of the session shipped 2026-04-17 (ambulance-chaser blacklist, RSS fixes, mutation backfill strip, malformed RSS item guard) + the tc-qa-agent v0.1 shipped 2026-04-18. Update in place as we iterate.
+</div>
+
+</body>
+</html>
