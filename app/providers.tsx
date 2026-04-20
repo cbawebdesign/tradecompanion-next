@@ -16,6 +16,7 @@ import { useStockDataPreload } from '@/hooks/useStockDataPreload'
 import { useAlertAuditor } from '@/hooks/useAlertAuditor'
 import { useAirtablePolling } from '@/hooks/useAirtablePolling'
 import { useCosmosSync } from '@/hooks/useCosmosSync'
+import { useRemotePrBlacklist } from '@/hooks/useRemotePrBlacklist'
 import { useStore } from '@/store/useStore'
 import { LoginGate } from '@/components/LoginGate'
 
@@ -75,6 +76,7 @@ function DataSync() {
   useStockDataPreload()
   useCrossWindowSync()
   useCosmosSync()
+  useRemotePrBlacklist()
   return null
 }
 
