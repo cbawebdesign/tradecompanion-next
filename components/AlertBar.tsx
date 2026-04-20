@@ -201,7 +201,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
           'glass-panel rounded-lg px-4 py-2 text-sm transition-all duration-200',
           isActive ? 'pane-active' : 'pane-inactive'
         )}
-        style={{ height: `${config.alertBarHeightPercent ?? 25}vh`, color: 'var(--text-muted)' }}
+        style={{ height: `${config.alertBarHeightPercent ?? 25}%`, flexShrink: 0, color: 'var(--text-muted)' }}
       >
         No alerts yet. Alerts will appear here in real-time.
       </div>
@@ -215,7 +215,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         'glass-panel rounded-lg flex flex-col transition-all duration-200',
         isActive ? 'pane-active' : 'pane-inactive'
       )}
-      style={{ height: `${config.alertBarHeightPercent ?? 25}vh` }}
+      style={{ height: `${config.alertBarHeightPercent ?? 25}%`, flexShrink: 0 }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-1 glass-header rounded-t-lg flex-shrink-0">
