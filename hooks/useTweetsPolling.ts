@@ -5,14 +5,17 @@ import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
 
-// Matches cosmos_tweet from Azure backend
+// Matches cosmos_tweet from Azure backend.
+// id_long is serialized as a string (not number) because Twitter IDs are
+// 18-19 digits — JS number type loses precision past 2^53 (16 digits),
+// which would corrupt URLs like https://x.com/{user}/status/{id}.
 interface Tweet {
   id: string
   username: string
   created_at: string
   text: string
   save_time: string
-  id_long: number
+  id_long: string
 }
 
 // Extract stock symbols from tweet text ($AAPL, $TSLA, etc.)
@@ -23,8 +26,8 @@ function extractSymbols(text: string): string[] {
 
 export function useTweetsPolling() {
   const { config, addAlert, addAlerts, watchlists } = useStore()
-  const lastTweetIdRef = useRef<number | null>(null)
-  const seenTweetIdsRef = useRef<Set<number>>(new Set())
+  const lastTweetIdRef = useRef<string | null>(null)
+  const seenTweetIdsRef = useRef<Set<string>>(new Set())
   const watchlistsRef = useRef(watchlists)
   watchlistsRef.current = watchlists
 
@@ -40,8 +43,8 @@ export function useTweetsPolling() {
     async function fetchTweets() {
       try {
         // Azure API requires 'since' parameter (id_long)
-        // Use 0 for initial fetch to get recent tweets
-        const sinceId = lastTweetIdRef.current ?? 0
+        // Use "0" for initial fetch to get recent tweets.
+        const sinceId = lastTweetIdRef.current ?? '0'
         const url = `${tweetsUrl}?since=${sinceId}`
 
         // console.log('Tweets: fetching from', url)
@@ -53,16 +56,22 @@ export function useTweetsPolling() {
         }
 
         const tweets: Tweet[] = await response.json()
-        if (tweets.length > 0 && sinceId > 0) console.log('Tweets:', tweets.length, 'new')
+        if (tweets.length > 0 && sinceId !== '0') console.log('Tweets:', tweets.length, 'new')
 
         if (tweets.length === 0) return
 
-        // Process new tweets (oldest first, using id_long which is chronological)
-        const sortedTweets = [...tweets].sort((a, b) => a.id_long - b.id_long)
+        // Process new tweets (oldest first, using id_long which is chronological).
+        // Use BigInt compare — id_long is a 19-digit string; lexicographic compare
+        // breaks once IDs grow/shrink in length, BigInt doesn't.
+        const sortedTweets = [...tweets].sort((a, b) => {
+          const ai = BigInt(a.id_long || '0')
+          const bi = BigInt(b.id_long || '0')
+          return ai < bi ? -1 : ai > bi ? 1 : 0
+        })
 
-        // On initial load (sinceId was 0), only process the most recent 100 tweets
+        // On initial load (sinceId was "0"), only process the most recent 100 tweets
         // to avoid overwhelming the alerts list
-        const tweetsToProcess = sinceId === 0
+        const tweetsToProcess = sinceId === '0'
           ? sortedTweets.slice(-100)
           : sortedTweets
 
@@ -122,8 +131,8 @@ export function useTweetsPolling() {
 
         // Single store update for all new tweets
         if (batch.length > 0) {
-          if (sinceId === 0) addAlerts(batch)  // Initial load: batch
-          else batch.forEach(a => addAlert(a)) // Subsequent: one-by-one for live feel
+          if (sinceId === '0') addAlerts(batch)  // Initial load: batch
+          else batch.forEach(a => addAlert(a))   // Subsequent: one-by-one for live feel
         }
 
         // Update last tweet ID for next fetch (use id_long)
