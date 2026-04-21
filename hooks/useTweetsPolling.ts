@@ -45,7 +45,9 @@ export function useTweetsPolling() {
         // Azure API requires 'since' parameter (id_long)
         // Use "0" for initial fetch to get recent tweets.
         const sinceId = lastTweetIdRef.current ?? '0'
-        const url = `${tweetsUrl}?since=${sinceId}`
+        // Phase 2: server-side subscription filter (opt-in via userKey).
+        const userKey = config.userKey
+        const url = `${tweetsUrl}?since=${sinceId}${userKey ? `&userKey=${encodeURIComponent(userKey)}` : ''}`
 
         // console.log('Tweets: fetching from', url)
         const response = await fetch(proxyUrl(url))

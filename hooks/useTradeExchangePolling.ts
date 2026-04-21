@@ -57,11 +57,15 @@ export function useTradeExchangePolling() {
 
       try {
         let url = apiUrl
+        const params: string[] = []
         if (lastTimeRef.current) {
           const d = new Date(lastTimeRef.current)
           const formatted = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
-          url += `?since=${encodeURIComponent(formatted)}`
+          params.push(`since=${encodeURIComponent(formatted)}`)
         }
+        // Phase 2: server-side subscription filter (opt-in via userKey).
+        if (config.userKey) params.push(`userKey=${encodeURIComponent(config.userKey)}`)
+        if (params.length > 0) url += '?' + params.join('&')
 
         const response = await fetch(proxyUrl(url))
         if (!response.ok) {

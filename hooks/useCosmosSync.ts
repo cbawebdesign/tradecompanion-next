@@ -103,6 +103,20 @@ export function useCosmosSync() {
       watchlistsForBackend[wl.name] = wl.symbols.map(s => s.symbol)
     }
 
+    // Flattened "symbol → subscribed alert types" map for server-side Phase 2
+    // filtering. Backend never sees client-side watchlist UUIDs, just the
+    // derived pass-list keyed by uppercased symbol.
+    const subscribedAlerts: Record<string, string[]> = {}
+    for (const sub of state.alertSubscriptions) {
+      const wl = state.watchlists.find(w => w.id === sub.watchlistId)
+      if (!wl) continue
+      for (const { symbol } of wl.symbols) {
+        const key = symbol.toUpperCase()
+        const set = subscribedAlerts[key] ?? (subscribedAlerts[key] = [])
+        if (!set.includes(sub.alertType)) set.push(sub.alertType)
+      }
+    }
+
     const payload = {
       watchlists: watchlistsForBackend,
       configs: {
@@ -119,6 +133,7 @@ export function useCosmosSync() {
         marketCapMax: String(state.config.marketCapMax),
         flaggedSymbols: JSON.stringify(Array.from(state.flaggedSymbols)),
         alertSubscriptions: JSON.stringify(state.alertSubscriptions),
+        subscribedAlerts: JSON.stringify(subscribedAlerts),
       },
     }
 

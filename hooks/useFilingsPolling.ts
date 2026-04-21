@@ -58,12 +58,16 @@ export function useFilingsPolling() {
         // Build URL - only add since param for subsequent fetches
         // Initial fetch uses API default (last 5 days), we limit client-side
         let url = filingsUrl
+        const params: string[] = []
         if (lastFilingTimeRef.current) {
           // Format: MM/DD/YYYY HH:MM:SS (what .NET DateTime.TryParse expects)
           const d = new Date(lastFilingTimeRef.current)
           const formatted = `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
-          url += `?since=${encodeURIComponent(formatted)}`
+          params.push(`since=${encodeURIComponent(formatted)}`)
         }
+        // Phase 2: server-side subscription filter (opt-in via userKey).
+        if (config.userKey) params.push(`userKey=${encodeURIComponent(config.userKey)}`)
+        if (params.length > 0) url += '?' + params.join('&')
 
         const response = await fetch(proxyUrl(url))
         if (!response.ok) {
