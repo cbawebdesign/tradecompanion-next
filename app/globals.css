@@ -316,7 +316,8 @@ tr.selected {
 input[type="text"],
 input[type="number"],
 input[type="password"],
-select {
+select,
+textarea {
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--border-glass);
   border-radius: 6px;
@@ -329,7 +330,8 @@ select {
 input[type="text"]:focus,
 input[type="number"]:focus,
 input[type="password"]:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
   box-shadow: 0 0 0 3px var(--accent-glow);
