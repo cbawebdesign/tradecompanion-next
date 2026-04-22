@@ -404,23 +404,22 @@ export const useStore = create<AppState>()(
         if (state && Array.isArray(state.hiddenAlertIds)) {
           state.hiddenAlertIds = new Set(state.hiddenAlertIds as unknown as string[])
         }
-        // Migrate pre-Phase-1 users: if we have watchlists but the (watchlist × gated-type)
-        // grid isn't fully populated, seed missing cells as subscribed. Safe no-regression
-        // default — everyone keeps seeing everything they saw before, then can opt out.
-        if (state && Array.isArray(state.watchlists) && state.watchlists.length > 0) {
-          const subs = Array.isArray(state.alertSubscriptions) ? state.alertSubscriptions : []
-          const existing = new Set(subs.map((s: AlertSubscription) => `${s.watchlistId}|${s.alertType}`))
+        // Migrate pre-Phase-1 users: if we have watchlists but NO alertSubscriptions at
+        // all, seed the whole grid as subscribed — safe no-regression default. Guarded
+        // on length === 0 because once the user has ANY subscriptions, their explicit
+        // state is authoritative. Re-seeding on every rehydrate was overwriting
+        // per-watchlist toggles the user had turned off (Justin's "settings reset on
+        // reload" bug).
+        if (state
+            && Array.isArray(state.watchlists) && state.watchlists.length > 0
+            && (!Array.isArray(state.alertSubscriptions) || state.alertSubscriptions.length === 0)) {
           const additions: AlertSubscription[] = []
           for (const wl of state.watchlists) {
             for (const key of GATED_SUBSCRIPTION_KEYS) {
-              if (!existing.has(`${wl.id}|${key}`)) {
-                additions.push({ id: crypto.randomUUID(), alertType: key, watchlistId: wl.id, audioEnabled: true })
-              }
+              additions.push({ id: crypto.randomUUID(), alertType: key, watchlistId: wl.id, audioEnabled: true })
             }
           }
-          if (additions.length > 0) {
-            state.alertSubscriptions = [...subs, ...additions]
-          }
+          state.alertSubscriptions = additions
         }
       },
     }
