@@ -587,15 +587,28 @@ export function SettingsPage() {
             </div>
 
             <div>
-              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Exclude Filing Types</label>
-              <input
-                type="text"
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-sm" style={{ color: 'var(--text-muted)' }}>Exclude Filing Types</label>
+                <button
+                  type="button"
+                  onClick={() => updateConfig({ excludeFilings: 'NPORT-P|485APOS|485BXT|485BPOS|497|497K|N-CSRS|N-CSR|N-CEN|8-A12B|25-NSE|D|40-17G|CERT|CERTAMX|CERTNYS|24F-2NT|144|ARS|FWP|DEFA14A|DEF 14A|PRE 14A' })}
+                  className="text-xs px-2 py-1 rounded"
+                  style={{ background: 'var(--bg-elevated)', color: 'var(--text-muted)' }}
+                  title="Replace with the common junk-form default list"
+                >
+                  Use Defaults
+                </button>
+              </div>
+              <textarea
                 value={config.excludeFilings || ''}
                 onChange={(e) => updateConfig({ excludeFilings: e.target.value })}
-                placeholder="SC 13G|4|D"
-                className="w-full"
+                placeholder="NPORT-P|485APOS|144|497|N-CSRS|8-A12B|25-NSE|D|40-17G|..."
+                className="w-full font-mono text-xs"
+                style={{ minHeight: '60px' }}
               />
-              <p className="text-xs text-gray-500 mt-1">Pipe-separated SEC form types to skip (e.g., SC 13G|4|D)</p>
+              <p className="text-xs text-gray-500 mt-1">
+                Pipe-separated SEC form types to drop (applied server-side on /Filings). Click "Use Defaults" for the common fund/insider junk list.
+              </p>
             </div>
 
             <div>
