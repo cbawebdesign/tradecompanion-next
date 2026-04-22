@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
-import type { Alert } from '@/types'
+import { catalystConfirmer } from '@/lib/catalystConfirmer'
 
 interface CatalystItem {
   symbol: string
@@ -19,7 +19,7 @@ let persistedLastTime: string | null = null
 let persistedSeenKeys: Set<string> = new Set()
 
 export function useCatalystPolling() {
-  const { config, addAlert, watchlists } = useStore()
+  const { config, watchlists } = useStore()
   const lastTimeRef = useRef<string | null>(persistedLastTime)
   const seenKeysRef = useRef<Set<string>>(persistedSeenKeys)
   // Use ref so watchlist changes don't restart the polling effect
@@ -76,24 +76,23 @@ export function useCatalystPolling() {
           if (seenKeysRef.current.has(key)) continue
           seenKeysRef.current.add(key)
 
-          // Only show for watchlist symbols (catalyst PRs are high volume)
+          // Only track catalysts for watchlist symbols (catalyst PRs are high volume,
+          // and we can't get 1s bars for off-watchlist symbols anyway).
           if (watchlistSymbols.size > 0 && !watchlistSymbols.has(item.symbol.toUpperCase())) continue
 
-          const alert: Alert = {
-            id: crypto.randomUUID(),
-            dedupKey: `cat:${item.symbol}-${item.saveTime_et}`,
-            source: 'useCatalystPolling',
+          // Hand off to the confirmation gate instead of firing immediately —
+          // alert only shows once price/volume confirms the catalyst.
+          const saveTime = new Date(item.saveTime_et)
+          if (isNaN(saveTime.getTime())) continue
+          const result = catalystConfirmer.track({
             symbol: item.symbol.toUpperCase(),
-            message: `${item.title}${item.startPrice ? ` ($${item.startPrice.toFixed(2)})` : ''}`,
-            type: 'catalyst',
-            color: '#f97316',
-            timestamp: new Date(item.saveTime_et),
-            read: false,
-            url: item.resource_id ? `/api/pr?id=${item.resource_id}` : undefined,
-          }
-
-          addAlert(alert)
-          newCount++
+            saveTime,
+            startPrice: item.startPrice ?? 0,
+            title: item.title || '',
+            resourceId: item.resource_id,
+            source: 'polling',
+          })
+          if (result === 'tracked') newCount++
         }
 
         if (newCount > 0) {
@@ -131,5 +130,5 @@ export function useCatalystPolling() {
       clearInterval(interval)
       hasInitiallyFetched = false
     }
-  }, [config.hubUrl, addAlert])
+  }, [config.hubUrl])
 }

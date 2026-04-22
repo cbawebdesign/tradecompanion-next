@@ -7,6 +7,7 @@ import { proxyUrl } from '@/lib/proxyUrl'
 import { handleAlertAudio } from '@/lib/alertAudio'
 import { isFilteredPrMatch } from '@/lib/filteredPr'
 import { buildExcludePrRegex, isBlacklistedPr } from '@/lib/excludePrPatterns'
+import { catalystConfirmer, buildConfirmedAlert } from '@/lib/catalystConfirmer'
 import type { Alert, Quote } from '@/types'
 
 interface NegotiateResult {
@@ -262,6 +263,19 @@ export function useSignalR() {
             timestamp: new Date(),
           }))
           batchQuoteUpdate(quotes)
+
+          // Catalyst confirmation gate — feed raw bar (needs open/high/volume)
+          for (const bar of data) {
+            catalystConfirmer.onBar({
+              s: bar.s || bar.symbol,
+              t: bar.t || bar.time,
+              o: bar.o ?? bar.open,
+              h: bar.h ?? bar.high,
+              l: bar.l ?? bar.low,
+              c: bar.c ?? bar.close,
+              v: bar.v ?? bar.volume,
+            })
+          }
         })
 
         // Alert clear handler
@@ -402,28 +416,27 @@ export function useSignalR() {
         })
 
         connection.on('newCatalystScanner', (data: any) => {
-          // console.log('newCatalystScanner received:', data)
+          // Catalysts don't fire on receipt — they enter the confirmation queue
+          // and only emit an Alert once price/volume moves confirm the story.
+          // See lib/catalystConfirmer.ts.
           const symbol = (data.symbol || data.Symbol || data.s || '').toUpperCase()
-          // Use title (same field as polling) so dedup catches duplicates
           const title = data.title || data.Title || data.description || data.Description || data.msg || ''
-          const price = data.startPrice || data.StartPrice || 0
-          const saveTime = data.saveTime_et || data.SaveTime_et || ''
+          const price = Number(data.startPrice || data.StartPrice || 0)
+          const saveTimeRaw = data.saveTime_et || data.SaveTime_et || ''
           const resId = data.resource_id || data.Resource_id || ''
-          const catUrl = resId ? `/api/pr?id=${resId}` : undefined
-          const alert: Alert = {
-            id: crypto.randomUUID(),
-            dedupKey: `cat:${symbol}-${saveTime}`,
-            source: 'useSignalR:newCatalystScanner',
+
+          if (!symbol || !title || !saveTimeRaw) return
+          const saveTime = new Date(saveTimeRaw)
+          if (isNaN(saveTime.getTime())) return
+
+          catalystConfirmer.track({
             symbol,
-            message: `${title}${price ? ` ($${Number(price).toFixed(2)})` : ''}`,
-            type: 'catalyst',
-            color: '#9c27b0',
-            timestamp: data.saveTime_et ? new Date(data.saveTime_et) : new Date(),
-            read: false,
-            url: catUrl,
-          }
-          addAlert(alert)
-          handleAlertAudio('catalyst', alert.message, configRef.current)
+            saveTime,
+            startPrice: price,
+            title,
+            resourceId: resId || undefined,
+            source: 'signalr',
+          })
         })
 
         // Real-time PR/headline alerts from Azure Function CatalystScannerService
@@ -538,6 +551,23 @@ export function useSignalR() {
         await connection.start()
         console.log('SignalR: Connected!')
         setConnectionState('connected')
+
+        // Register catalyst confirmer callbacks once connected so it can
+        // subscribe to 1s bars and emit confirmed alerts.
+        catalystConfirmer.setCallbacks({
+          subscribeSymbol: (symbol: string) => {
+            const conn = connectionRef.current
+            if (!conn || conn.state !== HubConnectionState.Connected) return
+            conn.invoke('Sub1s', symbol).catch(err =>
+              console.error('[catalyst-confirm] Sub1s failed for', symbol, err)
+            )
+          },
+          onConfirmed: (cat, bar) => {
+            const alert = buildConfirmedAlert(cat, bar)
+            addAlert(alert)
+            handleAlertAudio('catalyst', alert.message, configRef.current)
+          },
+        })
 
         // Send ping to confirm connection
         try {
