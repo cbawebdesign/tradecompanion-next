@@ -129,7 +129,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-    fetch(`${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`, { signal: controller.signal })
+    fetch(
+      `${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`
+      + (config.userKey ? `&userKey=${encodeURIComponent(config.userKey)}` : ''),
+      { signal: controller.signal }
+    )
       .then(r => {
         clearTimeout(timeoutId)
         if (!r.ok) throw new Error(`HTTP ${r.status}`)

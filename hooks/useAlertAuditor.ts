@@ -100,7 +100,12 @@ export function useAlertAuditor() {
       for (const symbol of symbols) {
         if (cancelled) break
         try {
-          const url = proxyUrl(`${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(symbol)}&since=${encodeURIComponent(sinceStr)}`)
+          const userKey = config.userKey
+          const url = proxyUrl(
+            `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(symbol)}`
+            + `&since=${encodeURIComponent(sinceStr)}`
+            + (userKey ? `&userKey=${encodeURIComponent(userKey)}` : '')
+          )
           const response = await fetch(url)
           if (!response.ok) continue
 

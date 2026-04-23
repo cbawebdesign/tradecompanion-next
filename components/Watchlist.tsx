@@ -103,7 +103,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
-    fetch(proxyUrl(`${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`), { signal: controller.signal })
+    const uk = config.userKey
+    fetch(proxyUrl(
+      `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`
+      + (uk ? `&userKey=${encodeURIComponent(uk)}` : '')
+    ), { signal: controller.signal })
       .then(r => {
         clearTimeout(timeoutId)
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
