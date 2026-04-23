@@ -89,6 +89,38 @@ export function useCosmosSync() {
             }
           } catch {/* ignore */}
         }
+
+        // Restore config scalars (ExcludeFilings, FilterNews*, TradingViewId, etc.)
+        // from cloud when local is empty/default. Previously only flagged / subs /
+        // watchlists came down — which meant incognito / new-browser / clear-cache
+        // sessions lost every other per-user setting until manually re-entered.
+        //
+        // Pull-rule per field: only overwrite local if local looks unset AND cloud
+        // has a meaningful value. Legacy PascalCase keys fall back to camelCase.
+        const cfgPatch: Partial<typeof localState.config> = {}
+        const pick = (...keys: string[]) => {
+          for (const k of keys) {
+            const v = cloudCfg[k]
+            if (typeof v === 'string' && v.length > 0) return v
+          }
+          return undefined
+        }
+        const ef = pick('excludeFilings', 'ExcludeFilings')
+        if (ef && !localState.config.excludeFilings) cfgPatch.excludeFilings = ef
+
+        const fpp = pick('filteredPrPositive', 'FilterNewsPositive')
+        if (fpp && !localState.config.filteredPrPositive) cfgPatch.filteredPrPositive = fpp
+
+        const fpn = pick('filteredPrNegative', 'FilterNewsNegative')
+        if (fpn && !localState.config.filteredPrNegative) cfgPatch.filteredPrNegative = fpn
+
+        const tvid = pick('tradingViewId', 'TradingViewId')
+        if (tvid && !localState.config.tradingViewId) cfgPatch.tradingViewId = tvid
+
+        if (Object.keys(cfgPatch).length > 0) {
+          useStore.setState({ config: { ...localState.config, ...cfgPatch } })
+          console.log(`CosmosSync: Restored ${Object.keys(cfgPatch).length} config scalars from cloud:`, Object.keys(cfgPatch))
+        }
       } catch (err) {
         console.log('CosmosSync: Failed to load cloud data', err)
       }
