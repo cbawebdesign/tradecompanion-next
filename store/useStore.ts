@@ -98,6 +98,10 @@ interface AppState {
   addAlertSubscription: (alertType: AlertType, watchlistId: string) => void
   removeAlertSubscription: (id: string) => void
   toggleAlertSubscriptionAudio: (id: string) => void
+  // One-time "pre-Phase-1 all-on seed" guard. Once the user has gone through
+  // migration (even if they immediately turned everything off), the seed
+  // must never re-run — empty alertSubscriptions is a valid user choice.
+  hasMigratedSubs: boolean
 
   // Mascot
   mascotPosition: { x: number; y: number }
@@ -270,8 +274,17 @@ export const useStore = create<AppState>()(
         { id: 'default', name: 'Main', symbols: [] }
       ],
       setWatchlists: (watchlists) => set((state) => {
-        // If any incoming watchlist has no subscription row yet, seed it to "all on"
-        // so new/restored watchlists inherit Justin's default behaviour.
+        // Seed "all on" subscriptions for each incoming watchlist only on
+        // first-time setup (hasMigratedSubs is false). Once migrated, trust
+        // the user's explicit state — don't auto-add back types they turned
+        // off just because a restore produced new UUIDs. Users can use
+        // addWatchlist (explicit new list) to get auto-seeding for new rows.
+        if (state.hasMigratedSubs) {
+          return {
+            watchlists,
+            selectedWatchlistId: watchlists[0]?.id || null,
+          }
+        }
         const existing = new Set(state.alertSubscriptions.map(s => `${s.watchlistId}|${s.alertType}`))
         const additions: AlertSubscription[] = []
         for (const wl of watchlists) {
@@ -368,6 +381,7 @@ export const useStore = create<AppState>()(
 
       // Alert subscriptions
       alertSubscriptions: [],
+      hasMigratedSubs: false,
       addAlertSubscription: (alertType, watchlistId) => set((state) => {
         // Check if already exists
         const exists = state.alertSubscriptions.some(
@@ -411,6 +425,7 @@ export const useStore = create<AppState>()(
         scannerAlerts: state.scannerAlerts,
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
         alertSubscriptions: state.alertSubscriptions,
+        hasMigratedSubs: state.hasMigratedSubs,
         mascotPosition: state.mascotPosition,
         // quotes intentionally NOT persisted — ephemeral real-time data
       // persisting quotes caused localStorage writes every 250ms, blocking main thread
@@ -424,22 +439,37 @@ export const useStore = create<AppState>()(
         if (state && Array.isArray(state.hiddenAlertIds)) {
           state.hiddenAlertIds = new Set(state.hiddenAlertIds as unknown as string[])
         }
-        // Migrate pre-Phase-1 users: if we have watchlists but NO alertSubscriptions at
-        // all, seed the whole grid as subscribed — safe no-regression default. Guarded
-        // on length === 0 because once the user has ANY subscriptions, their explicit
-        // state is authoritative. Re-seeding on every rehydrate was overwriting
-        // per-watchlist toggles the user had turned off (Justin's "settings reset on
-        // reload" bug).
-        if (state
+        // One-time pre-Phase-1 migration. Gated on hasMigratedSubs so that
+        // "user turned everything off" (empty subs by choice) is preserved
+        // across reloads instead of re-seeded (Justin's bug).
+        //
+        // Backfill: older builds didn't persist hasMigratedSubs. For existing
+        // users (watchlists already populated OR config.userKey set), treat
+        // undefined as "already migrated" — their subs are whatever they are,
+        // don't touch. Only truly-fresh browsers (no watchlists, no userKey)
+        // with empty subs are eligible to seed.
+        if (state) {
+          const looksExistingUser =
+            (Array.isArray(state.watchlists) && state.watchlists.some(w => w.id !== 'default' || w.symbols.length > 0))
+            || !!state.config?.userKey
+            || (Array.isArray(state.alerts) && state.alerts.length > 0)
+
+          const shouldSeed =
+            !state.hasMigratedSubs
+            && !looksExistingUser
             && Array.isArray(state.watchlists) && state.watchlists.length > 0
-            && (!Array.isArray(state.alertSubscriptions) || state.alertSubscriptions.length === 0)) {
-          const additions: AlertSubscription[] = []
-          for (const wl of state.watchlists) {
-            for (const key of GATED_SUBSCRIPTION_KEYS) {
-              additions.push({ id: crypto.randomUUID(), alertType: key, watchlistId: wl.id, audioEnabled: true })
+            && (!Array.isArray(state.alertSubscriptions) || state.alertSubscriptions.length === 0)
+
+          if (shouldSeed) {
+            const additions: AlertSubscription[] = []
+            for (const wl of state.watchlists) {
+              for (const key of GATED_SUBSCRIPTION_KEYS) {
+                additions.push({ id: crypto.randomUUID(), alertType: key, watchlistId: wl.id, audioEnabled: true })
+              }
             }
+            state.alertSubscriptions = additions
           }
-          state.alertSubscriptions = additions
+          state.hasMigratedSubs = true
         }
       },
     }
