@@ -15,6 +15,14 @@ import { proxyUrl } from '@/lib/proxyUrl'
 
 const DEBOUNCE_MS = 3000  // wait 3s after last change before syncing
 
+// Module-level handle to the bypass-debounce sync function so any component
+// (e.g. SettingsPage's blur/save handlers) can force a flush without
+// threading a prop through providers.
+let _syncNowHandle: (() => Promise<void>) | null = null
+export function forceCosmosSyncNow(): Promise<void> {
+  return _syncNowHandle ? _syncNowHandle() : Promise.resolve()
+}
+
 export function useCosmosSync() {
   const { config, watchlists, flaggedSymbols, alertSubscriptions, setWatchlists } = useStore()
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -168,4 +176,21 @@ export function useCosmosSync() {
   }, [watchlists, flaggedSymbols, alertSubscriptions, config.theme, config.excludeFilings,
     config.filteredPrPositive, config.filteredPrNegative, config.showAllTradeExchange,
     config.ttsEnabled, config.audioEnabled, syncToCosmos, userKey])
+
+  // Expose a bypass-debounce sync so Settings can flush on textarea blur /
+  // explicit save. Also resets the dedup hash so a force-sync always goes
+  // out even if the computed payload happens to match the last one.
+  const syncNow = useCallback(async () => {
+    if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+    lastSyncHash.current = ''
+    await syncToCosmos()
+  }, [syncToCosmos])
+
+  // Publish to the module-level handle so SettingsPage etc. can call it.
+  useEffect(() => {
+    _syncNowHandle = syncNow
+    return () => { if (_syncNowHandle === syncNow) _syncNowHandle = null }
+  }, [syncNow])
+
+  return { syncNow }
 }
