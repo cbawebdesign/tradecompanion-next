@@ -23,8 +23,8 @@ const VIEWS = [
   { viewId: 'viwlz9QFqMEtwdrWl', name: 'Articles', alertSymbol: 'NEWS', color: '#4FC3F7', type: 'mail' as const },
 ]
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000  // 5 minutes (same as old RSS polling)
-const INITIAL_DELAY_MS = 8_000  // wait for other hooks to finish
+const POLL_INTERVAL_MS = 60_000   // 60 seconds — Justin wants near-real-time on YT/Substack/News
+const INITIAL_DELAY_MS = 8_000    // wait for other hooks to finish
 
 // Module-level state to survive React remounts
 const seenGuids = new Set<string>()
