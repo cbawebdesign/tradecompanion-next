@@ -4,6 +4,23 @@ import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionSta
 import { logAlert } from '@/lib/alertLogger'
 import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
 
+// Keep the alert timeline in strict chronological order (newest first).
+// Backfill races (catalysts poll at 5s, filings at a different cadence, etc.)
+// used to land grouped by alert type — users want everything interleaved.
+// Alerts without a valid timestamp sort to the bottom.
+function sortAlertsByTimestampDesc(alerts: Alert[]): Alert[] {
+  return alerts.slice().sort((a, b) => {
+    const ta = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
+    const tb = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
+    const aValid = !isNaN(ta)
+    const bValid = !isNaN(tb)
+    if (!aValid && !bValid) return 0
+    if (!aValid) return 1
+    if (!bValid) return -1
+    return tb - ta
+  })
+}
+
 // Pane identifiers for focus management
 export type PaneId = 'watchlist' | 'alertbar' | 'alerts' | 'scanner' | null
 
@@ -176,7 +193,9 @@ export const useStore = create<AppState>()(
         if (typeof window !== 'undefined') {
           try { logAlert(alert, 'addAlert') } catch {}
         }
-        return { alerts: [alert, ...state.alerts].slice(0, 500) }
+        // Sort by timestamp desc (newest first) so backfilled alerts land in
+        // chronological order instead of arriving-group-by-type order.
+        return { alerts: sortAlertsByTimestampDesc([alert, ...state.alerts]).slice(0, 500) }
       }),
       addAlerts: (newAlerts) => set((state) => {
         // Apply the same subscription gate as addAlert, in bulk.
@@ -196,7 +215,7 @@ export const useStore = create<AppState>()(
           return !existingMsgKeys.has(`${a.symbol}|${a.message}|${a.type}`)
         })
         if (unique.length === 0) return state
-        return { alerts: [...unique.reverse(), ...state.alerts].slice(0, 500) }
+        return { alerts: sortAlertsByTimestampDesc([...unique, ...state.alerts]).slice(0, 500) }
       }),
       markAlertRead: (id) => set((state) => ({
         alerts: state.alerts.map(a => a.id === id ? { ...a, read: true } : a)

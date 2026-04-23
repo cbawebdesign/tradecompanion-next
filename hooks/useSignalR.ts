@@ -373,6 +373,10 @@ export function useSignalR() {
 
           const dcn = data.dcn || data.Dcn || ''
           const cik = data.cik || data.Cik || ''
+          // Use the filing's recorded time (time_et / date / save_time) rather
+          // than receive-time so chronological sort across sources is meaningful.
+          const filingTimeRaw = data.time_et || data.date || data.save_time || data.Save_Time || null
+          const filingTimestamp = filingTimeRaw ? new Date(filingTimeRaw) : new Date()
           const alert: Alert = {
             id: crypto.randomUUID(),
             dedupKey: dcn ? `filing:${cik}-${dcn}` : `filing:${matchedSymbol}-${formType}-${Date.now()}`,
@@ -381,7 +385,7 @@ export function useSignalR() {
             message,
             type: 'filing',
             color: '#00bcd4',
-            timestamp: new Date(),
+            timestamp: isNaN(filingTimestamp.getTime()) ? new Date() : filingTimestamp,
             read: false,
             url,
           }
