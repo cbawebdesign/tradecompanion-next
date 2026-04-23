@@ -23,6 +23,29 @@ let hasRun = false
 const AUDIT_INTERVAL_MS = 60_000  // 60 seconds
 const INITIAL_DELAY_MS = 5 * 60_000  // wait 5 MINUTES before first audit — let all hooks fully settle
 
+// Pick the original event time out of whichever field the server sent.
+// Missing this is what made every backfilled alert on boot stamp with
+// the reboot-time clock. Priority: most-specific first, fall back by type.
+function resolveAuditTimestamp(item: any): Date {
+  const candidates = [
+    item.time_et,         // filings / news
+    item.savetime_et,     // news (lowercase)
+    item.saveTime_et,     // catalysts (camelCase — was missing!)
+    item.save_time,       // filings alt
+    item.save_time_utc,   // trade exchange
+    item.publication_et,  // news publication time
+    item.date,            // filings date
+    item.created_at,      // tweets
+    item.received_utc,    // TradingView webhooks
+  ]
+  for (const v of candidates) {
+    if (!v) continue
+    const d = new Date(v)
+    if (!isNaN(d.getTime())) return d
+  }
+  return new Date()
+}
+
 // Check if we're in US market hours (Mon-Fri, 4am-8pm ET)
 function isMarketHours(): boolean {
   const now = new Date()
@@ -116,7 +139,7 @@ export function useAlertAuditor() {
                 message: msg,
                 type: alertType,
                 color,
-                timestamp: new Date(item.time_et || item.save_time_utc || item.created_at || item.received_utc || new Date()),
+                timestamp: resolveAuditTimestamp(item),
                 read: false,
                 url: item.url || item.link || undefined,
               })
