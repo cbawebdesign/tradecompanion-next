@@ -906,6 +906,16 @@ export function SettingsPage() {
           </button>
         )}
       </div>
+
+      {/* Build marker — lets users verify which bundle their browser has cached. */}
+      <div className="mt-6 pt-4 text-xs text-center" style={{ color: 'var(--text-muted)', borderTop: '1px solid var(--border-glass)' }}>
+        Build:{' '}
+        <code className="font-mono" style={{ color: 'var(--accent-primary)' }}>
+          {process.env.NEXT_PUBLIC_BUILD_SHA || 'dev'}
+        </code>
+        {' · '}
+        {process.env.NEXT_PUBLIC_BUILD_TIME || ''}
+      </div>
     </div>
   )
 }
