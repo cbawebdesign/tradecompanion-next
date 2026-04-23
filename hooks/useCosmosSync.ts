@@ -28,9 +28,43 @@ export function useCosmosSync() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSyncHash = useRef<string>('')
   const hasLoadedRef = useRef(false)
+  // Track which userKey the current local state belongs to. If the user
+  // switches keys (testing someone else's account), wipe user-scoped state
+  // before loading so our own settings don't leak up into their Cosmos doc.
+  const claimedKeyRef = useRef<string | null>(null)
+  // Block sync-up pushes until the first load completes. Prevents a race
+  // where the debounce fires with pre-load local state.
+  const loadCompleteRef = useRef(false)
 
   const baseUrl = config.hubUrl?.replace(/\/api\/?$/, '').replace(/\/$/, '') || ''
   const userKey = config.userKey
+
+  // Detect userKey context-switch: if we had a previous key and it just
+  // changed, reset user-scoped fields so loadFromCosmos repopulates cleanly
+  // from the new user's cloud doc rather than leaking our own state up.
+  useEffect(() => {
+    if (!userKey) return
+    if (claimedKeyRef.current !== null && claimedKeyRef.current !== userKey) {
+      console.log(`CosmosSync: userKey changed ${claimedKeyRef.current} → ${userKey} — resetting local state`)
+      useStore.setState({
+        watchlists: [{ id: 'default', name: 'Main', symbols: [] }],
+        selectedWatchlistId: 'default',
+        flaggedSymbols: new Set(),
+        alertSubscriptions: [],
+        config: {
+          ...useStore.getState().config,
+          excludeFilings: '',
+          filteredPrPositive: '',
+          filteredPrNegative: '',
+          tradingViewId: '',
+        },
+      })
+      hasLoadedRef.current = false
+      loadCompleteRef.current = false
+      lastSyncHash.current = ''
+    }
+    claimedKeyRef.current = userKey
+  }, [userKey])
 
   // Load from Cosmos on mount (if userKey is set and localStorage is empty/default)
   useEffect(() => {
@@ -123,6 +157,11 @@ export function useCosmosSync() {
         }
       } catch (err) {
         console.log('CosmosSync: Failed to load cloud data', err)
+      } finally {
+        // Any debounced payload that the user-change reset scheduled was
+        // against pre-load state — seed the hash with the post-load payload
+        // so the first sync-up is a true no-op if nothing actually changed.
+        loadCompleteRef.current = true
       }
     }
 
@@ -132,6 +171,13 @@ export function useCosmosSync() {
   // Save to Cosmos on watchlist/config changes (debounced)
   const syncToCosmos = useCallback(async () => {
     if (!userKey || !baseUrl) return
+    // Block until loadFromCosmos has had a chance to populate local state
+    // from the new user's cloud doc. Otherwise the first debounce fires with
+    // whatever local leftovers we had and overwrites their record.
+    if (!loadCompleteRef.current) {
+      console.log('CosmosSync: Skipping sync — load not complete yet')
+      return
+    }
 
     const state = useStore.getState()
 
