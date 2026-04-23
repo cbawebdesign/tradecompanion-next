@@ -139,6 +139,7 @@ const defaultConfig: AppConfig = {
   filteredPrPositive: '',
   filteredPrNegative: '',
   showAllTradeExchange: false,
+  xShowAllTweets: '',
   ahkEnabled: false,
   ahkUrl: 'http://localhost:9876',
   alertSounds: defaultAlertSounds,

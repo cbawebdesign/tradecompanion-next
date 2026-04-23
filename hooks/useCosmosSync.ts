@@ -151,6 +151,9 @@ export function useCosmosSync() {
         const tvid = pick('tradingViewId', 'TradingViewId')
         if (tvid && !localState.config.tradingViewId) cfgPatch.tradingViewId = tvid
 
+        const xshow = pick('xShowAllTweets', 'XshowAllTweets')
+        if (xshow && !localState.config.xShowAllTweets) cfgPatch.xShowAllTweets = xshow
+
         if (Object.keys(cfgPatch).length > 0) {
           useStore.setState({ config: { ...localState.config, ...cfgPatch } })
           console.log(`CosmosSync: Restored ${Object.keys(cfgPatch).length} config scalars from cloud:`, Object.keys(cfgPatch))
@@ -214,6 +217,7 @@ export function useCosmosSync() {
         filteredPrPositive: state.config.filteredPrPositive || '',
         filteredPrNegative: state.config.filteredPrNegative || '',
         showAllTradeExchange: String(state.config.showAllTradeExchange),
+        xShowAllTweets: state.config.xShowAllTweets || '',
         hubUrl: state.config.hubUrl,
         marketCapMin: String(state.config.marketCapMin),
         marketCapMax: String(state.config.marketCapMax),

@@ -126,6 +126,7 @@ export interface AppConfig {
   filteredPrPositive: string  // comma=OR, &=AND, !=NOT, *=wildcard
   filteredPrNegative: string
   showAllTradeExchange: boolean  // show unfiltered trade exchange posts
+  xShowAllTweets: string  // pipe-separated Twitter usernames whose tweets always pass (e.g. "nolimitgains|citrini7|theshortbear")
   ahkEnabled: boolean
   ahkUrl: string  // local companion server URL (e.g. http://localhost:9876)
   // Per-type audio settings

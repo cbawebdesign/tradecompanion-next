@@ -109,7 +109,10 @@ export function useTradeExchangePolling() {
           // Filter: only create alert if a symbol matches watchlist, or no symbols (general post)
           const matchedSymbol = symbols.find(s => watchlistSymbols.has(s.toUpperCase()))
 
-          // Show all TX posts (they're already curated content)
+          // Respect the "Show All Trade Exchange" toggle. When OFF, drop any
+          // post that doesn't match a watchlist symbol (matches legacy desktop).
+          if (!matchedSymbol && !config.showAllTradeExchange) continue
+
           const alertSymbol = matchedSymbol || symbols[0] || ''
 
           const alert: Alert = {

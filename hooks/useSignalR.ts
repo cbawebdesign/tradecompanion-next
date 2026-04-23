@@ -395,20 +395,42 @@ export function useSignalR() {
 
         connection.on('newTradeExchange', (data: any) => {
           // Dedup with useTradeExchangePolling — SAME key format, message format, and
-          // color so if both paths see the same post only one renders. (Previously
-          // the SignalR path used `#ff9800` + raw content and the polling path used
-          // `#eab308` + `[source] content` — dedup compared on dedupKey first so it
-          // usually worked, but the visible fallback — fuzzy first-40-chars match —
-          // would miss across format differences, producing Justin's BIRD 8:01:27
-          // "TradeExchange + blue duplicate" bug.)
+          // color so if both paths see the same post only one renders.
           const id = data.id || data.Id || Date.now()
           const src = data.source || data.Source || ''
           const content = data.content || data.message || data.Message || ''
+
+          // Resolve post symbols: explicit .symbols[], fall back to primary .symbol,
+          // then parse $cashtags + leading ticker from content. Mirror polling path.
+          const explicit: string[] = Array.isArray(data.symbols) ? data.symbols
+            : Array.isArray(data.Symbols) ? data.Symbols
+            : []
+          const primary = (data.symbol || data.Symbol || '').toString()
+          let resolved: string[] = explicit.length > 0 ? explicit
+            : primary ? [primary]
+            : []
+          if (resolved.length === 0) {
+            const cashtags = content.match(/\$([A-Z]{1,5})/g)
+            if (cashtags) resolved = Array.from(new Set(cashtags.map((m: string) => m.slice(1))))
+            if (resolved.length === 0) {
+              const leading = content.match(/^([A-Z]{1,5})\b[\s\-]/)
+              if (leading) resolved = [leading[1]]
+            }
+          }
+
+          // Respect the "Show All Trade Exchange" toggle, same as polling.
+          const wlSymbols = new Set(
+            watchlistsRef.current.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
+          )
+          const matched = resolved.find(s => wlSymbols.has(String(s).toUpperCase()))
+          if (!matched && !configRef.current.showAllTradeExchange) return
+
+          const alertSymbol = (matched || resolved[0] || '').toString().toUpperCase()
           const alert: Alert = {
             id: crypto.randomUUID(),
             dedupKey: `tx:${id}`,
             source: 'useSignalR:newTradeExchange',
-            symbol: data.symbol || data.Symbol || '',
+            symbol: alertSymbol,
             message: src ? `[${src}] ${content}` : content,
             type: 'trade_exchange',
             color: '#eab308',

@@ -92,6 +92,18 @@ export function useTweetsPolling() {
           const tweetText = `@${tweet.username}: ${tweet.text}`
           const tweetTime = new Date(tweet.created_at)
 
+          // XshowAllTweets — pipe-separated usernames whose tweets always pass
+          // regardless of symbol match (matches legacy desktop's XshowAllTweets
+          // config, e.g. "nolimitgains|citrini7|theshortbear"). Case-insensitive.
+          const alwaysShowUsers = new Set(
+            (config.xShowAllTweets || '')
+              .split('|')
+              .map(s => s.trim().toLowerCase())
+              .filter(Boolean)
+          )
+          const isAlwaysShowUser = tweet.username
+            && alwaysShowUsers.has(tweet.username.toLowerCase())
+
           // Fire a separate alert for EACH watchlisted symbol in the tweet
           // (Legacy X.cs has `break` after first match — that's a known bug we're fixing here)
           const watchlistSymbols = new Set(
@@ -114,8 +126,8 @@ export function useTweetsPolling() {
                 url: tweetUrl,
               })
             }
-          } else {
-            // No watchlist match — still show with first symbol (or empty)
+          } else if (isAlwaysShowUser) {
+            // No watchlist match, but user is on the always-show list — pass through
             batch.push({
               id: crypto.randomUUID(),
               dedupKey: `tweet:${tweet.id_long}`,
@@ -129,6 +141,7 @@ export function useTweetsPolling() {
               url: tweetUrl,
             })
           }
+          // otherwise drop — tweet with no watchlist match and user not on XshowAllTweets list
         }
 
         // Single store update for all new tweets

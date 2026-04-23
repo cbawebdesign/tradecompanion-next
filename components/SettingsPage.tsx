@@ -675,6 +675,21 @@ export function SettingsPage() {
                 <span className={`block w-5 h-5 rounded-full bg-white transform transition-transform ${config.showAllTradeExchange ? 'translate-x-6' : 'translate-x-0.5'}`} />
               </button>
             </div>
+
+            <div>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>X (Twitter) — Always Show Users</label>
+              <input
+                type="text"
+                value={config.xShowAllTweets || ''}
+                onChange={(e) => updateConfig({ xShowAllTweets: e.target.value })}
+                onBlur={() => forceCosmosSyncNow()}
+                placeholder="nolimitgains|citrini7|theshortbear"
+                className="w-full font-mono text-xs"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Pipe-separated Twitter usernames whose tweets always appear, even when they don't mention a watchlist symbol.
+              </p>
+            </div>
           </div>
         </section>
 
