@@ -142,7 +142,18 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       .then(data => {
         const mapped: Alert[] = []
         data.tweets?.forEach((t: any) => {
-          mapped.push({ id: `db-tweet-${t.time}-${t.source}`, symbol: selectedSymbol, message: t.text, type: 'news', color: '', timestamp: new Date(t.time), read: false })
+          // Always link to the tweet on x.com when we have the user + id
+          const tweetUrl = t.id_long && t.source
+            ? `https://x.com/${t.source}/status/${t.id_long}`
+            : undefined
+          mapped.push({
+            id: `db-tweet-${t.time}-${t.source}`,
+            symbol: selectedSymbol,
+            message: `@${t.source}: ${t.text}`,
+            type: 'tweet', color: '',
+            timestamp: new Date(t.time), read: false,
+            url: tweetUrl,
+          })
         })
         data.filings?.forEach((f: any) => {
           mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: selectedSymbol, message: f.text, type: 'filing', color: '', timestamp: new Date(f.time), read: false, url: f.url })
@@ -151,10 +162,19 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
           mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: selectedSymbol, message: tx.text, type: 'trade_exchange', color: '', timestamp: new Date(tx.time), read: false })
         })
         data.tradingView?.forEach((tv: any) => {
-          mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'news', color: '', timestamp: new Date(tv.time), read: false })
+          mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'tradingview', color: '', timestamp: new Date(tv.time), read: false })
         })
         data.catalysts?.forEach((c: any) => {
-          mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: selectedSymbol, message: c.text, type: 'catalyst', color: '', timestamp: new Date(c.time), read: false })
+          // Link to the underlying PR through our /api/pr resolver
+          const catUrl = c.resource_id ? `/api/pr?id=${encodeURIComponent(c.resource_id)}` : undefined
+          mapped.push({
+            id: `db-cat-${c.time}-${c.symbol}`,
+            symbol: selectedSymbol,
+            message: c.text,
+            type: 'catalyst', color: '',
+            timestamp: new Date(c.time), read: false,
+            url: catUrl,
+          })
         })
         dbAlertsCache[selectedSymbol.toUpperCase()] = mapped
         setDbAlerts(mapped)
