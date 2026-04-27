@@ -28,9 +28,10 @@ const INITIAL_DELAY_MS = 5 * 60_000  // wait 5 MINUTES before first audit — le
 // the reboot-time clock. Priority: most-specific first, fall back by type.
 function resolveAuditTimestamp(item: any): Date {
   const candidates = [
+    item.time,            // ← AlertsBySymbol projection uses this for ALL types
     item.time_et,         // filings / news
     item.savetime_et,     // news (lowercase)
-    item.saveTime_et,     // catalysts (camelCase — was missing!)
+    item.saveTime_et,     // catalysts (camelCase)
     item.save_time,       // filings alt
     item.save_time_utc,   // trade exchange
     item.publication_et,  // news publication time
@@ -44,6 +45,26 @@ function resolveAuditTimestamp(item: any): Date {
     if (!isNaN(d.getTime())) return d
   }
   return new Date()
+}
+
+// Build a dedup key that matches what the live polling/SignalR paths produce,
+// so audit-recovered items dedup against existing timeline entries instead of
+// double-printing. AlertsBySymbol response shape uses `time` for catalysts,
+// while polling uses `saveTime_et` — both must produce the same key.
+function buildAuditDedupKey(item: any, symbol: string, alertType: string, msg: string): string {
+  if (item.dcn) return `filing:${item.cik}-${item.dcn}`
+  if (item.id_long) return `tweet:${item.id_long}`
+  if (item.id && alertType === 'trade_exchange') return `tx:${item.id}`
+  if (alertType === 'catalyst') {
+    const t = item.saveTime_et || item.time
+    if (t) {
+      // Match useCatalystPolling's `cat:${symbol}-${saveTime_et}`
+      return `cat:${symbol.toUpperCase()}-${typeof t === 'string' ? t : new Date(t).toISOString()}`
+    }
+  }
+  if (item.story_id) return `pr:${item.story_id}`
+  if (item.resource_id) return `pr:${item.resource_id}`
+  return `audit:${symbol}-${alertType}-${(msg || '').slice(0, 40)}`
 }
 
 // Check if we're in US market hours (Mon-Fri, 4am-8pm ET)
@@ -128,17 +149,9 @@ export function useAlertAuditor() {
               existingKeys.add(key)
               seenAlertKeys.add(key)
 
-              // Build dedupKey from source data
-              const itemId = item.dcn ? `filing:${item.cik}-${item.dcn}`
-                : item.id_long ? `tweet:${item.id_long}`
-                : item.id ? `tx:${item.id}`
-                : item.saveTime_et ? `cat:${symbol}-${item.saveTime_et}`
-                : item.story_id ? `pr:${item.story_id}`
-                : `audit:${symbol}-${alertType}-${(msg || '').slice(0, 40)}`
-
               recoveredBatch.push({
                 id: crypto.randomUUID(),
-                dedupKey: itemId,
+                dedupKey: buildAuditDedupKey(item, symbol, alertType, msg),
                 source: 'useAlertAuditor',
                 symbol,
                 message: msg,
@@ -222,22 +235,15 @@ export function useAlertAuditor() {
         for (const [, { items, alertType, color }] of Object.entries(typeMap)) {
           for (const item of items) {
             const msg = item.title || item.headline || item.text || item.content || item.raw_text || item.message || ''
-            const itemId = item.dcn ? `filing:${item.cik}-${item.dcn}`
-              : item.id_long ? `tweet:${item.id_long}`
-              : item.id ? `tx:${item.id}`
-              : item.saveTime_et ? `cat:${symbol}-${item.saveTime_et}`
-              : item.story_id ? `pr:${item.story_id}`
-              : `backfill:${symbol}-${alertType}-${(msg || '').slice(0, 40)}`
-
             batch.push({
               id: crypto.randomUUID(),
-              dedupKey: itemId,
+              dedupKey: buildAuditDedupKey(item, symbol, alertType, msg),
               source: 'useAlertAuditor:new-symbol-backfill',
               symbol,
               message: msg,
               type: alertType,
               color,
-              timestamp: new Date(item.time_et || item.save_time_utc || item.created_at || item.received_utc || new Date()),
+              timestamp: resolveAuditTimestamp(item),
               read: false,
               url: item.url || item.link || undefined,
             })
