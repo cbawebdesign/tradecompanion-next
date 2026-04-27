@@ -48,6 +48,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   const splitPercent = config.watchlistSplitPercent ?? 50
   const setSplitPercent = (n: number) => updateConfig({ watchlistSplitPercent: n })
   const [showConfig, setShowConfig] = useState(false) // Closed by default
+  const [addSymbolInput, setAddSymbolInput] = useState('')
 
   // Handle click to set focus
   useEffect(() => {
@@ -252,8 +253,41 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
 
       {/* Flagged Symbols Header */}
       <div className="px-3 py-2 flex-shrink-0" style={{ background: 'var(--bg-glass-light)', borderBottom: '1px solid var(--border-glass)' }}>
-        <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Flagged Symbols</h3>
-        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{flaggedList.length} flagged</p>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Flagged Symbols</h3>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{flaggedList.length} flagged</p>
+          </div>
+          {/* Add Symbol — directly flag without leaving the Alerts page */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              const sym = addSymbolInput.trim().toUpperCase()
+              if (!sym) return
+              if (!flaggedSymbols.has(sym)) toggleFlag(sym)
+              setAddSymbolInput('')
+            }}
+            className="flex items-center gap-1"
+          >
+            <input
+              type="text"
+              value={addSymbolInput}
+              onChange={(e) => setAddSymbolInput(e.target.value)}
+              placeholder="Add symbol..."
+              maxLength={6}
+              className="text-xs font-mono uppercase"
+              style={{ width: '110px', padding: '4px 8px' }}
+            />
+            <button
+              type="submit"
+              className="text-xs px-2 py-1 rounded"
+              style={{ background: 'var(--accent-primary)', color: 'white' }}
+              title="Add to Flagged"
+            >
+              + Flag
+            </button>
+          </form>
+        </div>
       </div>
 
       {/* Main Content - LEFT/RIGHT Split */}

@@ -244,9 +244,13 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
               <th className="w-8 px-2 py-1 text-center">Flag</th>
               <th className="w-20 px-2 py-1 text-left">Time</th>
               <th className="w-20 px-2 py-1 text-left">Symbol</th>
+              {/* Delete button column moved here so it sits between Symbol
+                  and Alert — Justin's mouse hangs on this side; clicking
+                  the message body fires AHK so the X needs to be off the
+                  message itself. */}
+              <th className="w-8 px-2 py-1"></th>
               <th className="px-2 py-1 text-left">Alert</th>
               <th className="w-8 px-2 py-1">AI</th>
-              <th className="w-8 px-2 py-1"></th>
             </tr>
           </thead>
           <tbody>
@@ -286,6 +290,18 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                   <td className="px-2 py-1 font-mono font-semibold" style={{ color: alert.color }}>
                     {alert.symbol}
                   </td>
+                  <td className="px-2 py-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeAlert(alert.id)
+                      }}
+                      className="text-red-400 hover:text-red-300 text-sm"
+                      title="Delete alert"
+                    >
+                      ✕
+                    </button>
+                  </td>
                   <td className="px-2 py-1 text-gray-300 truncate max-w-md">
                     <span
                       className={clsx(
@@ -322,18 +338,6 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                         displayMode="modal"
                       />
                     )}
-                  </td>
-                  <td className="px-2 py-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeAlert(alert.id)
-                      }}
-                      className="text-red-400 hover:text-red-300 text-sm"
-                      title="Delete alert"
-                    >
-                      ✕
-                    </button>
                   </td>
                 </tr>
               )
