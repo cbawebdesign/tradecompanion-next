@@ -5,6 +5,7 @@ import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { fireAhk } from '@/lib/ahk'
+import { copyToClipboard } from '@/lib/clipboard'
 import { GrokButton } from './GrokButton'
 import { GrokStockButton } from './GrokStockButton'
 import { PopOutButton } from './PopOutButton'
@@ -104,6 +105,12 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
     const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
     const uk = config.userKey
+    // Capture which symbol this fetch is for — the user may flip away before
+    // the response lands, in which case we must NOT overwrite state for the
+    // symbol they're now viewing.
+    const fetchedFor = selectedSymbol
+    let aborted = false
+
     fetch(proxyUrl(
       `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`
       + (uk ? `&userKey=${encodeURIComponent(uk)}` : '')
@@ -118,33 +125,46 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         data.tweets?.forEach((t: any) => {
           // Build tweet URL from source (username) — AlertsBySymbol returns source=username
           const tweetUrl = t.id_long ? `https://x.com/${t.source}/status/${t.id_long}` : undefined
-          mapped.push({ id: `db-tweet-${t.time}-${t.source}`, symbol: selectedSymbol, message: `@${t.source}: ${t.text}`, type: 'tweet', color: '#1da1f2', timestamp: new Date(t.time), read: false, url: tweetUrl })
+          mapped.push({ id: `db-tweet-${t.time}-${t.source}`, symbol: fetchedFor, message: `@${t.source}: ${t.text}`, type: 'tweet', color: '#1da1f2', timestamp: new Date(t.time), read: false, url: tweetUrl })
         })
         data.filings?.forEach((f: any) => {
-          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: selectedSymbol, message: f.text, type: 'filing', color: '#00bcd4', timestamp: new Date(f.time), read: false, url: f.url })
+          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: fetchedFor, message: f.text, type: 'filing', color: '#00bcd4', timestamp: new Date(f.time), read: false, url: f.url })
         })
         data.tradeExchange?.forEach((tx: any) => {
-          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: selectedSymbol, message: `[${tx.source}] ${tx.text}`, type: 'trade_exchange', color: '#eab308', timestamp: new Date(tx.time), read: false })
+          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: fetchedFor, message: `[${tx.source}] ${tx.text}`, type: 'trade_exchange', color: '#eab308', timestamp: new Date(tx.time), read: false })
         })
         data.tradingView?.forEach((tv: any) => {
-          mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'tradingview', color: '#4caf50', timestamp: new Date(tv.time), read: false })
+          mapped.push({ id: `db-tv-${tv.time}`, symbol: fetchedFor, message: tv.text, type: 'tradingview', color: '#4caf50', timestamp: new Date(tv.time), read: false })
         })
         data.catalysts?.forEach((c: any) => {
-          // Build PR URL from resource_id if available
           const catUrl = c.resource_id ? `/api/pr?id=${c.resource_id}` : undefined
-          mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: selectedSymbol, message: c.text, type: 'catalyst', color: '#9c27b0', timestamp: new Date(c.time), read: false, url: catUrl })
+          mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: fetchedFor, message: c.text, type: 'catalyst', color: '#9c27b0', timestamp: new Date(c.time), read: false, url: catUrl })
         })
-        dbAlertsCache[selectedSymbol.toUpperCase()] = mapped
-        setDbAlerts(mapped)
-        setDbAlertsSymbol(selectedSymbol)
-        setDbAlertsLoading(false)
+        // Cache regardless of whether the user is still on this symbol — a
+        // future selection of the same symbol will use it.
+        dbAlertsCache[fetchedFor.toUpperCase()] = mapped
+        // Only swap visible state if the user hasn't moved to another symbol.
+        if (!aborted && useStore.getState().selectedSymbol === fetchedFor) {
+          setDbAlerts(mapped)
+          setDbAlertsSymbol(fetchedFor)
+        }
       })
-      .catch(err => {
-        if (err.name !== 'AbortError') setDbAlertsLoading(false)
+      .catch(() => { /* swallow — abort or network */ })
+      .finally(() => {
+        // Always clear loading. Previously AbortError silently kept it true,
+        // so flipping symbols while a fetch was in flight stuck the ribbon
+        // on "Loading..." forever.
+        if (useStore.getState().selectedSymbol === fetchedFor) {
+          setDbAlertsLoading(false)
+        }
       })
 
-    return () => { controller.abort(); clearTimeout(timeoutId) }
-  }, [selectedSymbol, config.hubUrl])
+    return () => {
+      aborted = true
+      controller.abort()
+      clearTimeout(timeoutId)
+    }
+  }, [selectedSymbol, config.hubUrl, config.userKey])
 
   // Get alerts for the selected symbol — merge live + DB
   const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
@@ -284,7 +304,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         e.preventDefault()
         toggleFlag(selectedSymbol)
         // Copy to clipboard as fallback
-        navigator.clipboard.writeText(selectedSymbol).catch(() => {})
+        copyToClipboard(selectedSymbol)
         // Fire AHK companion script if enabled
         if (config.ahkEnabled && config.ahkUrl) {
           fireAhk(selectedSymbol, config.ahkUrl)
@@ -692,7 +712,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         </td>
                         <td className="px-2 py-1 text-center whitespace-nowrap">
                           <button
-                            onClick={() => navigator.clipboard.writeText((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
+                            onClick={() => copyToClipboard((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
                             className="text-gray-500 hover:text-gray-300 text-xs mr-1"
                             title="Copy to clipboard"
                           >

@@ -4,6 +4,7 @@ import { useStore } from '@/store/useStore'
 import { useState, useEffect, useCallback } from 'react'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
+import { copyToClipboard } from '@/lib/clipboard'
 import { getSession, clearSession } from '@/components/LoginGate'
 import type { AppTheme, MascotSize, MascotCharacter } from '@/types'
 import { MASCOT_CHARACTERS } from './AlertMascot'
@@ -217,7 +218,7 @@ export function SettingsPage() {
 
   const handleCopyKey = useCallback(() => {
     if (config.userKey) {
-      navigator.clipboard.writeText(config.userKey)
+      copyToClipboard(config.userKey)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
@@ -283,7 +284,7 @@ export function SettingsPage() {
                   <p className="text-green-400 mb-1">Webhook registered! Use this URL in TradingView alerts:</p>
                   <code className="block break-all" style={{ color: 'var(--accent-primary)' }}>{tvWebhookUrl}</code>
                   <button
-                    onClick={() => { navigator.clipboard.writeText(tvWebhookUrl); }}
+                    onClick={() => { copyToClipboard(tvWebhookUrl); }}
                     className="btn btn-secondary text-xs px-2 py-1 mt-1"
                   >
                     Copy URL

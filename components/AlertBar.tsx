@@ -7,6 +7,7 @@ import type { Alert } from '@/types'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { fireAhk } from '@/lib/ahk'
+import { copyToClipboard } from '@/lib/clipboard'
 
 // Check if alert should show Grok button (any alert with a URL worth summarizing)
 const shouldShowGrok = (alert: Alert): boolean => {
@@ -94,14 +95,14 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
   const handleCopyText = useCallback((alert: Alert) => {
     const text = `${alert.symbol}: ${(alert.message || '').replace(/^Catalyst PR\s*/i, '')}`
-    navigator.clipboard.writeText(text)
+    copyToClipboard(text)
     setContextMenu(prev => ({ ...prev, visible: false }))
   }, [])
 
   const handleAlertClick = useCallback((alert: Alert) => {
     // Copy text to clipboard
     const text = `${alert.symbol}: ${(alert.message || '').replace(/^Catalyst PR\s*/i, '')}`
-    navigator.clipboard.writeText(text)
+    copyToClipboard(text)
 
     // Fire AHK companion script if enabled (skip for synthetic symbols like RSS/MAIL/N/A)
     if (config.ahkEnabled && config.ahkUrl && alert.symbol && !['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A'].includes(alert.symbol)) {
@@ -119,7 +120,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
     // Copy alert text to clipboard
     const text = (alert.message || '').replace(/^Catalyst PR\s*/i, '')
-    navigator.clipboard.writeText(text)
+    copyToClipboard(text)
 
     // Open URL if present (filings, PRs)
     if (alert.url) {
@@ -166,7 +167,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         const alert = visibleAlerts[selectedAlertIndex]
         if (alert) {
           toggleFlag(alert.symbol)
-          navigator.clipboard.writeText(alert.symbol).catch(() => {})
+          copyToClipboard(alert.symbol)
           if (config.ahkEnabled && config.ahkUrl && !['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A'].includes(alert.symbol)) {
             fireAhk(alert.symbol, config.ahkUrl)
           }
@@ -382,7 +383,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
               <button
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
                 onClick={() => {
-                  navigator.clipboard.writeText(contextMenu.alert!.url!)
+                  copyToClipboard(contextMenu.alert!.url!)
                   setContextMenu(prev => ({ ...prev, visible: false }))
                 }}
               >

@@ -5,9 +5,9 @@ import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
-import { AlertConfig } from './AlertConfig'
 import { StockDataRibbon } from './StockDataRibbon'
 import { fireAhk } from '@/lib/ahk'
+import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
 
 // Check if alert should show Grok button (filings/PRs with URL)
@@ -47,7 +47,6 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   // Dragging the divider here persists + syncs to the Watchlist view.
   const splitPercent = config.watchlistSplitPercent ?? 50
   const setSplitPercent = (n: number) => updateConfig({ watchlistSplitPercent: n })
-  const [showConfig, setShowConfig] = useState(false) // Closed by default
   const [addSymbolInput, setAddSymbolInput] = useState('')
 
   // Handle click to set focus
@@ -129,6 +128,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
 
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 15000)
+    // Capture the symbol this fetch is for — the user may flip away before
+    // we get a response, in which case we mustn't stomp on the new symbol's
+    // state.
+    const fetchedFor = selectedSymbol
+    let aborted = false
 
     fetch(
       `${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`
@@ -143,13 +147,12 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       .then(data => {
         const mapped: Alert[] = []
         data.tweets?.forEach((t: any) => {
-          // Always link to the tweet on x.com when we have the user + id
           const tweetUrl = t.id_long && t.source
             ? `https://x.com/${t.source}/status/${t.id_long}`
             : undefined
           mapped.push({
             id: `db-tweet-${t.time}-${t.source}`,
-            symbol: selectedSymbol,
+            symbol: fetchedFor,
             message: `@${t.source}: ${t.text}`,
             type: 'tweet', color: '',
             timestamp: new Date(t.time), read: false,
@@ -157,37 +160,46 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
           })
         })
         data.filings?.forEach((f: any) => {
-          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: selectedSymbol, message: f.text, type: 'filing', color: '', timestamp: new Date(f.time), read: false, url: f.url })
+          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: fetchedFor, message: f.text, type: 'filing', color: '', timestamp: new Date(f.time), read: false, url: f.url })
         })
         data.tradeExchange?.forEach((tx: any) => {
-          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: selectedSymbol, message: tx.text, type: 'trade_exchange', color: '', timestamp: new Date(tx.time), read: false })
+          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: fetchedFor, message: tx.text, type: 'trade_exchange', color: '', timestamp: new Date(tx.time), read: false })
         })
         data.tradingView?.forEach((tv: any) => {
-          mapped.push({ id: `db-tv-${tv.time}`, symbol: selectedSymbol, message: tv.text, type: 'tradingview', color: '', timestamp: new Date(tv.time), read: false })
+          mapped.push({ id: `db-tv-${tv.time}`, symbol: fetchedFor, message: tv.text, type: 'tradingview', color: '', timestamp: new Date(tv.time), read: false })
         })
         data.catalysts?.forEach((c: any) => {
-          // Link to the underlying PR through our /api/pr resolver
           const catUrl = c.resource_id ? `/api/pr?id=${encodeURIComponent(c.resource_id)}` : undefined
           mapped.push({
             id: `db-cat-${c.time}-${c.symbol}`,
-            symbol: selectedSymbol,
+            symbol: fetchedFor,
             message: c.text,
             type: 'catalyst', color: '',
             timestamp: new Date(c.time), read: false,
             url: catUrl,
           })
         })
-        dbAlertsCache[selectedSymbol.toUpperCase()] = mapped
-        setDbAlerts(mapped)
-        setDbAlertsSymbol(selectedSymbol)
-        setDbAlertsLoading(false)
+        dbAlertsCache[fetchedFor.toUpperCase()] = mapped
+        if (!aborted && useStore.getState().selectedSymbol === fetchedFor) {
+          setDbAlerts(mapped)
+          setDbAlertsSymbol(fetchedFor)
+        }
       })
-      .catch(err => {
-        if (err.name !== 'AbortError') setDbAlertsLoading(false)
+      .catch(() => { /* swallow — abort or network */ })
+      .finally(() => {
+        // Always clear loading. AbortError used to silently leave it true,
+        // sticking the ribbon on "Loading..." across symbol changes.
+        if (useStore.getState().selectedSymbol === fetchedFor) {
+          setDbAlertsLoading(false)
+        }
       })
 
-    return () => { controller.abort(); clearTimeout(timeoutId) }
-  }, [selectedSymbol, config.hubUrl])
+    return () => {
+      aborted = true
+      controller.abort()
+      clearTimeout(timeoutId)
+    }
+  }, [selectedSymbol, config.hubUrl, config.userKey])
 
   // Merge live + DB alerts
   const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
@@ -219,17 +231,9 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       <div className="px-3 py-2 glass-header rounded-t-lg flex items-center justify-between flex-shrink-0">
         <div className="flex items-center gap-2">
           <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Alerts</h3>
-          {/* Wrench icon to toggle config */}
-          <button
-            onClick={() => setShowConfig(!showConfig)}
-            className={`p-1 rounded transition-colors ${showConfig ? 'text-blue-400 bg-blue-900/30' : 'text-gray-400 hover:text-gray-300'}`}
-            title="Toggle alert configuration"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
+          {/* Settings/wrench removed per Justin — alert config now lives on the
+              per-watchlist gear icon, this one was a duplicate path that caused
+              confusion about where toggles were managed. */}
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -243,13 +247,6 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
           )}
         </div>
       </div>
-
-      {/* Alert Config Section - Collapsible */}
-      {showConfig && (
-        <div className="max-h-[45%] overflow-auto" style={{ borderBottom: '1px solid var(--border-glass)' }}>
-          <AlertConfig />
-        </div>
-      )}
 
       {/* Flagged Symbols Header */}
       <div className="px-3 py-2 flex-shrink-0" style={{ background: 'var(--bg-glass-light)', borderBottom: '1px solid var(--border-glass)' }}>
@@ -452,7 +449,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                         </td>
                         <td className="px-2 py-1 text-center whitespace-nowrap">
                           <button
-                            onClick={() => navigator.clipboard.writeText((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
+                            onClick={() => copyToClipboard((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
                             className="text-gray-500 hover:text-gray-300 text-xs mr-1"
                             title="Copy to clipboard"
                           >
