@@ -67,6 +67,26 @@ function buildAuditDedupKey(item: any, symbol: string, alertType: string, msg: s
   return `audit:${symbol}-${alertType}-${(msg || '').slice(0, 40)}`
 }
 
+// Build the click-through URL for an audited item. AlertsBySymbol's
+// projection drops URL fields for tweets and catalysts (only filings
+// have a url field), so we have to reconstruct the same way the
+// Watchlist data ribbon does — otherwise the auditor's URL-less alert
+// dedups and the URL-bearing copy from real-time/polling gets dropped.
+function buildAuditUrl(item: any, alertType: string): string | undefined {
+  if (item.url) return item.url
+  if (item.link) return item.link
+  if (alertType === 'catalyst' || alertType === 'news') {
+    const id = item.resource_id || item.story_id
+    if (id) return `/api/pr?id=${encodeURIComponent(id)}`
+  }
+  if (alertType === 'tweet') {
+    if (item.id_long && item.source) {
+      return `https://x.com/${item.source}/status/${item.id_long}`
+    }
+  }
+  return undefined
+}
+
 // Check if we're in US market hours (Mon-Fri, 4am-8pm ET)
 function isMarketHours(): boolean {
   const now = new Date()
@@ -159,7 +179,7 @@ export function useAlertAuditor() {
                 color,
                 timestamp: resolveAuditTimestamp(item),
                 read: false,
-                url: item.url || item.link || undefined,
+                url: buildAuditUrl(item, alertType),
               })
             }
           }
@@ -245,7 +265,7 @@ export function useAlertAuditor() {
               color,
               timestamp: resolveAuditTimestamp(item),
               read: false,
-              url: item.url || item.link || undefined,
+              url: buildAuditUrl(item, alertType),
             })
           }
         }
