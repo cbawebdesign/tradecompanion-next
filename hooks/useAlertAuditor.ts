@@ -267,7 +267,10 @@ export function useAlertAuditor() {
           tweets: { items: data.tweets || [], alertType: 'tweet', color: '#1da1f2' },
           tradeExchange: { items: data.tradeExchange || [], alertType: 'trade_exchange', color: '#eab308' },
           tradingView: { items: data.tradingView || [], alertType: 'tradingview', color: '#4caf50' },
-          catalysts: { items: data.catalysts || [], alertType: 'catalyst', color: '#f97316' },
+          // Catalysts intentionally excluded — same reason as the periodic
+          // audit. New-symbol backfill fires once per fresh watchlist symbol
+          // on boot; including catalysts here was the source of Justin's
+          // orange catalyst dump after we removed them from the audit typeMap.
         }
 
         const batch: Alert[] = []
