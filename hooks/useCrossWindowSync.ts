@@ -41,7 +41,20 @@ export function useCrossWindowSync() {
               }
             }
             if (parsed.state.alerts && !isEqual(parsed.state.alerts, current.alerts)) {
-              useStore.setState({ alerts: parsed.state.alerts })
+              // Respect clearedSince — pop-out windows hydrate with pre-clear
+              // state and could otherwise dump old alerts back into a cleared
+              // main timeline. Direct setState bypasses addAlert's gate, so
+              // re-apply the same rule here.
+              let nextAlerts = parsed.state.alerts
+              if (current.clearedSince) {
+                const floor = current.clearedSince
+                nextAlerts = nextAlerts.filter((a: any) => {
+                  const t = a?.timestamp
+                  const ts = t instanceof Date ? t.getTime() : new Date(t).getTime()
+                  return isNaN(ts) || ts >= floor
+                })
+              }
+              useStore.setState({ alerts: nextAlerts })
             }
             if (parsed.state.scannerAlerts && !isEqual(parsed.state.scannerAlerts, current.scannerAlerts)) {
               useStore.setState({ scannerAlerts: parsed.state.scannerAlerts })

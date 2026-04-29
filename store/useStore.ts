@@ -192,11 +192,14 @@ export const useStore = create<AppState>()(
         // anything older than that moment must NOT come back via the
         // auditor / polling backfills / Airtable replays. Real-time alerts
         // (timestamp ≈ now) pass; old backfilled ones get dropped.
+        // Alerts with unresolvable timestamps also get dropped — those almost
+        // always come from backfill paths missing a source date field, and
+        // it's safer to lose a stray real-time alert than dump old items.
         if (state.clearedSince) {
           const ts = alert.timestamp instanceof Date
             ? alert.timestamp.getTime()
             : new Date(alert.timestamp).getTime()
-          if (!isNaN(ts) && ts < state.clearedSince) return state
+          if (isNaN(ts) || ts < state.clearedSince) return state
         }
         // Dedup: prefer dedupKey (exact, from source), fall back to fuzzy message match
         const isDuplicate = state.alerts.some(existing => {
@@ -225,14 +228,16 @@ export const useStore = create<AppState>()(
         )
         // Cleared-timeline floor — applied here too so backfill batches
         // (auditor / new-symbol-backfill / Airtable initial / TX initial)
-        // can't drop pre-clear items into the timeline.
+        // can't drop pre-clear items into the timeline. Items with
+        // unresolvable timestamps are dropped too (they're almost always
+        // backfill items missing a source date).
         if (state.clearedSince) {
           const floor = state.clearedSince
           gated = gated.filter(a => {
             const ts = a.timestamp instanceof Date
               ? a.timestamp.getTime()
               : new Date(a.timestamp).getTime()
-            return isNaN(ts) || ts >= floor
+            return !isNaN(ts) && ts >= floor
           })
         }
         if (gated.length === 0) return state
