@@ -116,15 +116,32 @@ export function useSignalR() {
 
     console.log('SignalR: Subscribing to', uniqueSymbols.length, 'symbols')
 
-    // Fire all SubL1 calls without delay — legacy app does the same (tight loop, no throttle)
-    // Azure SignalR hub handles the volume fine
-    await Promise.all(
-      uniqueSymbols.map(symbol =>
-        connection.invoke('SubL1', symbol).catch(err =>
-          console.error('Failed to subscribe to', symbol, err)
+    // Subscribe in small parallel chunks. When Azure flaps mid-burst the
+    // connection drops and every in-flight SubL1 rejects simultaneously
+    // (Justin's flood of "Invocation canceled" errors). Chunking limits the
+    // damage to one chunk's worth and the post-reconnect re-subscribe picks
+    // up the rest.
+    const CHUNK_SIZE = 25
+    const CHUNK_DELAY_MS = 50
+    for (let i = 0; i < uniqueSymbols.length; i += CHUNK_SIZE) {
+      // Bail out if connection state changed during the loop (e.g. dropped).
+      if (connection.state !== HubConnectionState.Connected) break
+      const chunk = uniqueSymbols.slice(i, i + CHUNK_SIZE)
+      await Promise.all(
+        chunk.map(symbol =>
+          connection.invoke('SubL1', symbol).catch(err => {
+            // Connection-closed errors are expected during reconnect — the
+            // auto-reconnect logic re-subscribes on connect. Don't spam.
+            const msg = String(err?.message || '')
+            if (msg.includes('Invocation canceled') || msg.includes('connection being closed')) return
+            console.error('Failed to subscribe to', symbol, err)
+          })
         )
       )
-    )
+      if (i + CHUNK_SIZE < uniqueSymbols.length) {
+        await new Promise(r => setTimeout(r, CHUNK_DELAY_MS))
+      }
+    }
   }, [])
 
   // Initialize connection
@@ -667,9 +684,11 @@ export function useSignalR() {
             console.log(`SignalR: Re-subscribing to ${staleSymbols.length} stale symbols`)
             await Promise.all(
               staleSymbols.map(sym =>
-                conn.invoke('SubL1', sym).catch(err =>
+                conn.invoke('SubL1', sym).catch(err => {
+                  const msg = String(err?.message || '')
+                  if (msg.includes('Invocation canceled') || msg.includes('connection being closed')) return
                   console.error('SignalR: Re-sub failed for', sym, err)
-                )
+                })
               )
             )
           }
