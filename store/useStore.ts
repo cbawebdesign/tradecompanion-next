@@ -188,6 +188,16 @@ export const useStore = create<AppState>()(
         if (!shouldShowAlert(alert, state.flaggedSymbols, state.watchlists, state.alertSubscriptions)) {
           return state
         }
+        // Cleared-timeline floor — once the user clicks "Clear All Alerts",
+        // anything older than that moment must NOT come back via the
+        // auditor / polling backfills / Airtable replays. Real-time alerts
+        // (timestamp ≈ now) pass; old backfilled ones get dropped.
+        if (state.clearedSince) {
+          const ts = alert.timestamp instanceof Date
+            ? alert.timestamp.getTime()
+            : new Date(alert.timestamp).getTime()
+          if (!isNaN(ts) && ts < state.clearedSince) return state
+        }
         // Dedup: prefer dedupKey (exact, from source), fall back to fuzzy message match
         const isDuplicate = state.alerts.some(existing => {
           if (alert.dedupKey && existing.dedupKey) {
@@ -210,9 +220,21 @@ export const useStore = create<AppState>()(
       }),
       addAlerts: (newAlerts) => set((state) => {
         // Apply the same subscription gate as addAlert, in bulk.
-        const gated = newAlerts.filter(a =>
+        let gated = newAlerts.filter(a =>
           shouldShowAlert(a, state.flaggedSymbols, state.watchlists, state.alertSubscriptions)
         )
+        // Cleared-timeline floor — applied here too so backfill batches
+        // (auditor / new-symbol-backfill / Airtable initial / TX initial)
+        // can't drop pre-clear items into the timeline.
+        if (state.clearedSince) {
+          const floor = state.clearedSince
+          gated = gated.filter(a => {
+            const ts = a.timestamp instanceof Date
+              ? a.timestamp.getTime()
+              : new Date(a.timestamp).getTime()
+            return isNaN(ts) || ts >= floor
+          })
+        }
         if (gated.length === 0) return state
         // Batch dedup: use dedupKey when available, fall back to message key
         const existingDedupKeys = new Set<string>()
@@ -433,7 +455,9 @@ export const useStore = create<AppState>()(
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
         alertSubscriptions: state.alertSubscriptions,
         hasMigratedSubs: state.hasMigratedSubs,
-        clearedSince: state.clearedSince,
+        // clearedSince intentionally NOT persisted — Justin: "they are gone
+        // until a reboot." On reload the gate resets so today's full history
+        // is available again via backfill.
         mascotPosition: state.mascotPosition,
         // quotes intentionally NOT persisted — ephemeral real-time data
       // persisting quotes caused localStorage writes every 250ms, blocking main thread
