@@ -33,6 +33,34 @@ let hasInitiallyFetched = false
 // Airtable token — baked in at build time via NEXT_PUBLIC_AIRTABLE_TOKEN env var
 const AIRTABLE_TOKEN = process.env.NEXT_PUBLIC_AIRTABLE_TOKEN || ''
 
+// 4 PM ET on the previous trading day, expressed as a UTC ISO string.
+// Used as the cutoff for Airtable RSS / YT / Substack pulls so backfills
+// don't drag in items from previous days.
+function previousMarketCloseISO(): string {
+  const nowUtc = new Date()
+  // Convert to ET to find "today's" calendar day in ET.
+  const etNow = new Date(nowUtc.toLocaleString('en-US', { timeZone: 'America/New_York' }))
+  const utcEtOffsetMs = nowUtc.getTime() - etNow.getTime()
+
+  // Start with 4:00 PM ET today (in ET wall-clock).
+  const cutoffEt = new Date(etNow)
+  cutoffEt.setHours(16, 0, 0, 0)
+
+  // If 4 PM ET today is still in the future, the most recent close was yesterday.
+  if (cutoffEt > etNow) {
+    cutoffEt.setDate(cutoffEt.getDate() - 1)
+  }
+  // Walk back over weekends — Saturday=6, Sunday=0.
+  while (cutoffEt.getDay() === 0 || cutoffEt.getDay() === 6) {
+    cutoffEt.setDate(cutoffEt.getDate() - 1)
+  }
+
+  // Convert the ET wall-clock back to a real UTC Date by reapplying the offset
+  // we measured (handles DST automatically — the offset captures it).
+  const cutoffUtc = new Date(cutoffEt.getTime() + utcEtOffsetMs)
+  return cutoffUtc.toISOString()
+}
+
 export function useAirtablePolling() {
   const { addAlert, addAlerts } = useStore()
 
@@ -47,16 +75,21 @@ export function useAirtablePolling() {
 
     async function fetchView(view: typeof VIEWS[0], isInitial: boolean) {
       try {
-        // Only fetch records from today (to avoid loading entire history)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const sinceISO = today.toISOString()
+        // Cutoff = previous market close (4 PM ET on the previous trading day).
+        // Without this Airtable returned the latest N records regardless of
+        // age, so on light-volume sources (Substack/YT over a weekend) the
+        // backfill spanned multiple days. Justin: "RSS backfilled for multiple
+        // days instead of just pulling stuff since the previous close."
+        const cutoffISO = previousMarketCloseISO()
 
         const params = new URLSearchParams({
           view: view.viewId,
           maxRecords: isInitial ? '5' : '20',  // only show last 5 on first load to avoid spam
           'sort[0][field]': 'pubDate',
           'sort[0][direction]': 'desc',
+          // Server-side filter — much cheaper than fetching then filtering, and
+          // works around the maxRecords cap eating items behind older ones.
+          filterByFormula: `IS_AFTER({pubDate}, '${cutoffISO}')`,
         })
 
         const response = await fetch(`${AIRTABLE_API}?${params}`, {
