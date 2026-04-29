@@ -286,7 +286,10 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
 
       for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
         const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 12000)
+        // 30s per attempt — Azure Function cold starts (after several minutes
+        // idle) commonly take 15-30s before serving the first request. Was 12s
+        // which timed out before Azure could respond.
+        const timeout = setTimeout(() => controller.abort(), 30000)
 
         try {
           resp = await fetch(proxyUrl(`${baseApi}/tcadmin/login`), {
