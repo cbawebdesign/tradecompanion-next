@@ -112,6 +112,7 @@ export interface AppConfig {
   alertBarHeight: number
   alertBarHeightPercent: number  // 10-60, % of viewport height; preferred over alertBarHeight
   watchlistSplitPercent: number
+  flaggedListSplitPercent: number  // independent split for the Flagged Symbols view
   marketCapMin: number
   marketCapMax: number
   theme: AppTheme

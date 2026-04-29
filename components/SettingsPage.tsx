@@ -890,6 +890,19 @@ export function SettingsPage() {
               className="w-full"
             />
           </div>
+          <div className="mt-4">
+            <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
+              Flagged List Split ({config.flaggedListSplitPercent ?? config.watchlistSplitPercent}%)
+            </label>
+            <input
+              type="range"
+              min="20"
+              max="80"
+              value={config.flaggedListSplitPercent ?? config.watchlistSplitPercent ?? 50}
+              onChange={(e) => updateConfig({ flaggedListSplitPercent: parseInt(e.target.value) })}
+              className="w-full"
+            />
+          </div>
         </section>
       </div>
 

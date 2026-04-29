@@ -134,6 +134,7 @@ const defaultConfig: AppConfig = {
   alertBarHeight: 200,
   alertBarHeightPercent: 25,
   watchlistSplitPercent: 50,
+  flaggedListSplitPercent: 50,
   marketCapMin: 0,
   marketCapMax: 999999999999,
   theme: 'blue',

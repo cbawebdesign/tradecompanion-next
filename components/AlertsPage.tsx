@@ -42,12 +42,23 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const isActive = activePane === 'alerts'
 
-  // Flagged-list split shares the same config value as the Watchlist split so
-  // the Settings → Watchlist Split slider controls both views in one place.
-  // Dragging the divider here persists + syncs to the Watchlist view.
-  const splitPercent = config.watchlistSplitPercent ?? 50
-  const setSplitPercent = (n: number) => updateConfig({ watchlistSplitPercent: n })
+  // Flagged List split is now independent of the Watchlist split — Justin
+  // wants the two views sized separately. Falls back to the legacy shared
+  // value once, then writes to its own field on first drag.
+  const splitPercent = config.flaggedListSplitPercent ?? config.watchlistSplitPercent ?? 50
+  const setSplitPercent = (n: number) => updateConfig({ flaggedListSplitPercent: n })
   const [addSymbolInput, setAddSymbolInput] = useState('')
+
+  // Column sort for the Flagged Symbols table. null = insertion order.
+  const [flaggedSortCol, setFlaggedSortCol] = useState<'symbol' | 'last' | 'changePercent' | null>(null)
+  const [flaggedSortDir, setFlaggedSortDir] = useState<'asc' | 'desc'>('asc')
+  const cycleFlaggedSort = (col: 'symbol' | 'last' | 'changePercent') => {
+    if (flaggedSortCol !== col) { setFlaggedSortCol(col); setFlaggedSortDir('asc'); return }
+    if (flaggedSortDir === 'asc') { setFlaggedSortDir('desc'); return }
+    setFlaggedSortCol(null) // third click clears
+  }
+  const sortIndicator = (col: typeof flaggedSortCol) =>
+    flaggedSortCol === col ? (flaggedSortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   // Handle click to set focus
   useEffect(() => {
@@ -95,12 +106,29 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isActive, flaggedSymbols, selectedSymbol, setSelectedSymbol, toggleFlag])
 
-  // Convert flagged symbols to array with quote data
-  const flaggedList = Array.from(flaggedSymbols).map(symbol => ({
-    symbol,
-    quote: quotes[symbol],
-    alertCount: alerts.filter(a => a.symbol === symbol).length,
-  }))
+  // Convert flagged symbols to array with quote data, then optionally sort.
+  // Symbols without a quote sort to the bottom for numeric columns so the
+  // table doesn't fragment on partial data.
+  const flaggedList = (() => {
+    const rows = Array.from(flaggedSymbols).map(symbol => ({
+      symbol,
+      quote: quotes[symbol],
+      alertCount: alerts.filter(a => a.symbol === symbol).length,
+    }))
+    if (!flaggedSortCol) return rows
+    const dir = flaggedSortDir === 'asc' ? 1 : -1
+    return rows.slice().sort((a, b) => {
+      if (flaggedSortCol === 'symbol') return a.symbol.localeCompare(b.symbol) * dir
+      const av = flaggedSortCol === 'last' ? a.quote?.last : a.quote?.changePercent
+      const bv = flaggedSortCol === 'last' ? b.quote?.last : b.quote?.changePercent
+      const aMissing = av === undefined || av === null || isNaN(av)
+      const bMissing = bv === undefined || bv === null || isNaN(bv)
+      if (aMissing && bMissing) return 0
+      if (aMissing) return 1
+      if (bMissing) return -1
+      return (av - bv) * dir
+    })
+  })()
 
   // DB alerts state
   const [dbAlerts, setDbAlerts] = useState<Alert[]>([])
@@ -301,11 +329,30 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                 <thead>
                   <tr>
                     <th className="w-8">Flag</th>
-                    <th>Symbol</th>
-                    <th className="text-right">Last</th>
-                    <th className="text-right">Bid</th>
-                    <th className="text-right">Ask</th>
-                    <th className="text-right">% Chg</th>
+                    <th
+                      className="cursor-pointer select-none"
+                      onClick={() => cycleFlaggedSort('symbol')}
+                      title="Sort by Symbol"
+                    >
+                      Symbol{sortIndicator('symbol')}
+                    </th>
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      onClick={() => cycleFlaggedSort('last')}
+                      title="Sort by Last"
+                    >
+                      Last{sortIndicator('last')}
+                    </th>
+                    {/* Bid / Ask removed per Justin — saving server quote
+                        bandwidth (Batch C) tracks the matching server-side
+                        gate; for now just hide the columns. */}
+                    <th
+                      className="text-right cursor-pointer select-none"
+                      onClick={() => cycleFlaggedSort('changePercent')}
+                      title="Sort by % Change"
+                    >
+                      % Chg{sortIndicator('changePercent')}
+                    </th>
                     <th className="text-right">Alerts</th>
                   </tr>
                 </thead>
@@ -341,12 +388,6 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                         <td className="font-mono font-semibold">{symbol}</td>
                         <td className={clsx('text-right font-mono', changeClass)}>
                           {quote?.last?.toFixed(2) || '-'}
-                        </td>
-                        <td className="text-right font-mono text-gray-400">
-                          {quote?.bid?.toFixed(2) || '-'}
-                        </td>
-                        <td className="text-right font-mono text-gray-400">
-                          {quote?.ask?.toFixed(2) || '-'}
                         </td>
                         <td className={clsx('text-right font-mono', changeClass)}>
                           {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}
