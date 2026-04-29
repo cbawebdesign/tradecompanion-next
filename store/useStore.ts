@@ -52,6 +52,11 @@ interface AppState {
   addAlerts: (alerts: Alert[]) => void
   markAlertRead: (id: string) => void
   clearAlerts: () => void
+  // Set when the user explicitly clears the timeline. The alert auditor uses
+  // this as a floor for its "since" cutoff so cleared alerts don't get pulled
+  // back in by the next backfill. Persisted across reloads — once cleared,
+  // gone for the rest of the day.
+  clearedSince: number | null
   hiddenAlertIds: Set<string>
   hideAlert: (id: string) => void
   removeAlert: (id: string) => void
@@ -225,7 +230,8 @@ export const useStore = create<AppState>()(
       markAlertRead: (id) => set((state) => ({
         alerts: state.alerts.map(a => a.id === id ? { ...a, read: true } : a)
       })),
-      clearAlerts: () => set({ alerts: [], hiddenAlertIds: new Set() }),
+      clearAlerts: () => set({ alerts: [], hiddenAlertIds: new Set(), clearedSince: Date.now() }),
+      clearedSince: null,
       hiddenAlertIds: new Set(),
       hideAlert: (id) => set((state) => {
         const newHidden = new Set(state.hiddenAlertIds)
@@ -426,6 +432,7 @@ export const useStore = create<AppState>()(
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
         alertSubscriptions: state.alertSubscriptions,
         hasMigratedSubs: state.hasMigratedSubs,
+        clearedSince: state.clearedSince,
         mascotPosition: state.mascotPosition,
         // quotes intentionally NOT persisted — ephemeral real-time data
       // persisting quotes caused localStorage writes every 250ms, blocking main thread

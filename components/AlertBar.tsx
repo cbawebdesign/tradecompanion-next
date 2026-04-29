@@ -109,9 +109,14 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
       fireAhk(alert.symbol, config.ahkUrl)
     }
 
-    // Set selected symbol and go to watchlist tab
+    // Always update the selected symbol (powers data ribbon on whichever tab
+    // the user is on). Only switch tabs if they're not already on a tab that
+    // shows symbol context — Alerts (1) and Watchlist (2) both do.
     setSelectedSymbol(alert.symbol)
-    setActiveTab(2) // Watchlist tab
+    const currentTab = useStore.getState().activeTab
+    if (currentTab !== 1 && currentTab !== 2) {
+      setActiveTab(2) // Watchlist tab is the safe fallback for other contexts
+    }
   }, [setSelectedSymbol, setActiveTab, config.ahkEnabled, config.ahkUrl])
 
   // Handle clicking on alert message - opens URL for filings/PRs
@@ -162,11 +167,13 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
           prev > 0 ? prev - 1 : visibleAlerts.length - 1
         )
       } else if (e.key === ' ' && selectedAlertIndex >= 0) {
-        // Space to flag symbol + copy to clipboard for AHK/Hammerspoon
+        // Space → fire AHK + copy symbol to clipboard. Used to also toggle
+        // the flag (paired with AHK) but Justin asked to disable that —
+        // pressing space from the alerts timeline shouldn't surprise-flag
+        // a symbol just to fire an AHK script.
         e.preventDefault()
         const alert = visibleAlerts[selectedAlertIndex]
         if (alert) {
-          toggleFlag(alert.symbol)
           copyToClipboard(alert.symbol)
           if (config.ahkEnabled && config.ahkUrl && !['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A'].includes(alert.symbol)) {
             fireAhk(alert.symbol, config.ahkUrl)

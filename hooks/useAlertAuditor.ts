@@ -132,7 +132,20 @@ export function useAlertAuditor() {
       // Also include previously seen auditor keys
       seenAlertKeys.forEach(k => existingKeys.add(k))
 
-      const since = lastAuditTime || new Date(new Date().setHours(0, 0, 0, 0)) // today at midnight
+      // Floor for what the auditor will fetch. Three sources, take the max:
+      //   - lastAuditTime: avoid re-checking what we already audited
+      //   - clearedSince:  user clicked "Clear All Alerts" → cleared items
+      //                    must NOT come back from a backfill (Justin: "once
+      //                    the time line alerts are removed... they are gone
+      //                    until a reboot").
+      //   - midnight ET:   default lower bound on first audit of the day.
+      const cleared = useStore.getState().clearedSince
+      const sinceCandidates = [
+        lastAuditTime ? lastAuditTime.getTime() : 0,
+        cleared || 0,
+        new Date(new Date().setHours(0, 0, 0, 0)).getTime(),
+      ]
+      const since = new Date(Math.max(...sinceCandidates))
       const sinceStr = since.toISOString()
 
       const recoveredBatch: Alert[] = []
@@ -157,7 +170,13 @@ export function useAlertAuditor() {
             tweets: { items: data.tweets || [], alertType: 'tweet', color: '#1da1f2' },
             tradeExchange: { items: data.tradeExchange || [], alertType: 'trade_exchange', color: '#eab308' },
             tradingView: { items: data.tradingView || [], alertType: 'tradingview', color: '#4caf50' },
-            catalysts: { items: data.catalysts || [], alertType: 'catalyst', color: '#f97316' },
+            // Catalysts intentionally excluded from auditor backfill. The
+            // auditor produces alerts that bypass the confirmation gate (no
+            // historical bars to evaluate dolVol+price), which surfaces the
+            // raw orange "PR happened" entries Justin doesn't want — only
+            // the green confirmed ones should appear as catalysts. Real-time
+            // path: newCatalystScanner → confirmer.track → green on confirm.
+            // Historical PR record is still visible in the data ribbon.
           }
 
           for (const [_typeName, { items, alertType, color }] of Object.entries(typeMap)) {
