@@ -19,6 +19,71 @@ const THEMES: { value: AppTheme; label: string; description: string }[] = [
 
 const APP_VERSION = '2.1.0'
 
+// Apply a server user-record to the local Zustand store. Used by both the
+// "Load Key" and "Pull from Server" buttons. Restores watchlists, flagged
+// symbols, alert subscriptions, and the config scalars stored in
+// configs.* (excludeFilings / filteredPr* / tradingViewId / xShowAllTweets).
+//
+// Previously these handlers only restored watchlists, so syncing to a
+// new device left flags + filter lists + TV ID empty (Justin's complaint).
+function applyServerStateToStore(userData: any): string {
+  const summary: string[] = []
+  const cfg = (userData?.configs ?? {}) as Record<string, string | undefined>
+
+  // Watchlists — convert dict { name: [symbols] } to Zustand array.
+  if (userData?.watchlists && Object.keys(userData.watchlists).length > 0) {
+    const restored = Object.entries(userData.watchlists).map(([name, symbols]: [string, any]) => ({
+      id: crypto.randomUUID(),
+      name,
+      symbols: (symbols as string[]).map((sym: string) => ({
+        symbol: sym, upperAlert: null, lowerAlert: null, notes: '',
+      })),
+    }))
+    useStore.getState().setWatchlists(restored)
+    const total = restored.reduce((n, wl) => n + wl.symbols.length, 0)
+    summary.push(`${restored.length} watchlist(s) / ${total} symbols`)
+  }
+
+  // Flagged symbols.
+  try {
+    const arr = JSON.parse(cfg.flaggedSymbols || '[]')
+    if (Array.isArray(arr) && arr.length > 0) {
+      useStore.setState({ flaggedSymbols: new Set(arr) })
+      summary.push(`${arr.length} flag(s)`)
+    }
+  } catch {/* ignore */}
+
+  // Alert subscriptions.
+  try {
+    const arr = JSON.parse(cfg.alertSubscriptions || '[]')
+    if (Array.isArray(arr) && arr.length > 0) {
+      useStore.setState({ alertSubscriptions: arr })
+      summary.push(`${arr.length} subscription(s)`)
+    }
+  } catch {/* ignore */}
+
+  // Config scalars. Legacy desktop wrote PascalCase keys, web uses camelCase.
+  const pick = (...keys: string[]) => {
+    for (const k of keys) {
+      const v = cfg[k]
+      if (typeof v === 'string' && v.length > 0) return v
+    }
+    return undefined
+  }
+  const cfgPatch: Record<string, string> = {}
+  const ef = pick('excludeFilings', 'ExcludeFilings'); if (ef) cfgPatch.excludeFilings = ef
+  const fpp = pick('filteredPrPositive', 'FilterNewsPositive'); if (fpp) cfgPatch.filteredPrPositive = fpp
+  const fpn = pick('filteredPrNegative', 'FilterNewsNegative'); if (fpn) cfgPatch.filteredPrNegative = fpn
+  const tvid = pick('tradingViewId', 'TradingViewId'); if (tvid) cfgPatch.tradingViewId = tvid
+  const xshow = pick('xShowAllTweets', 'XshowAllTweets'); if (xshow) cfgPatch.xShowAllTweets = xshow
+  if (Object.keys(cfgPatch).length > 0) {
+    useStore.getState().updateConfig(cfgPatch as any)
+    summary.push(`${Object.keys(cfgPatch).length} setting(s)`)
+  }
+
+  return summary.length > 0 ? `Restored ${summary.join(', ')}.` : 'Nothing on server to restore.'
+}
+
 export function SettingsPage() {
   const { config, updateConfig, connectionState, watchlists, setWatchlists, flaggedSymbols, alertSubscriptions } = useStore()
   const [saved, setSaved] = useState(false)
@@ -81,34 +146,15 @@ export function SettingsPage() {
       console.log('[UserSync] Server returned:', JSON.stringify(userData, null, 2))
       updateConfig({ userKey: userData.user_key })
 
-      // Restore watchlists if server has data
-      // Server format: { "Main Watch": ["AAPL", "TSLA"], "Tech": ["GOOG"] }
-      // Zustand format: [{ id, name, symbols: [{ symbol, upperAlert, lowerAlert, notes }] }]
-      if (userData.watchlists && Object.keys(userData.watchlists).length > 0) {
-        const restored = Object.entries(userData.watchlists).map(([name, symbols]: [string, any]) => ({
-          id: crypto.randomUUID(),
-          name,
-          symbols: (symbols as string[]).map((sym: string) => ({
-            symbol: sym,
-            upperAlert: null,
-            lowerAlert: null,
-            notes: '',
-          })),
-        }))
-        console.log('[UserSync] Restoring watchlists:', JSON.stringify(restored, null, 2))
-        setWatchlists(restored)
-        setSyncMessage(`Key valid. Restored ${restored.length} watchlist(s) with ${restored.reduce((n, wl) => n + wl.symbols.length, 0)} symbols.`)
-      } else {
-        console.log('[UserSync] No watchlists on server')
-        setSyncMessage('Key valid. No server data to restore.')
-      }
+      const summary = applyServerStateToStore(userData)
       setSyncStatus('success')
+      setSyncMessage(`Key valid. ${summary}`)
       setKeyInput('')
     } catch (err: any) {
       setSyncStatus('error')
       setSyncMessage(`Failed: ${err.message}`)
     }
-  }, [keyInput, config.hubUrl, updateConfig, setWatchlists])
+  }, [keyInput, config.hubUrl, updateConfig])
 
   // User Sync: Pull from server (restore watchlists/config)
   const handlePull = useCallback(async () => {
@@ -121,30 +167,17 @@ export function SettingsPage() {
       const userData = await resp.json()
       console.log('[UserSync] Pull - server returned:', JSON.stringify(userData, null, 2))
 
-      if (userData.watchlists && Object.keys(userData.watchlists).length > 0) {
-        const restored = Object.entries(userData.watchlists).map(([name, symbols]: [string, any]) => ({
-          id: crypto.randomUUID(),
-          name,
-          symbols: (symbols as string[]).map((sym: string) => ({
-            symbol: sym,
-            upperAlert: null,
-            lowerAlert: null,
-            notes: '',
-          })),
-        }))
-        console.log('[UserSync] Restoring watchlists:', JSON.stringify(restored, null, 2))
-        setWatchlists(restored)
-        setSyncStatus('success')
-        setSyncMessage(`Pulled ${restored.length} watchlist(s) with ${restored.reduce((n, wl) => n + wl.symbols.length, 0)} symbols from server.`)
-      } else {
-        setSyncStatus('success')
-        setSyncMessage('Server has no watchlist data to pull.')
-      }
+      // Use applyServerStateToStore which restores watchlists + flagged + subs +
+      // config scalars in one shot (used to only restore watchlists — meant
+      // syncing to a new device left flags / filter lists / TV ID empty).
+      const summary = applyServerStateToStore(userData)
+      setSyncStatus('success')
+      setSyncMessage(summary)
     } catch (err: any) {
       setSyncStatus('error')
       setSyncMessage(`Pull failed: ${err.message}`)
     }
-  }, [config.userKey, config.hubUrl, setWatchlists])
+  }, [config.userKey, config.hubUrl])
 
   // User Sync: Push current state to server
   const handlePush = useCallback(async () => {
