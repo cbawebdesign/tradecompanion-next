@@ -206,6 +206,27 @@ export function useCosmosSync() {
       }
     }
 
+    // UUID-drift guard. If the user has watchlists with symbols AND
+    // alertSubscriptions records, the flat map should NOT be empty. Empty
+    // means every sub.watchlistId references a watchlist that no longer
+    // exists (UUIDs got regenerated at some point — Justin hit this and the
+    // server filter started dropping every alert). Refuse to push the bad
+    // empty map; either fall through to push the existing cloud value or
+    // rebuild from current watchlists with default all-on so filtering
+    // doesn't silently break.
+    const hasSymbols = state.watchlists.some(w => w.symbols.length > 0)
+    if (hasSymbols
+        && Object.keys(subscribedAlerts).length === 0
+        && state.alertSubscriptions.length > 0) {
+      console.warn('CosmosSync: alertSubscriptions UUIDs no longer match any watchlist — rebuilding subscribedAlerts from current watchlists (all-on default).')
+      const TYPES = ['Filings', 'PRs', 'TradeExchange', 'X']
+      for (const wl of state.watchlists) {
+        for (const { symbol } of wl.symbols) {
+          subscribedAlerts[symbol.toUpperCase()] = [...TYPES]
+        }
+      }
+    }
+
     const payload = {
       watchlists: watchlistsForBackend,
       configs: {
