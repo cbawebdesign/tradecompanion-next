@@ -76,6 +76,21 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
   const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId) || watchlists[0]
 
+  // When the user switches watchlists, the previously-selected symbol may not
+  // be on the new list — leaving the data ribbon, AHK target, and "selected"
+  // row in a stale state. Justin: "the row that is selected should be the
+  // first symbol on this list." Reset to the first symbol of the new list
+  // (or null if the new list is empty).
+  useEffect(() => {
+    if (!currentWatchlist) return
+    const onCurrent = selectedSymbol
+      && currentWatchlist.symbols.some(s => s.symbol === selectedSymbol)
+    if (!onCurrent) {
+      setSelectedSymbol(currentWatchlist.symbols[0]?.symbol || null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedWatchlistId])
+
   // DB alerts state
   const [dbAlerts, setDbAlerts] = useState<Alert[]>([])
   const [dbAlertsSymbol, setDbAlertsSymbol] = useState<string | null>(null)
@@ -301,11 +316,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
           setSelectedWatchlistId(watchlists[wlIndex + 1].id)
         }
       } else if (e.key === ' ' && selectedSymbol) {
+        // Spacebar fires AHK + copies the symbol. Used to also toggle the flag,
+        // but Justin saw the same surprise-flag bug as in the timeline — pressing
+        // space to fire AHK shouldn't flip the flag state.
         e.preventDefault()
-        toggleFlag(selectedSymbol)
-        // Copy to clipboard as fallback
         copyToClipboard(selectedSymbol)
-        // Fire AHK companion script if enabled
         if (config.ahkEnabled && config.ahkUrl) {
           fireAhk(selectedSymbol, config.ahkUrl)
         }
