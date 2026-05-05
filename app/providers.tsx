@@ -16,6 +16,7 @@ import { useStockDataPreload } from '@/hooks/useStockDataPreload'
 import { useAlertAuditor } from '@/hooks/useAlertAuditor'
 import { useAirtablePolling } from '@/hooks/useAirtablePolling'
 import { useCosmosSync } from '@/hooks/useCosmosSync'
+import { useAzureKeepAlive } from '@/hooks/useAzureKeepAlive'
 import { useRemotePrBlacklist } from '@/hooks/useRemotePrBlacklist'
 import { useStore } from '@/store/useStore'
 import { LoginGate } from '@/components/LoginGate'
@@ -84,6 +85,7 @@ function DataSync() {
   useCrossWindowSync()
   useCosmosSync()
   useRemotePrBlacklist()
+  useAzureKeepAlive()
   return null
 }
 

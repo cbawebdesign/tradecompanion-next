@@ -23,6 +23,55 @@ const shouldShowGrok = (alert: Alert): boolean => {
 // Module-level cache for AlertsBySymbol results — survives remounts
 const dbAlertsCache: Record<string, Alert[]> = {}
 
+// Prefetch tracking — symbols already kicked off so we don't double-fetch.
+const prefetchInFlight = new Set<string>()
+
+// Background-prefetch the data ribbon for an array of symbols. Chunked to
+// 4 concurrent at a time with a 200ms gap between chunks so we don't hammer
+// the Azure Function (which has cold-start variance from 0.5s to 4s+).
+// Each completion populates dbAlertsCache so the corresponding symbol click
+// becomes instant.
+async function prefetchRibbon(symbols: string[], baseUrl: string, userKey: string | undefined) {
+  const CHUNK = 4
+  for (let i = 0; i < symbols.length; i += CHUNK) {
+    const batch = symbols.slice(i, i + CHUNK).filter(s =>
+      !dbAlertsCache[s.toUpperCase()] && !prefetchInFlight.has(s.toUpperCase())
+    )
+    if (batch.length === 0) continue
+    batch.forEach(s => prefetchInFlight.add(s.toUpperCase()))
+    await Promise.all(batch.map(async (sym) => {
+      try {
+        const url = `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(sym)}`
+          + (userKey ? `&userKey=${encodeURIComponent(userKey)}` : '')
+        const r = await fetch(proxyUrl(url))
+        if (!r.ok) return
+        const data = await r.json()
+        const mapped: Alert[] = []
+        data.tweets?.forEach((t: any) => {
+          const tweetUrl = t.id_long ? `https://x.com/${t.source}/status/${t.id_long}` : undefined
+          mapped.push({ id: `db-tweet-${t.time}-${t.source}`, symbol: sym, message: `@${t.source}: ${t.text}`, type: 'tweet', color: '#1da1f2', timestamp: new Date(t.time), read: false, url: tweetUrl })
+        })
+        data.filings?.forEach((f: any) => {
+          mapped.push({ id: `db-filing-${f.time}-${f.source}`, symbol: sym, message: f.text, type: 'filing', color: '#00bcd4', timestamp: new Date(f.time), read: false, url: f.url })
+        })
+        data.tradeExchange?.forEach((tx: any) => {
+          mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: sym, message: `[${tx.source}] ${tx.text}`, type: 'trade_exchange', color: '#eab308', timestamp: new Date(tx.time), read: false })
+        })
+        data.tradingView?.forEach((tv: any) => {
+          mapped.push({ id: `db-tv-${tv.time}`, symbol: sym, message: tv.text, type: 'tradingview', color: '#4caf50', timestamp: new Date(tv.time), read: false })
+        })
+        data.catalysts?.forEach((c: any) => {
+          const catUrl = c.resource_id ? `/api/pr?id=${c.resource_id}` : undefined
+          mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: sym, message: c.text, type: 'catalyst', color: '#9c27b0', timestamp: new Date(c.time), read: false, url: catUrl })
+        })
+        dbAlertsCache[sym.toUpperCase()] = mapped
+      } catch { /* swallow */ }
+      finally { prefetchInFlight.delete(sym.toUpperCase()) }
+    }))
+    if (i + CHUNK < symbols.length) await new Promise(r => setTimeout(r, 200))
+  }
+}
+
 interface WatchlistProps {
   isPopout?: boolean
 }
@@ -85,6 +134,17 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   useEffect(() => {
     if (!currentWatchlist) return
     setSelectedSymbol(currentWatchlist.symbols[0]?.symbol || null)
+    // Background-prefetch the ribbon data for every symbol on the new list.
+    // Each one populates dbAlertsCache so the eventual click is instant.
+    // Throttled inside prefetchRibbon (4 concurrent, 200ms gap) so we don't
+    // saturate the Azure Function. Caps at 30 symbols on big watchlists to
+    // keep the burst small.
+    if (config.hubUrl) {
+      const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
+      const syms = currentWatchlist.symbols.slice(0, 30).map(s => s.symbol)
+      // Fire and forget — completion populates the cache.
+      void prefetchRibbon(syms, baseUrl, config.userKey)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWatchlistId])
 
