@@ -1,32 +1,44 @@
 "use client"
 
-// Pings the Azure Function every few minutes to keep at least one warm
-// instance alive. Cold starts on /AlertsBySymbol and /StockData were the
-// dominant cause of intermittent data-ribbon hangs (0.5s-4.3s observed).
-// One light request every 4 min is far cheaper than the user-visible
-// stutter when an instance has been idle for ~10 min and goes cold.
+// Periodically warms the Azure Function paths the user actually hits.
+// alwaysOn=true on the App Service plan keeps the worker process up,
+// but the .NET function engine inside JITs each code path lazily.
+// First-call-per-path = 13-19s spike (measured AAPL=18.79s, NVDA=13.54s).
+// We can't fix that on B1, but we can pre-pay the JIT tax in the
+// background so the user never feels it.
+//
+// Pings the two heavy ribbon endpoints (/AlertsBySymbol + /StockData)
+// every 4 min using a stable warmup symbol. Both are cheap on a warm
+// instance (<1s) but trigger the same code paths the user hits.
 
 import { useEffect } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 
-const PING_INTERVAL_MS = 4 * 60 * 1000  // 4 min — under Azure's ~10 min cold-start threshold
+const PING_INTERVAL_MS = 4 * 60 * 1000  // 4 min — under the JIT-recycle threshold
+const WARMUP_SYMBOL = 'AAPL'
 
 export function useAzureKeepAlive() {
   const hubUrl = useStore((s) => s.config.hubUrl)
+  const userKey = useStore((s) => s.config.userKey)
 
   useEffect(() => {
     if (!hubUrl) return
 
     const baseUrl = hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
-    // /MktCap is the cheapest endpoint that hits the same Azure Function
-    // process — anything that goes through the function host counts as a
-    // keep-alive. Tiny response, no DB hit.
-    const url = proxyUrl(`${baseUrl}/api/MktCap?symbol=AAPL`)
+    const uk = userKey ? `&userKey=${encodeURIComponent(userKey)}` : ''
 
+    // Hit each ribbon code path. Best-effort — failures are silently
+    // ignored. We don't await the responses; the goal is purely to
+    // keep the function engine's JIT hot for these methods.
     const ping = () => {
-      fetch(url, { method: 'GET' })
-        .catch(() => { /* ignore — keep-alive is best-effort */ })
+      const targets = [
+        proxyUrl(`${baseUrl}/api/AlertsBySymbol?symbol=${WARMUP_SYMBOL}${uk}`),
+        proxyUrl(`${baseUrl}/api/StockData?symbol=${WARMUP_SYMBOL}`),
+      ]
+      for (const url of targets) {
+        fetch(url, { method: 'GET' }).catch(() => { /* ignore */ })
+      }
     }
 
     // First ping after a small delay so we don't double up with initial mount fetches
@@ -37,5 +49,5 @@ export function useAzureKeepAlive() {
       clearTimeout(initTimer)
       clearInterval(interval)
     }
-  }, [hubUrl])
+  }, [hubUrl, userKey])
 }

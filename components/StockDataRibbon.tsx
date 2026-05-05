@@ -29,7 +29,51 @@ interface StockDataItem {
 
 const NUMBER_FIELDS = new Set(['SharesFloat', 'MarketCap', 'SharesOutstanding', 'AvgVolume'])
 const NOTE_FIELDS = new Set(['Notes', 'Notes2', 'Notes3'])
+
+// In-memory cache. Backed by localStorage with a 1-day TTL so the ribbon
+// stays instant across page reloads. Stale-while-revalidate pattern: the
+// cached entry shows immediately on click, then a background fetch updates
+// it within ~1s — so notes edits and price changes propagate fast without
+// the user ever seeing a spinner.
+const STOCK_DATA_LS_KEY = 'tc-stockdata-cache-v1'
+const STOCK_DATA_LS_TTL_MS = 24 * 60 * 60 * 1000  // 24h
 const sharedCache: Record<string, StockDataItem> = {}
+
+interface PersistedCacheEntry { data: StockDataItem; ts: number }
+
+// Hydrate cache from localStorage on first import. Drops entries older than TTL.
+if (typeof window !== 'undefined') {
+  try {
+    const raw = localStorage.getItem(STOCK_DATA_LS_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Record<string, PersistedCacheEntry>
+      const now = Date.now()
+      for (const [sym, entry] of Object.entries(parsed)) {
+        if (entry?.data && entry?.ts && now - entry.ts < STOCK_DATA_LS_TTL_MS) {
+          sharedCache[sym] = entry.data
+        }
+      }
+    }
+  } catch { /* ignore corrupt storage */ }
+}
+
+// Throttled write to localStorage so we don't burn cycles on every cache hit.
+let _lsWriteTimer: ReturnType<typeof setTimeout> | null = null
+function persistCache() {
+  if (typeof window === 'undefined') return
+  if (_lsWriteTimer) return  // already scheduled
+  _lsWriteTimer = setTimeout(() => {
+    _lsWriteTimer = null
+    try {
+      const out: Record<string, PersistedCacheEntry> = {}
+      const now = Date.now()
+      for (const [sym, data] of Object.entries(sharedCache)) {
+        out[sym] = { data, ts: now }
+      }
+      localStorage.setItem(STOCK_DATA_LS_KEY, JSON.stringify(out))
+    } catch { /* quota / private mode — give up silently */ }
+  }, 1000)
+}
 
 // Returns the app-login username that should be used to read/write per-user notes.
 // Must match what legacy desktop sends (legacy reads sessionStorage.tc_user.username).
@@ -69,7 +113,7 @@ export function preloadStockData(symbols: string[], hubUrl: string) {
       batch.map(sym =>
         fetch(proxyUrl(`${baseApi}/StockData?symbol=${encodeURIComponent(sym.toUpperCase())}`))
           .then(r => r.ok ? r.json() : null)
-          .then(data => { if (data) sharedCache[sym.toUpperCase()] = normalizeStockData(data) })
+          .then(data => { if (data) { sharedCache[sym.toUpperCase()] = normalizeStockData(data); persistCache() } })
           .catch(() => {})
       )
     ).then(() => {
@@ -156,7 +200,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
       })
       .then(json => {
         const item = json ? normalizeStockData(json, noteUser) : emptyData(upper)
-        if (json) sharedCache[upper] = item
+        if (json) { sharedCache[upper] = item; persistCache() }
         setData(item)
         setLoading(false)
       })
@@ -203,6 +247,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
       .then(() => {
         const updated = { ...data, [editingField]: value } as StockDataItem
         sharedCache[data.Ticker.toUpperCase()] = updated
+        persistCache()
         setData(updated)
         setEditingField(null)
         setSaving(false)
