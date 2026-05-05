@@ -278,6 +278,7 @@ export const useStore = create<AppState>()(
       updateQuotes: (quotes) => set((state) => {
         const updated = { ...state.quotes }
         const prevCloses = state.prevCloses
+        let changed = false
         quotes.forEach(q => {
           // Calculate changePercent if we have prevClose
           const prevClose = prevCloses[q.symbol]
@@ -285,8 +286,22 @@ export const useStore = create<AppState>()(
             q.change = q.last - prevClose
             q.changePercent = ((q.last - prevClose) / prevClose) * 100
           }
+          // Defensive: skip the re-render if only bid/ask drifted. The UI
+          // doesn't show those columns and the watchlist table re-rendering
+          // for every NBBO tick (across 1500+ subs) was saturating the main
+          // thread. Last + change* are the only fields that affect render.
+          const prev = updated[q.symbol]
+          if (prev
+              && prev.last === q.last
+              && prev.change === q.change
+              && prev.changePercent === q.changePercent
+              && prev.volume === q.volume) {
+            return // bid/ask-only drift — skip
+          }
           updated[q.symbol] = q
+          changed = true
         })
+        if (!changed) return state
         return { quotes: updated }
       }),
 
