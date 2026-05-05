@@ -76,18 +76,15 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
   const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId) || watchlists[0]
 
-  // When the user switches watchlists, the previously-selected symbol may not
-  // be on the new list — leaving the data ribbon, AHK target, and "selected"
-  // row in a stale state. Justin: "the row that is selected should be the
-  // first symbol on this list." Reset to the first symbol of the new list
-  // (or null if the new list is empty).
+  // When the user switches watchlists, ALWAYS reset selection to the first
+  // symbol of the new list. Earlier version preserved selection if the symbol
+  // happened to be on both lists, but Justin's ask is unambiguous — switching
+  // tabs should always land on row 1, even if the previously-selected symbol
+  // is on the new list too. This prevents the "lingering symbol" feeling when
+  // common tickers overlap across watchlists.
   useEffect(() => {
     if (!currentWatchlist) return
-    const onCurrent = selectedSymbol
-      && currentWatchlist.symbols.some(s => s.symbol === selectedSymbol)
-    if (!onCurrent) {
-      setSelectedSymbol(currentWatchlist.symbols[0]?.symbol || null)
-    }
+    setSelectedSymbol(currentWatchlist.symbols[0]?.symbol || null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWatchlistId])
 
