@@ -371,11 +371,16 @@ export const useStore = create<AppState>()(
         alertSubscriptions: state.alertSubscriptions.filter(s => s.watchlistId !== id),
       })),
       addSymbolToWatchlist: (watchlistId, symbol) => set((state) => ({
-        watchlists: state.watchlists.map(w =>
-          w.id === watchlistId
-            ? { ...w, symbols: [...w.symbols, symbol] }
-            : w
-        )
+        // Defensive dedup — if the symbol is already on this watchlist, no-op.
+        // Without this, a runaway drag-drop / repeated "copy to watchlist" /
+        // any double-fired event could pile up dozens of identical rows.
+        // Justin's laptop hit this with 50+ DXYZ rows on one watchlist.
+        watchlists: state.watchlists.map(w => {
+          if (w.id !== watchlistId) return w
+          const upper = symbol.symbol.toUpperCase()
+          if (w.symbols.some(s => s.symbol.toUpperCase() === upper)) return w
+          return { ...w, symbols: [...w.symbols, symbol] }
+        })
       })),
       removeSymbolFromWatchlist: (watchlistId, symbolName) => set((state) => ({
         watchlists: state.watchlists.map(w =>
@@ -490,6 +495,28 @@ export const useStore = create<AppState>()(
         // Convert hiddenAlertIds back to Set after rehydration
         if (state && Array.isArray(state.hiddenAlertIds)) {
           state.hiddenAlertIds = new Set(state.hiddenAlertIds as unknown as string[])
+        }
+        // One-time cleanup: dedup any accumulated duplicate symbols within
+        // each watchlist. Justin saw 50+ identical rows for DXYZ on one list,
+        // most likely from a runaway drag-drop or repeated "copy to watchlist"
+        // before addSymbolToWatchlist had a dedup guard. Keep first
+        // occurrence (preserves any per-symbol notes/alerts on that entry).
+        if (state && Array.isArray(state.watchlists)) {
+          for (const wl of state.watchlists) {
+            if (!Array.isArray(wl.symbols)) continue
+            const seen = new Set<string>()
+            const deduped = []
+            for (const s of wl.symbols) {
+              const key = s.symbol?.toUpperCase()
+              if (!key || seen.has(key)) continue
+              seen.add(key)
+              deduped.push(s)
+            }
+            if (deduped.length !== wl.symbols.length) {
+              console.log(`Watchlist "${wl.name}": deduped ${wl.symbols.length} → ${deduped.length} symbols`)
+              wl.symbols = deduped
+            }
+          }
         }
         // One-time pre-Phase-1 migration. Gated on hasMigratedSubs so that
         // "user turned everything off" (empty subs by choice) is preserved
