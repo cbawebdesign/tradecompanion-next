@@ -230,33 +230,36 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
       ? (fieldDraft.trim() === '' ? null : parseFloat(fieldDraft))
       : (fieldDraft.trim() === '' ? null : fieldDraft.trim())
 
-    setSaving(true)
-    setSaveStatus(null)
+    const field = editingField
+    const prev = data
+    const updated = { ...data, [field]: value } as StockDataItem
 
-    const saveBody: Record<string, any> = { [editingField]: value }
-    if (NOTE_FIELDS.has(editingField) && noteUser) {
+    // Optimistic: apply locally + close editor immediately so UI feels instant
+    sharedCache[data.Ticker.toUpperCase()] = updated
+    persistCache()
+    setData(updated)
+    setEditingField(null)
+    setSaving(false)
+    setSaveStatus('Saved')
+    if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current)
+    saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 1500)
+
+    const saveBody: Record<string, any> = { [field]: value }
+    if (NOTE_FIELDS.has(field) && noteUser) {
       saveBody._user = noteUser
     }
 
+    // Fire PUT in background; on failure, revert and surface error
     fetch(proxyUrl(`${baseApi}/tcadmin/stockdata/${encodeURIComponent(data.Ticker)}`), {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(saveBody),
     })
-      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
-      .then(() => {
-        const updated = { ...data, [editingField]: value } as StockDataItem
-        sharedCache[data.Ticker.toUpperCase()] = updated
-        persistCache()
-        setData(updated)
-        setEditingField(null)
-        setSaving(false)
-        setSaveStatus('Saved')
-        if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current)
-        saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 2000)
-      })
+      .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`) })
       .catch(() => {
-        setSaving(false)
+        sharedCache[prev.Ticker.toUpperCase()] = prev
+        persistCache()
+        setData(prev)
         setSaveStatus('Error saving')
         if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current)
         saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 3000)
@@ -462,7 +465,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         {renderSep()}
         {renderLink('Finviz', `https://finviz.com/quote.ashx?t=${encodeURIComponent(t)}`)}
         {renderSep()}
-        {renderLink('X', `https://twitter.com/search?q=%24${encodeURIComponent(t)}&src=typd&f=tweets`, 'X / Twitter')}
+        {renderLink('X', `https://x.com/search?q=%24${encodeURIComponent(t)}&src=typd&f=live&pf=on`, 'X / Twitter')}
         {renderSep()}
         {renderLink('Options', `https://finance.yahoo.com/quote/${encodeURIComponent(t)}/options?p=${encodeURIComponent(t)}`, 'Options Chain')}
         {renderSep()}
