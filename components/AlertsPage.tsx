@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
+import { SymbolContextMenu } from './SymbolContextMenu'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
@@ -59,6 +60,13 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   }
   const sortIndicator = (col: typeof flaggedSortCol) =>
     flaggedSortCol === col ? (flaggedSortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  // Right-click context menu on Flagged List rows.
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
+  const handleContextMenu = useCallback((e: React.MouseEvent, symbol: string) => {
+    e.preventDefault()
+    setContextMenu({ x: e.clientX, y: e.clientY, symbol })
+  }, [])
 
   // Handle click to set focus
   useEffect(() => {
@@ -369,6 +377,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                             fireAhk(symbol, config.ahkUrl)
                           }
                         }}
+                        onContextMenu={(e) => handleContextMenu(e, symbol)}
                         className={clsx(
                           'cursor-pointer',
                           selectedSymbol === symbol && 'selected'
@@ -523,6 +532,17 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
           </div>
         </div>
       </div>
+
+      {/* Right-click Context Menu — portal-mounted, viewport-clamped */}
+      {contextMenu && (
+        <SymbolContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          symbol={contextMenu.symbol}
+          currentListId={null}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
     </div>
   )
 }

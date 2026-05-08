@@ -6,18 +6,15 @@ import { Watchlist } from '@/components/Watchlist'
 import { AlertsPage } from '@/components/AlertsPage'
 import { ScannerPage } from '@/components/ScannerPage'
 import { SettingsPage } from '@/components/SettingsPage'
-import { AdminPage } from '@/components/AdminPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
 import { AlertMascot } from '@/components/AlertMascot'
 import { clsx } from 'clsx'
 
 const TABS = [
-  { id: 0, label: 'Home', icon: '🏠' },
   { id: 1, label: 'Alerts', icon: '🔔' },
   { id: 2, label: 'Watchlist', icon: '📋' },
   { id: 3, label: 'Scanner', icon: '📊' },
-  { id: 4, label: 'Admin', icon: '🔧' },
   { id: 5, label: 'Settings', icon: '⚙️' },
 ]
 
@@ -62,11 +59,9 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
-        {activeTab === 0 && <HomePage />}
         {activeTab === 1 && <AlertsPage />}
         {activeTab === 2 && <Watchlist />}
         {activeTab === 3 && <ScannerPage />}
-        {activeTab === 4 && <AdminPage />}
         {activeTab === 5 && <SettingsPage />}
       </main>
 
@@ -110,34 +105,3 @@ export default function Home() {
   )
 }
 
-function HomePage() {
-  const { config } = useStore()
-
-  return (
-    <div className="p-6">
-      <h2 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Welcome to Trade Companion</h2>
-      <div className="glass-panel rounded-lg p-4 max-w-md">
-        <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Quick Info</h3>
-        <dl className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <dt style={{ color: 'var(--text-muted)' }}>Version</dt>
-            <dd style={{ color: 'var(--text-primary)' }}>2.0.0 (Next.js)</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt style={{ color: 'var(--text-muted)' }}>Hub URL</dt>
-            <dd className="truncate max-w-[200px]" style={{ color: 'var(--accent-primary)' }}>{config.hubUrl || 'Not set'}</dd>
-          </div>
-          <div className="flex justify-between">
-            <dt style={{ color: 'var(--text-muted)' }}>API Key</dt>
-            <dd style={{ color: 'var(--text-primary)' }}>{config.apiKey ? '••••••••' : 'Not set'}</dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className="mt-6 text-sm" style={{ color: 'var(--text-muted)' }}>
-        <p>Go to <strong style={{ color: 'var(--text-secondary)' }}>Settings</strong> to configure your API key and hub URL.</p>
-        <p className="mt-2">Use <strong style={{ color: 'var(--text-secondary)' }}>Watchlist</strong> to manage symbols and set price alerts.</p>
-      </div>
-    </div>
-  )
-}

@@ -7,7 +7,7 @@ import { proxyUrl } from '@/lib/proxyUrl'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { GrokButton } from './GrokButton'
-import { GrokStockButton } from './GrokStockButton'
+import { SymbolContextMenu } from './SymbolContextMenu'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
@@ -391,40 +391,10 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isActive, currentWatchlist, selectedSymbol, selectedWatchlistId, watchlists, setSelectedSymbol, setSelectedWatchlistId, toggleFlag, removeSymbolFromWatchlist])
 
-  // Close context menu on click-away or Escape
-  useEffect(() => {
-    if (!contextMenu) return
-    const close = () => setContextMenu(null)
-    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
-    window.addEventListener('click', close)
-    window.addEventListener('keydown', handleEsc)
-    return () => {
-      window.removeEventListener('click', close)
-      window.removeEventListener('keydown', handleEsc)
-    }
-  }, [contextMenu])
-
-  // Context menu handlers
   const handleContextMenu = useCallback((e: React.MouseEvent, symbol: string) => {
     e.preventDefault()
     setContextMenu({ x: e.clientX, y: e.clientY, symbol })
   }, [])
-
-  const handleMoveToWatchlist = useCallback((symbol: string, targetWatchlistId: string) => {
-    if (!selectedWatchlistId) return
-    const current = currentWatchlist?.symbols.find(s => s.symbol === symbol)
-    if (!current) return
-    removeSymbolFromWatchlist(selectedWatchlistId, symbol)
-    addSymbolToWatchlist(targetWatchlistId, { ...current })
-    setContextMenu(null)
-  }, [selectedWatchlistId, currentWatchlist, removeSymbolFromWatchlist, addSymbolToWatchlist])
-
-  const handleCopyToWatchlist = useCallback((symbol: string, targetWatchlistId: string) => {
-    const current = currentWatchlist?.symbols.find(s => s.symbol === symbol)
-    if (!current) return
-    addSymbolToWatchlist(targetWatchlistId, { ...current })
-    setContextMenu(null)
-  }, [currentWatchlist, addSymbolToWatchlist])
 
   // Sort toggle handler
   const handleSort = useCallback((col: 'symbol' | 'change') => {
@@ -565,8 +535,6 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                   <th className="w-8">Flag</th>
                   <th className="cursor-pointer select-none" onClick={() => handleSort('symbol')}>Symbol{sortArrow('symbol')}</th>
                   <th className="text-right">Last</th>
-                  <th className="text-right">Bid</th>
-                  <th className="text-right">Ask</th>
                   <th className="text-right cursor-pointer select-none" onClick={() => handleSort('change')}>% Chg{sortArrow('change')}</th>
                   <th className="text-right">Upper</th>
                   <th className="text-right">Lower</th>
@@ -608,20 +576,9 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                           {isFlagged ? '⚑' : '⚐'}
                         </button>
                       </td>
-                      <td className="font-mono font-semibold">
-                        <div className="flex items-center gap-1">
-                          <span>{item.symbol}</span>
-                          <GrokStockButton symbol={item.symbol} />
-                        </div>
-                      </td>
+                      <td className="font-mono font-semibold">{item.symbol}</td>
                       <td className={clsx('text-right font-mono', changeClass)}>
                         {formatPrice(quote?.last)}
-                      </td>
-                      <td className="text-right font-mono text-gray-400">
-                        {formatPrice(quote?.bid)}
-                      </td>
-                      <td className="text-right font-mono text-gray-400">
-                        {formatPrice(quote?.ask)}
                       </td>
                       <td className={clsx('text-right font-mono', changeClass)}>
                         {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}
@@ -818,57 +775,18 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         </div>
       </div>
 
-      {/* Right-click Context Menu */}
+      {/* Right-click Context Menu — portal-mounted, viewport-clamped */}
       {contextMenu && (
-        <div
-          className="fixed z-50 min-w-[160px] py-1 rounded shadow-lg border"
-          style={{
-            top: contextMenu.y,
-            left: contextMenu.x,
-            background: 'var(--bg-panel, #1a1a2e)',
-            borderColor: 'var(--border-glass, #333)',
+        <SymbolContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          symbol={contextMenu.symbol}
+          currentListId={selectedWatchlistId}
+          onRemove={() => {
+            if (selectedWatchlistId) removeSymbolFromWatchlist(selectedWatchlistId, contextMenu.symbol)
           }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b" style={{ borderColor: 'var(--border-glass, #333)' }}>
-            {contextMenu.symbol}
-          </div>
-          <button
-            className="w-full text-left px-3 py-1.5 text-sm hover:bg-white/10 text-red-400"
-            onClick={() => {
-              if (selectedWatchlistId) removeSymbolFromWatchlist(selectedWatchlistId, contextMenu.symbol)
-              setContextMenu(null)
-            }}
-          >
-            Remove
-          </button>
-          {watchlists.filter(w => w.id !== selectedWatchlistId).length > 0 && (
-            <>
-              <div className="h-px my-0.5" style={{ background: 'var(--border-glass, #333)' }} />
-              <div className="px-3 py-1 text-xs text-gray-500">Move to...</div>
-              {watchlists.filter(w => w.id !== selectedWatchlistId).map(wl => (
-                <button
-                  key={`move-${wl.id}`}
-                  className="w-full text-left px-5 py-1 text-sm hover:bg-white/10 text-gray-300"
-                  onClick={() => handleMoveToWatchlist(contextMenu.symbol, wl.id)}
-                >
-                  {wl.name}
-                </button>
-              ))}
-              <div className="h-px my-0.5" style={{ background: 'var(--border-glass, #333)' }} />
-              <div className="px-3 py-1 text-xs text-gray-500">Copy to...</div>
-              {watchlists.filter(w => w.id !== selectedWatchlistId).map(wl => (
-                <button
-                  key={`copy-${wl.id}`}
-                  className="w-full text-left px-5 py-1 text-sm hover:bg-white/10 text-gray-300"
-                  onClick={() => handleCopyToWatchlist(contextMenu.symbol, wl.id)}
-                >
-                  {wl.name}
-                </button>
-              ))}
-            </>
-          )}
-        </div>
+          onClose={() => setContextMenu(null)}
+        />
       )}
 
       {subscriptionsModalFor && (

@@ -338,18 +338,28 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
     }
     if (value) {
       return (
-        <a
-          href={value}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="font-medium hover:underline"
-          style={{ color: '#64b5f6', padding: '0 1px', textDecoration: 'none' }}
-          onDoubleClick={(e) => { e.preventDefault(); e.stopPropagation(); startEdit(field, value) }}
-          title={value}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {label}
-        </a>
+        <span className="inline-flex items-center gap-0.5">
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium hover:underline"
+            style={{ color: '#64b5f6', padding: '0 1px', textDecoration: 'none' }}
+            title={value}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {label}
+          </a>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEdit(field, value) }}
+            className="opacity-60 hover:opacity-100"
+            style={{ color: '#888', fontSize: '10px', padding: '0 2px' }}
+            title={`Edit ${label.toLowerCase()}`}
+          >
+            ✎
+          </button>
+        </span>
       )
     }
     return (
