@@ -132,6 +132,15 @@ export interface AppConfig {
   ahkUrl: string  // local companion server URL (e.g. http://localhost:9876)
   // Per-type audio settings
   alertSounds: Record<string, { enabled: boolean; frequency: number; duration: number }>
+  // Per-list sort persistence (Justin: sort survives navigation)
+  watchlistSort?: { col: 'symbol' | 'change' | null; dir: 'asc' | 'desc' }
+  flaggedSort?: { col: 'symbol' | 'last' | 'changePercent' | null; dir: 'asc' | 'desc' }
+  // Per-list column width persistence (column key → px width)
+  watchlistColumnWidths?: Record<string, number>
+  flaggedColumnWidths?: Record<string, number>
+  // Watchlist dropdown display order (array of watchlist IDs).
+  // If absent, watchlists are shown in their creation order.
+  watchlistOrder?: string[]
 }
 
 // SignalR connection state

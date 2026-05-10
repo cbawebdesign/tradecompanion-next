@@ -50,15 +50,17 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   const setSplitPercent = (n: number) => updateConfig({ flaggedListSplitPercent: n })
   const [addSymbolInput, setAddSymbolInput] = useState('')
 
-  // Column sort for the Flagged Symbols table. null = insertion order.
-  const [flaggedSortCol, setFlaggedSortCol] = useState<'symbol' | 'last' | 'changePercent' | null>(null)
-  const [flaggedSortDir, setFlaggedSortDir] = useState<'asc' | 'desc'>('asc')
+  // Column sort for the Flagged Symbols table is persisted to config so it
+  // survives navigation. null = insertion order. Third click clears.
+  type FlaggedSortCol = 'symbol' | 'last' | 'changePercent' | null
+  const flaggedSortCol = (config.flaggedSort?.col ?? null) as FlaggedSortCol
+  const flaggedSortDir = config.flaggedSort?.dir ?? 'asc'
   const cycleFlaggedSort = (col: 'symbol' | 'last' | 'changePercent') => {
-    if (flaggedSortCol !== col) { setFlaggedSortCol(col); setFlaggedSortDir('asc'); return }
-    if (flaggedSortDir === 'asc') { setFlaggedSortDir('desc'); return }
-    setFlaggedSortCol(null) // third click clears
+    if (flaggedSortCol !== col) { updateConfig({ flaggedSort: { col, dir: 'asc' } }); return }
+    if (flaggedSortDir === 'asc') { updateConfig({ flaggedSort: { col, dir: 'desc' } }); return }
+    updateConfig({ flaggedSort: { col: null, dir: 'asc' } }) // third click clears
   }
-  const sortIndicator = (col: typeof flaggedSortCol) =>
+  const sortIndicator = (col: FlaggedSortCol) =>
     flaggedSortCol === col ? (flaggedSortDir === 'asc' ? ' ▲' : ' ▼') : ''
 
   // Right-click context menu on Flagged List rows.

@@ -101,8 +101,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const isActive = activePane === 'watchlist'
 
-  const [sortCol, setSortCol] = useState<'symbol' | 'change' | null>(null)
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
+  // Sort is persisted to config so it survives navigation away/back.
+  const sortCol = config.watchlistSort?.col ?? null
+  const sortDir = config.watchlistSort?.dir ?? 'asc'
+  const setSort = (col: 'symbol' | 'change' | null, dir: 'asc' | 'desc') =>
+    updateConfig({ watchlistSort: { col, dir } })
   const [newSymbol, setNewSymbol] = useState('')
   const [newWatchlistName, setNewWatchlistName] = useState('')
   const [inlineAddSymbol, setInlineAddSymbol] = useState('')
@@ -115,15 +118,31 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const splitPercent = config.watchlistSplitPercent ?? 60
   const setSplitPercent = (n: number) => updateConfig({ watchlistSplitPercent: n })
 
+  // Apply user's saved dropdown order (Justin: rank watchlists in Settings).
+  // Falls back to creation order; any new watchlist not in the saved order
+  // gets appended at the bottom — matches Justin's spec exactly.
+  const orderedWatchlists = (() => {
+    const order = config.watchlistOrder
+    if (!order || order.length === 0) return watchlists
+    const byId = new Map(watchlists.map(w => [w.id, w]))
+    const out: typeof watchlists = []
+    for (const id of order) {
+      const w = byId.get(id)
+      if (w) { out.push(w); byId.delete(id) }
+    }
+    Array.from(byId.values()).forEach((w) => out.push(w))
+    return out
+  })()
+
   // Auto-select first watchlist if selectedWatchlistId is stale or missing
   useEffect(() => {
-    if (watchlists.length > 0 && !watchlists.find(w => w.id === selectedWatchlistId)) {
+    if (orderedWatchlists.length > 0 && !orderedWatchlists.find(w => w.id === selectedWatchlistId)) {
       console.log('Watchlist: auto-selecting first watchlist (stale ID)')
-      setSelectedWatchlistId(watchlists[0].id)
+      setSelectedWatchlistId(orderedWatchlists[0].id)
     }
-  }, [selectedWatchlistId, watchlists, setSelectedWatchlistId])
+  }, [selectedWatchlistId, orderedWatchlists, setSelectedWatchlistId])
 
-  const currentWatchlist = watchlists.find(w => w.id === selectedWatchlistId) || watchlists[0]
+  const currentWatchlist = orderedWatchlists.find(w => w.id === selectedWatchlistId) || orderedWatchlists[0]
 
   // When the user switches watchlists, ALWAYS reset selection to the first
   // symbol of the new list. Earlier version preserved selection if the symbol
@@ -399,12 +418,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   // Sort toggle handler
   const handleSort = useCallback((col: 'symbol' | 'change') => {
     if (sortCol === col) {
-      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+      setSort(col, sortDir === 'asc' ? 'desc' : 'asc')
     } else {
-      setSortCol(col)
-      setSortDir(col === 'change' ? 'desc' : 'asc')
+      setSort(col, col === 'change' ? 'desc' : 'asc')
     }
-  }, [sortCol])
+  }, [sortCol, sortDir, updateConfig])
 
   // Smart price formatting: 4 decimals if < $1, otherwise 2
   const formatPrice = (val: number | undefined) => {
@@ -457,7 +475,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
             onChange={(e) => setSelectedWatchlistId(e.target.value)}
             className="text-sm py-1 px-2 bg-gray-700 border border-gray-600 rounded"
           >
-            {watchlists.map((wl) => (
+            {orderedWatchlists.map((wl) => (
               <option key={wl.id} value={wl.id}>{wl.name}</option>
             ))}
           </select>

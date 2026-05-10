@@ -83,6 +83,7 @@ interface AppState {
   addSymbolToWatchlist: (watchlistId: string, symbol: WatchlistSymbol) => void
   removeSymbolFromWatchlist: (watchlistId: string, symbol: string) => void
   updateSymbolInWatchlist: (watchlistId: string, symbol: WatchlistSymbol) => void
+  reorderWatchlists: (orderedIds: string[]) => void
 
   // Flagged symbols
   flaggedSymbols: Set<string>
@@ -395,6 +396,9 @@ export const useStore = create<AppState>()(
             ? { ...w, symbols: w.symbols.map(s => s.symbol === symbol.symbol ? symbol : s) }
             : w
         )
+      })),
+      reorderWatchlists: (orderedIds) => set((state) => ({
+        config: { ...state.config, watchlistOrder: orderedIds }
       })),
 
       // Flagged symbols

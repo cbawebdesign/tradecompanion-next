@@ -85,7 +85,7 @@ function applyServerStateToStore(userData: any): string {
 }
 
 export function SettingsPage() {
-  const { config, updateConfig, connectionState, watchlists, setWatchlists, flaggedSymbols, alertSubscriptions } = useStore()
+  const { config, updateConfig, connectionState, watchlists, setWatchlists, flaggedSymbols, alertSubscriptions, reorderWatchlists } = useStore()
   const [saved, setSaved] = useState(false)
 
   // User sync state
@@ -936,6 +936,72 @@ export function SettingsPage() {
               className="w-full"
             />
           </div>
+        </section>
+
+        {/* Watchlist Order — controls the dropdown order in the Watchlist tab.
+            New watchlists still append at the bottom by default. */}
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Watchlist Order</h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+            Drag with the ▲/▼ buttons to rank watchlists in the dropdown menu. New watchlists are added at the bottom.
+          </p>
+          {(() => {
+            const order = config.watchlistOrder
+            const byId = new Map(watchlists.map((w) => [w.id, w]))
+            const orderedWls: typeof watchlists = []
+            if (order) {
+              for (const id of order) {
+                const w = byId.get(id)
+                if (w) { orderedWls.push(w); byId.delete(id) }
+              }
+            }
+            Array.from(byId.values()).forEach((w) => orderedWls.push(w))
+            const commitOrder = (ids: string[]) => reorderWatchlists(ids)
+            const move = (idx: number, delta: number) => {
+              const next = idx + delta
+              if (next < 0 || next >= orderedWls.length) return
+              const ids = orderedWls.map((w) => w.id)
+              ;[ids[idx], ids[next]] = [ids[next], ids[idx]]
+              commitOrder(ids)
+            }
+            return orderedWls.length === 0 ? (
+              <p className="text-sm italic" style={{ color: 'var(--text-muted)' }}>No watchlists yet.</p>
+            ) : (
+              <ul className="space-y-1">
+                {orderedWls.map((wl, i) => (
+                  <li
+                    key={wl.id}
+                    className="flex items-center gap-2 px-2 py-1 rounded"
+                    style={{ background: 'var(--bg-glass)' }}
+                  >
+                    <span className="text-xs w-6 text-center" style={{ color: 'var(--text-muted)' }}>{i + 1}</span>
+                    <span className="flex-1 text-sm" style={{ color: 'var(--text-primary)' }}>{wl.name}</span>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{wl.symbols.length} symbols</span>
+                    <button
+                      type="button"
+                      onClick={() => move(i, -1)}
+                      disabled={i === 0}
+                      className="px-2 py-0.5 text-xs rounded disabled:opacity-30 hover:bg-white/10"
+                      style={{ color: 'var(--text-secondary)' }}
+                      title="Move up"
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(i, 1)}
+                      disabled={i === orderedWls.length - 1}
+                      className="px-2 py-0.5 text-xs rounded disabled:opacity-30 hover:bg-white/10"
+                      style={{ color: 'var(--text-secondary)' }}
+                      title="Move down"
+                    >
+                      ▼
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )
+          })()}
         </section>
       </div>
 
