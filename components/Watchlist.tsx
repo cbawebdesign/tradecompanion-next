@@ -11,6 +11,7 @@ import { SymbolContextMenu } from './SymbolContextMenu'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
 import { ResizableTh } from './ResizableTh'
+import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
 
@@ -32,7 +33,7 @@ const prefetchInFlight = new Set<string>()
 // the Azure Function (which has cold-start variance from 0.5s to 4s+).
 // Each completion populates dbAlertsCache so the corresponding symbol click
 // becomes instant.
-async function prefetchRibbon(symbols: string[], baseUrl: string, userKey: string | undefined) {
+async function prefetchRibbon(symbols: string[], baseUrl: string, _userKey: string | undefined) {
   const CHUNK = 4
   for (let i = 0; i < symbols.length; i += CHUNK) {
     const batch = symbols.slice(i, i + CHUNK).filter(s =>
@@ -42,8 +43,8 @@ async function prefetchRibbon(symbols: string[], baseUrl: string, userKey: strin
     batch.forEach(s => prefetchInFlight.add(s.toUpperCase()))
     await Promise.all(batch.map(async (sym) => {
       try {
+        // Unfiltered per-symbol view — see comment in AlertsPage fetch.
         const url = `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(sym)}`
-          + (userKey ? `&userKey=${encodeURIComponent(userKey)}` : '')
         const r = await fetch(proxyUrl(url))
         if (!r.ok) return
         const data = await r.json()
@@ -200,16 +201,17 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
-    const uk = config.userKey
     // Capture which symbol this fetch is for — the user may flip away before
     // the response lands, in which case we must NOT overwrite state for the
     // symbol they're now viewing.
     const fetchedFor = selectedSymbol
     let aborted = false
 
+    // Drill-down view is unfiltered: every filing for the selected symbol,
+    // including forms globally excluded from the timeline. Server skips the
+    // ExcludeFilings filter when no userKey is passed.
     fetch(proxyUrl(
       `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`
-      + (uk ? `&userKey=${encodeURIComponent(uk)}` : '')
     ), { signal: controller.signal })
       .then(r => {
         clearTimeout(timeoutId)
@@ -260,16 +262,19 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       controller.abort()
       clearTimeout(timeoutId)
     }
-  }, [selectedSymbol, config.hubUrl, config.userKey])
+  }, [selectedSymbol, config.hubUrl])
 
-  // Get alerts for the selected symbol — merge live + DB
+  // Get alerts for the selected symbol — merge live + DB. Dedup uses
+  // normalized message + minute-resolution timestamp so TX prefix variants
+  // and catalyst price suffixes collapse to a single entry across live
+  // (SignalR) and DB (poll) sources.
   const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
   const mergedDbAlerts = dbAlertsSymbol === selectedSymbol ? dbAlerts : []
   const seenKeys = new Set<string>()
   const symbolAlerts = [...liveAlerts, ...mergedDbAlerts]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .filter(a => {
-      const key = `${a.message}-${new Date(a.timestamp).toISOString().substring(11, 19)}`
+      const key = `${a.type}|${normalizeAlertMessage(a.message)}|${new Date(a.timestamp).toISOString().substring(11, 16)}`
       if (seenKeys.has(key)) return false
       seenKeys.add(key)
       return true

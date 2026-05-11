@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert, AlertSubscription, AlertType } from '@/types'
 import { logAlert } from '@/lib/alertLogger'
 import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
+import { normalizeAlertMessage } from '@/lib/alertDedup'
 
 // Keep the alert timeline in strict chronological order (newest first).
 // Backfill races (catalysts poll at 5s, filings at a different cadence, etc.)
@@ -202,15 +203,20 @@ export const useStore = create<AppState>()(
             : new Date(alert.timestamp).getTime()
           if (isNaN(ts) || ts < state.clearedSince) return state
         }
-        // Dedup: prefer dedupKey (exact, from source), fall back to fuzzy message match
+        // Dedup: prefer dedupKey (exact, from source), fall back to fuzzy
+        // message match. Both messages are run through normalizeAlertMessage
+        // so [TX-NewsX] prefixes and trailing price suffixes don't make the
+        // same item look like two.
+        const normalizedNew = normalizeAlertMessage(alert.message)
         const isDuplicate = state.alerts.some(existing => {
           if (alert.dedupKey && existing.dedupKey) {
             return alert.dedupKey === existing.dedupKey
           }
           if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
-          if (existing.message === alert.message) return true
-          const existFirst = (existing.message || '').slice(0, 40).toLowerCase()
-          const newFirst = (alert.message || '').slice(0, 40).toLowerCase()
+          const normalizedExisting = normalizeAlertMessage(existing.message)
+          if (normalizedExisting === normalizedNew) return true
+          const existFirst = normalizedExisting.slice(0, 40)
+          const newFirst = normalizedNew.slice(0, 40)
           if (existFirst.length > 10 && existFirst === newFirst) return true
           return false
         })
@@ -242,16 +248,18 @@ export const useStore = create<AppState>()(
           })
         }
         if (gated.length === 0) return state
-        // Batch dedup: use dedupKey when available, fall back to message key
+        // Batch dedup: use dedupKey when available, fall back to a normalized
+        // message key so TX prefix variants + catalyst price suffixes don't
+        // sneak past as separate alerts.
         const existingDedupKeys = new Set<string>()
         const existingMsgKeys = new Set<string>()
         for (const a of state.alerts) {
           if (a.dedupKey) existingDedupKeys.add(a.dedupKey)
-          existingMsgKeys.add(`${a.symbol}|${a.message}|${a.type}`)
+          existingMsgKeys.add(`${a.symbol}|${normalizeAlertMessage(a.message)}|${a.type}`)
         }
         const unique = gated.filter(a => {
           if (a.dedupKey) return !existingDedupKeys.has(a.dedupKey)
-          return !existingMsgKeys.has(`${a.symbol}|${a.message}|${a.type}`)
+          return !existingMsgKeys.has(`${a.symbol}|${normalizeAlertMessage(a.message)}|${a.type}`)
         })
         if (unique.length === 0) return state
         return { alerts: sortAlertsByTimestampDesc([...unique, ...state.alerts]).slice(0, 500) }

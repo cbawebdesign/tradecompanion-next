@@ -22,6 +22,7 @@ interface StockDataItem {
   Exchange: string | null
   Website: string | null
   NotesUrl: string | null
+  Bookmarks: string | null
   Notes: string | null
   Notes2: string | null
   Notes3: string | null
@@ -158,7 +159,7 @@ function emptyData(ticker: string): StockDataItem {
     InsiderOwnership: null, InstOwnership: null, ShortFloat: null,
     AvgVolume: null, Price: null, LastUpdated: null,
     Country: null, Sector: null, Theme: null, Type: null, Exchange: null,
-    Website: null, NotesUrl: null, Notes: null, Notes2: null, Notes3: null,
+    Website: null, NotesUrl: null, Bookmarks: null, Notes: null, Notes2: null, Notes3: null,
   }
 }
 
@@ -486,6 +487,8 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         {renderUrlField('Website', 'Website', data.Website)}
         {renderSep()}
         {renderUrlField('Notes URL', 'NotesUrl', data.NotesUrl)}
+        {renderSep()}
+        {renderUrlField('Bookmarks', 'Bookmarks', data.Bookmarks)}
         {saveStatus && (
           <>
             {renderSep()}

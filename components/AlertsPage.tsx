@@ -9,6 +9,7 @@ import { StockDataRibbon } from './StockDataRibbon'
 import { SymbolContextMenu } from './SymbolContextMenu'
 import { ResizableTh } from './ResizableTh'
 import { fireAhk } from '@/lib/ahk'
+import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
 
@@ -177,9 +178,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     const fetchedFor = selectedSymbol
     let aborted = false
 
+    // Drill-down view is unfiltered: Justin wants to see every filing for a
+    // selected symbol (including Form 4 etc. that he's globally excluded from
+    // the timeline). Dropping userKey makes the server skip ExcludeFilings.
     fetch(
-      `${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`
-      + (config.userKey ? `&userKey=${encodeURIComponent(config.userKey)}` : ''),
+      `${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`,
       { signal: controller.signal }
     )
       .then(r => {
@@ -242,16 +245,18 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       controller.abort()
       clearTimeout(timeoutId)
     }
-  }, [selectedSymbol, config.hubUrl, config.userKey])
+  }, [selectedSymbol, config.hubUrl])
 
-  // Merge live + DB alerts
+  // Merge live + DB alerts. Dedup uses normalized message + minute-resolution
+  // timestamp so TX prefix variants and catalyst price suffixes collapse to a
+  // single entry across live (SignalR) and DB (poll) sources.
   const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
   const mergedDbAlerts = dbAlertsSymbol === selectedSymbol ? dbAlerts : []
   const seenKeys = new Set<string>()
   const symbolAlerts = [...liveAlerts, ...mergedDbAlerts]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .filter(a => {
-      const key = `${a.message}-${new Date(a.timestamp).toISOString().substring(11, 19)}`
+      const key = `${a.type}|${normalizeAlertMessage(a.message)}|${new Date(a.timestamp).toISOString().substring(11, 16)}`
       if (seenKeys.has(key)) return false
       seenKeys.add(key)
       return true
