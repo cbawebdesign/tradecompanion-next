@@ -226,6 +226,12 @@ table {
   @apply w-full border-collapse;
 }
 
+/* Tables with this class respect explicit column widths set on <th>/<col>.
+   Used by Watchlist + Flagged List where users can drag-resize columns. */
+.table-resizable {
+  table-layout: fixed;
+}
+
 th {
   @apply sticky top-0 text-left px-3 py-0.5 text-sm font-semibold border-b;
   background: var(--bg-glass);

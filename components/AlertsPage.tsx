@@ -7,6 +7,7 @@ import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
 import { SymbolContextMenu } from './SymbolContextMenu'
+import { ResizableTh } from './ResizableTh'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
@@ -62,6 +63,10 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   }
   const sortIndicator = (col: FlaggedSortCol) =>
     flaggedSortCol === col ? (flaggedSortDir === 'asc' ? ' ▲' : ' ▼') : ''
+
+  // Column widths persisted per-key for the Flagged List table.
+  const setFlaggedColWidth = (key: string, px: number) =>
+    updateConfig({ flaggedColumnWidths: { ...(config.flaggedColumnWidths || {}), [key]: px } })
 
   // Right-click context menu on Flagged List rows.
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
@@ -335,35 +340,55 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                 No flagged symbols. Flag symbols from the Watchlist or AlertBar.
               </div>
             ) : (
-              <table>
+              <table className="table-resizable">
                 <thead>
                   <tr>
-                    <th className="w-8">Flag</th>
-                    <th
+                    <th style={{ width: 32, minWidth: 32 }}>Flag</th>
+                    <ResizableTh
+                      columnKey="symbol"
+                      widths={config.flaggedColumnWidths}
+                      setWidth={setFlaggedColWidth}
+                      defaultWidth={90}
                       className="cursor-pointer select-none"
-                      onClick={() => cycleFlaggedSort('symbol')}
                       title="Sort by Symbol"
+                      onClick={() => cycleFlaggedSort('symbol')}
                     >
                       Symbol{sortIndicator('symbol')}
-                    </th>
-                    <th
+                    </ResizableTh>
+                    <ResizableTh
+                      columnKey="last"
+                      widths={config.flaggedColumnWidths}
+                      setWidth={setFlaggedColWidth}
+                      defaultWidth={80}
                       className="text-right cursor-pointer select-none"
-                      onClick={() => cycleFlaggedSort('last')}
                       title="Sort by Last"
+                      onClick={() => cycleFlaggedSort('last')}
                     >
                       Last{sortIndicator('last')}
-                    </th>
+                    </ResizableTh>
                     {/* Bid / Ask removed per Justin — saving server quote
                         bandwidth (Batch C) tracks the matching server-side
                         gate; for now just hide the columns. */}
-                    <th
+                    <ResizableTh
+                      columnKey="changePercent"
+                      widths={config.flaggedColumnWidths}
+                      setWidth={setFlaggedColWidth}
+                      defaultWidth={90}
                       className="text-right cursor-pointer select-none"
-                      onClick={() => cycleFlaggedSort('changePercent')}
                       title="Sort by % Change"
+                      onClick={() => cycleFlaggedSort('changePercent')}
                     >
                       % Chg{sortIndicator('changePercent')}
-                    </th>
-                    <th className="text-right">Alerts</th>
+                    </ResizableTh>
+                    <ResizableTh
+                      columnKey="alerts"
+                      widths={config.flaggedColumnWidths}
+                      setWidth={setFlaggedColWidth}
+                      defaultWidth={70}
+                      className="text-right"
+                    >
+                      Alerts
+                    </ResizableTh>
                   </tr>
                 </thead>
                 <tbody>

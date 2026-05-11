@@ -10,6 +10,7 @@ import { GrokButton } from './GrokButton'
 import { SymbolContextMenu } from './SymbolContextMenu'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
+import { ResizableTh } from './ResizableTh'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
 
@@ -106,6 +107,10 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const sortDir = config.watchlistSort?.dir ?? 'asc'
   const setSort = (col: 'symbol' | 'change' | null, dir: 'asc' | 'desc') =>
     updateConfig({ watchlistSort: { col, dir } })
+
+  // Column widths persisted per-key. Setter merges with existing map.
+  const setColWidth = (key: string, px: number) =>
+    updateConfig({ watchlistColumnWidths: { ...(config.watchlistColumnWidths || {}), [key]: px } })
   const [newSymbol, setNewSymbol] = useState('')
   const [newWatchlistName, setNewWatchlistName] = useState('')
   const [inlineAddSymbol, setInlineAddSymbol] = useState('')
@@ -547,16 +552,58 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         {/* LEFT PANE - Watchlist Table */}
         <div className="flex flex-col overflow-hidden" style={{ width: `${splitPercent}%` }}>
           <div className="flex-1 overflow-auto table-container">
-            <table>
+            <table className="table-resizable">
               <thead>
                 <tr>
-                  <th className="w-8">Flag</th>
-                  <th className="cursor-pointer select-none" onClick={() => handleSort('symbol')}>Symbol{sortArrow('symbol')}</th>
-                  <th className="text-right">Last</th>
-                  <th className="text-right cursor-pointer select-none" onClick={() => handleSort('change')}>% Chg{sortArrow('change')}</th>
-                  <th className="text-right">Upper</th>
-                  <th className="text-right">Lower</th>
-                  <th className="w-8"></th>
+                  <th style={{ width: 32, minWidth: 32 }}>Flag</th>
+                  <ResizableTh
+                    columnKey="symbol"
+                    widths={config.watchlistColumnWidths}
+                    setWidth={setColWidth}
+                    defaultWidth={90}
+                    className="cursor-pointer select-none"
+                    onClick={() => handleSort('symbol')}
+                  >
+                    Symbol{sortArrow('symbol')}
+                  </ResizableTh>
+                  <ResizableTh
+                    columnKey="last"
+                    widths={config.watchlistColumnWidths}
+                    setWidth={setColWidth}
+                    defaultWidth={80}
+                    className="text-right"
+                  >
+                    Last
+                  </ResizableTh>
+                  <ResizableTh
+                    columnKey="change"
+                    widths={config.watchlistColumnWidths}
+                    setWidth={setColWidth}
+                    defaultWidth={80}
+                    className="text-right cursor-pointer select-none"
+                    onClick={() => handleSort('change')}
+                  >
+                    % Chg{sortArrow('change')}
+                  </ResizableTh>
+                  <ResizableTh
+                    columnKey="upper"
+                    widths={config.watchlistColumnWidths}
+                    setWidth={setColWidth}
+                    defaultWidth={80}
+                    className="text-right"
+                  >
+                    Upper
+                  </ResizableTh>
+                  <ResizableTh
+                    columnKey="lower"
+                    widths={config.watchlistColumnWidths}
+                    setWidth={setColWidth}
+                    defaultWidth={80}
+                    className="text-right"
+                  >
+                    Lower
+                  </ResizableTh>
+                  <th style={{ width: 32, minWidth: 32 }}></th>
                 </tr>
               </thead>
               <tbody>
