@@ -252,6 +252,18 @@ td input {
   @apply py-0;
 }
 
+/* Price alert flash — pulses for ~5 sec when a watchlist alert triggers,
+   then the alert auto-clears (input value becomes blank). */
+@keyframes price-alert-pulse {
+  0%, 100% { background: rgba(255, 193, 7, 0.45); box-shadow: 0 0 0 0 rgba(255, 193, 7, 0.7); }
+  50%      { background: rgba(255, 193, 7, 0.85); box-shadow: 0 0 6px 2px rgba(255, 193, 7, 0.5); }
+}
+.price-alert-flash {
+  animation: price-alert-pulse 0.8s ease-in-out infinite;
+  color: #1a1a2e !important;
+  font-weight: 700;
+}
+
 /* AlertBar — pin every row to the same height so new alerts pushing in
    can't cause visible row-height jitter (mixed cell contents like the
    AI button, truncated tweet text, and price alerts all have

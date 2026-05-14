@@ -7,6 +7,27 @@ import { useEffect } from 'react'
 import { useStore } from '@/store/useStore'
 import { handleAlertAudio } from '@/lib/alertAudio'
 
+const CLEAR_AFTER_MS = 5000
+
+// Justin: after an alert fires, flash the cell for ~5 sec, then null out
+// the threshold so stale alerts don't linger on the watchlist UI.
+const pendingClears = new Set<string>()
+function scheduleAlertClear(symbol: string, field: 'upperAlert' | 'lowerAlert') {
+  const key = `${field}|${symbol}`
+  if (pendingClears.has(key)) return
+  pendingClears.add(key)
+  setTimeout(() => {
+    pendingClears.delete(key)
+    const state = useStore.getState()
+    for (const wl of state.watchlists) {
+      const target = wl.symbols.find((s) => s.symbol === symbol)
+      if (target && target[field] != null) {
+        state.updateSymbolInWatchlist(wl.id, { ...target, [field]: null })
+      }
+    }
+  }, CLEAR_AFTER_MS)
+}
+
 export function usePriceAlerts() {
   useEffect(() => {
     // Subscribe to ALL store changes OUTSIDE React's render cycle.
@@ -49,6 +70,7 @@ export function usePriceAlerts() {
               })
               addTriggeredPriceAlert(alertKey)
               handleAlertAudio('price', `${item.symbol} upper alert`, config)
+              scheduleAlertClear(item.symbol, 'upperAlert')
             }
           }
 
@@ -69,6 +91,7 @@ export function usePriceAlerts() {
               })
               addTriggeredPriceAlert(alertKey)
               handleAlertAudio('price', `${item.symbol} lower alert`, config)
+              scheduleAlertClear(item.symbol, 'lowerAlert')
             }
           }
         }

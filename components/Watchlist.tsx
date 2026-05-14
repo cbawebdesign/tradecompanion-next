@@ -11,6 +11,7 @@ import { SymbolContextMenu } from './SymbolContextMenu'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
 import { ResizableTh } from './ResizableTh'
+import { PriceAlertInput } from './PriceAlertInput'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
@@ -98,6 +99,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     updateConfig,
     activePane,
     setActivePane,
+    triggeredPriceAlerts,
   } = useStore()
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -341,14 +343,14 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     }
   }, [isAddingInline])
 
-  const handleUpdateAlert = useCallback((symbol: string, field: 'upperAlert' | 'lowerAlert', value: string) => {
+  const handleUpdateAlertValue = useCallback((symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => {
     if (!selectedWatchlistId) return
     const current = currentWatchlist?.symbols.find(s => s.symbol === symbol)
     if (!current) return
 
     updateSymbolInWatchlist(selectedWatchlistId, {
       ...current,
-      [field]: value ? parseFloat(value) : null,
+      [field]: value,
     })
   }, [selectedWatchlistId, currentWatchlist, updateSymbolInWatchlist])
 
@@ -654,25 +656,19 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}
                       </td>
                       <td className="text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={item.upperAlert || ''}
-                          onChange={(e) => handleUpdateAlert(item.symbol, 'upperAlert', e.target.value)}
+                        <PriceAlertInput
+                          value={item.upperAlert}
+                          onCommit={(n) => handleUpdateAlertValue(item.symbol, 'upperAlert', n)}
+                          triggered={item.upperAlert != null && triggeredPriceAlerts.has(`upper-${item.symbol}-${item.upperAlert}`)}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-16 text-right text-xs py-0.5"
-                          placeholder="-"
                         />
                       </td>
                       <td className="text-right">
-                        <input
-                          type="number"
-                          step="0.01"
-                          value={item.lowerAlert || ''}
-                          onChange={(e) => handleUpdateAlert(item.symbol, 'lowerAlert', e.target.value)}
+                        <PriceAlertInput
+                          value={item.lowerAlert}
+                          onCommit={(n) => handleUpdateAlertValue(item.symbol, 'lowerAlert', n)}
+                          triggered={item.lowerAlert != null && triggeredPriceAlerts.has(`lower-${item.symbol}-${item.lowerAlert}`)}
                           onClick={(e) => e.stopPropagation()}
-                          className="w-16 text-right text-xs py-0.5"
-                          placeholder="-"
                         />
                       </td>
                       <td>
