@@ -3,10 +3,11 @@
  * (SignalR live + REST poll + DB backfill) collapse into a single entry.
  *
  * Specifically:
- *   - Strip `[TX-NewsX]` prefix variants used by Trade Exchange. The SignalR
- *     frame and the DB row carry the same content but the prefix only
- *     appears on one of them, so without stripping they were both passing
- *     dedup.
+ *   - Strip any leading `[Source]` prefix (no-spaces source identifier).
+ *     Trade Exchange uses `[TX-News1]`, `[Benzinga]`, etc. and the SignalR
+ *     frame sometimes drops the prefix entirely when `source` is empty,
+ *     so the same post arrived once with a bracket and once without and
+ *     dedup missed it. Match any bracketed token of letters/digits/dashes.
  *   - Strip a trailing ` ($12.34)` price suffix added by the catalyst
  *     confirmer — the DB row stores just the title, the live alert tacks
  *     the trigger price on the end.
@@ -15,7 +16,7 @@
 export function normalizeAlertMessage(msg: string | undefined | null): string {
   if (!msg) return ''
   return msg
-    .replace(/^\s*\[TX-News\d*\]\s*/i, '')
+    .replace(/^\s*\[[A-Za-z0-9_.-]+\]\s*/, '')
     .replace(/\s*\(\$\d+(?:\.\d+)?\)\s*$/, '')
     .replace(/\s+/g, ' ')
     .trim()

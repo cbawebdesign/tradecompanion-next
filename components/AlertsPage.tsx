@@ -285,10 +285,14 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
   const mergedDbAlerts = dbAlertsSymbol === selectedSymbol ? dbAlerts : []
   const seenKeys = new Set<string>()
+  // Per-symbol dedup: same symbol + same normalized message collapses to one
+  // row regardless of type or timestamp. This makes the PR alert (when the
+  // headline hits) and the catalyst-confirmed alert (when price/volume
+  // confirms 5-30 min later) appear as a single ribbon entry instead of two.
   const symbolAlerts = [...liveAlerts, ...mergedDbAlerts]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
     .filter(a => {
-      const key = `${a.type}|${normalizeAlertMessage(a.message)}|${new Date(a.timestamp).toISOString().substring(11, 16)}`
+      const key = `${a.symbol}|${normalizeAlertMessage(a.message)}`
       if (seenKeys.has(key)) return false
       seenKeys.add(key)
       return true
