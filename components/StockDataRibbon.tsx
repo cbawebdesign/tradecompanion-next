@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { WatchlistChips } from './WatchlistChips'
 
 interface StockDataItem {
   Ticker: string
@@ -496,6 +497,9 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
           </>
         )}
       </div>
+
+      {/* Watchlist row — quick add/remove from inside the ribbon */}
+      <WatchlistChips symbol={data.Ticker} />
 
       {/* Notes rows */}
       {renderNotesRow('General', 'Notes', data.Notes, false)}
