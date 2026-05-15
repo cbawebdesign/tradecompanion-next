@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useStore } from '@/store/useStore'
+import { PriceAlertInput } from './PriceAlertInput'
 import { clsx } from 'clsx'
 import type { Alert } from '@/types'
 import { GrokButton } from './GrokButton'
@@ -43,6 +44,8 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     setActiveTab,
     activePane,
     setActivePane,
+    updateSymbolInWatchlist,
+    triggeredPriceAlerts,
   } = useStore()
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -201,6 +204,35 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 
+  // For inline price-alert inputs on price-type timeline rows. Finds the
+  // first watchlist entry for the symbol in saved Settings order so the
+  // input reflects + edits that list's thresholds. Lets Justin reset alerts
+  // without hunting down the right watchlist.
+  const orderedWatchlistsForLookup = (() => {
+    const order = config.watchlistOrder
+    if (!order || order.length === 0) return watchlists
+    const byId = new Map(watchlists.map((w) => [w.id, w]))
+    const out: typeof watchlists = []
+    for (const id of order) {
+      const w = byId.get(id)
+      if (w) { out.push(w); byId.delete(id) }
+    }
+    Array.from(byId.values()).forEach((w) => out.push(w))
+    return out
+  })()
+  const findEntry = (symbol: string) => {
+    for (const wl of orderedWatchlistsForLookup) {
+      const entry = wl.symbols.find((s) => s.symbol === symbol)
+      if (entry) return { wl, entry }
+    }
+    return null
+  }
+  const updateAlertOnTimeline = (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => {
+    const hit = findEntry(symbol)
+    if (!hit) return
+    updateSymbolInWatchlist(hit.wl.id, { ...hit.entry, [field]: value })
+  }
+
   if (visibleAlerts.length === 0) {
     return (
       <div
@@ -335,6 +367,28 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                     >
                       {alert.message}
                     </span>
+                    {alert.type === 'price' && (() => {
+                      const hit = findEntry(alert.symbol)
+                      if (!hit) return null
+                      const upper = hit.entry.upperAlert
+                      const lower = hit.entry.lowerAlert
+                      return (
+                        <span className="inline-flex items-center gap-1 ml-2 align-middle" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Upper</span>
+                          <PriceAlertInput
+                            value={upper}
+                            onCommit={(n) => updateAlertOnTimeline(alert.symbol, 'upperAlert', n)}
+                            triggered={upper != null && triggeredPriceAlerts.has(`upper-${alert.symbol}-${upper}`)}
+                          />
+                          <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Lower</span>
+                          <PriceAlertInput
+                            value={lower}
+                            onCommit={(n) => updateAlertOnTimeline(alert.symbol, 'lowerAlert', n)}
+                            triggered={lower != null && triggeredPriceAlerts.has(`lower-${alert.symbol}-${lower}`)}
+                          />
+                        </span>
+                      )
+                    })()}
                   </td>
                   <td className="px-2 py-1 text-center">
                     {shouldShowGrok(alert) && alert.url && (

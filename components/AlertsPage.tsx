@@ -8,6 +8,7 @@ import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon } from './StockDataRibbon'
 import { SymbolContextMenu } from './SymbolContextMenu'
 import { ResizableTh } from './ResizableTh'
+import { PriceAlertInput } from './PriceAlertInput'
 import { fireAhk } from '@/lib/ahk'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -40,6 +41,9 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     setActivePane,
     config,
     updateConfig,
+    watchlists,
+    updateSymbolInWatchlist,
+    triggeredPriceAlerts,
   } = useStore()
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -68,6 +72,34 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   // Column widths persisted per-key for the Flagged List table.
   const setFlaggedColWidth = (key: string, px: number) =>
     updateConfig({ flaggedColumnWidths: { ...(config.flaggedColumnWidths || {}), [key]: px } })
+
+  // For Flagged List price-alert inputs: find the watchlist + symbol entry
+  // a flagged symbol belongs to. Picks the first match in the user's saved
+  // Settings order. Returns null when the symbol isn't on any list.
+  const orderedWatchlistsForLookup = (() => {
+    const order = config.watchlistOrder
+    if (!order || order.length === 0) return watchlists
+    const byId = new Map(watchlists.map((w) => [w.id, w]))
+    const out: typeof watchlists = []
+    for (const id of order) {
+      const w = byId.get(id)
+      if (w) { out.push(w); byId.delete(id) }
+    }
+    Array.from(byId.values()).forEach((w) => out.push(w))
+    return out
+  })()
+  const findEntry = (symbol: string) => {
+    for (const wl of orderedWatchlistsForLookup) {
+      const entry = wl.symbols.find((s) => s.symbol === symbol)
+      if (entry) return { wl, entry }
+    }
+    return null
+  }
+  const updateAlertForFlagged = (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => {
+    const hit = findEntry(symbol)
+    if (!hit) return
+    updateSymbolInWatchlist(hit.wl.id, { ...hit.entry, [field]: value })
+  }
 
   // Right-click context menu on Flagged List rows.
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
@@ -386,13 +418,22 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                       % Chg{sortIndicator('changePercent')}
                     </ResizableTh>
                     <ResizableTh
-                      columnKey="alerts"
+                      columnKey="upper"
                       widths={config.flaggedColumnWidths}
                       setWidth={setFlaggedColWidth}
-                      defaultWidth={70}
+                      defaultWidth={80}
                       className="text-right"
                     >
-                      Alerts
+                      Upper
+                    </ResizableTh>
+                    <ResizableTh
+                      columnKey="lower"
+                      widths={config.flaggedColumnWidths}
+                      setWidth={setFlaggedColWidth}
+                      defaultWidth={80}
+                      className="text-right"
+                    >
+                      Lower
                     </ResizableTh>
                   </tr>
                 </thead>
@@ -433,13 +474,31 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                         <td className={clsx('text-right font-mono', changeClass)}>
                           {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}
                         </td>
-                        <td className="text-right">
-                          {alertCount > 0 && (
-                            <span className="text-xs bg-blue-900/50 text-blue-400 px-1.5 py-0.5 rounded">
-                              {alertCount}
-                            </span>
-                          )}
-                        </td>
+                        {(() => {
+                          const hit = findEntry(symbol)
+                          const upper = hit?.entry.upperAlert ?? null
+                          const lower = hit?.entry.lowerAlert ?? null
+                          return (
+                            <>
+                              <td className="text-right">
+                                <PriceAlertInput
+                                  value={upper}
+                                  onCommit={(n) => updateAlertForFlagged(symbol, 'upperAlert', n)}
+                                  triggered={upper != null && triggeredPriceAlerts.has(`upper-${symbol}-${upper}`)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </td>
+                              <td className="text-right">
+                                <PriceAlertInput
+                                  value={lower}
+                                  onCommit={(n) => updateAlertForFlagged(symbol, 'lowerAlert', n)}
+                                  triggered={lower != null && triggeredPriceAlerts.has(`lower-${symbol}-${lower}`)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                              </td>
+                            </>
+                          )
+                        })()}
                       </tr>
                     )
                   })}
