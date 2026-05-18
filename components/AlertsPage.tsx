@@ -10,6 +10,7 @@ import { SymbolContextMenu } from './SymbolContextMenu'
 import { ResizableTh } from './ResizableTh'
 import { PriceAlertInput } from './PriceAlertInput'
 import { fireAhk } from '@/lib/ahk'
+import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
@@ -213,8 +214,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     // Drill-down view is unfiltered: Justin wants to see every filing for a
     // selected symbol (including Form 4 etc. that he's globally excluded from
     // the timeline). Dropping userKey makes the server skip ExcludeFilings.
+    // Force since=prev market close so after-close PRs/filings from the
+    // prior trading day still show up — server default is midnight ET today.
+    const since = encodeURIComponent(prevMarketCloseISO())
     fetch(
-      `${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`,
+      `${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}&since=${since}`,
       { signal: controller.signal }
     )
       .then(r => {

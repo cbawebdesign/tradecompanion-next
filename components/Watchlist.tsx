@@ -13,6 +13,7 @@ import { StockDataRibbon } from './StockDataRibbon'
 import { ResizableTh } from './ResizableTh'
 import { PriceAlertInput } from './PriceAlertInput'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
+import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
 
@@ -44,8 +45,9 @@ async function prefetchRibbon(symbols: string[], baseUrl: string, _userKey: stri
     batch.forEach(s => prefetchInFlight.add(s.toUpperCase()))
     await Promise.all(batch.map(async (sym) => {
       try {
-        // Unfiltered per-symbol view — see comment in AlertsPage fetch.
-        const url = `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(sym)}`
+        // Unfiltered per-symbol view, since prev market close — see notes in
+        // AlertsPage fetch + lib/marketCalendar.
+        const url = `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(sym)}&since=${encodeURIComponent(prevMarketCloseISO())}`
         const r = await fetch(proxyUrl(url))
         if (!r.ok) return
         const data = await r.json()
@@ -211,9 +213,10 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
     // Drill-down view is unfiltered: every filing for the selected symbol,
     // including forms globally excluded from the timeline. Server skips the
-    // ExcludeFilings filter when no userKey is passed.
+    // ExcludeFilings filter when no userKey is passed. since=prev market
+    // close so after-close events from the prior trading day still appear.
     fetch(proxyUrl(
-      `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}`
+      `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}&since=${encodeURIComponent(prevMarketCloseISO())}`
     ), { signal: controller.signal })
       .then(r => {
         clearTimeout(timeoutId)
