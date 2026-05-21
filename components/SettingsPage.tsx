@@ -175,6 +175,10 @@ export function SettingsPage() {
   // User Sync: Pull from server (restore watchlists/config)
   const handlePull = useCallback(async () => {
     if (!config.userKey) return
+    // Justin (5/21): wants a guard against fat-fingering Pull when meant
+    // to Push and vice versa — Pull overwrites local watchlists/flagged/etc
+    // with whatever's on the server.
+    if (!confirm('Pull from server? This will replace your local watchlists, flagged symbols, and filter settings with the server copy.')) return
     setSyncStatus('syncing')
     setSyncMessage('Pulling from server...')
     try {
@@ -208,6 +212,9 @@ export function SettingsPage() {
   // complete payload that the auto-sync uses.
   const handlePush = useCallback(async () => {
     if (!config.userKey) return
+    // Match the Pull guard — confirm so accidental clicks don't overwrite
+    // whatever copy of the data is on the server.
+    if (!confirm('Push to server? This will overwrite the server copy with your current local watchlists, flagged symbols, and filter settings.')) return
     setSyncStatus('syncing')
     setSyncMessage('Pushing to server...')
     try {

@@ -17,6 +17,13 @@ const shouldShowGrok = (alert: Alert): boolean => {
   return type === 'filing' || type === 'news' || type === 'catalyst' || type === 'tweet'
 }
 
+// Treat as a real ticker for the purposes of AHK / Add-to-Watchlist / Flag.
+// RSS/YT/SUB/MAIL/NEWS rows carry these placeholders so the action would
+// pollute watchlists or fire AHK on garbage.
+const NON_SYMBOLS = new Set(['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A', ''])
+const isRealSymbol = (s: string | undefined | null): s is string =>
+  !!s && !NON_SYMBOLS.has(s.toUpperCase())
+
 interface ContextMenuState {
   visible: boolean
   x: number
@@ -108,7 +115,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     copyToClipboard(text)
 
     // Fire AHK companion script if enabled (skip for synthetic symbols like RSS/MAIL/N/A)
-    if (config.ahkEnabled && config.ahkUrl && alert.symbol && !['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A'].includes(alert.symbol)) {
+    if (config.ahkEnabled && config.ahkUrl && isRealSymbol(alert.symbol)) {
       fireAhk(alert.symbol, config.ahkUrl)
     }
 
@@ -122,7 +129,9 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     }
   }, [setSelectedSymbol, setActiveTab, config.ahkEnabled, config.ahkUrl])
 
-  // Handle clicking on alert message - opens URL for filings/PRs
+  // Handle clicking on alert message - opens URL for filings/PRs, and (per
+  // Justin) also fires AHK with the tagged symbol so the user's charts update
+  // alongside the PR opening. Skipped for synthetic RSS/YT/SUB/MAIL/N/A rows.
   const handleAlertMessageClick = useCallback((e: React.MouseEvent, alert: Alert) => {
     e.stopPropagation()
 
@@ -130,11 +139,19 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     const text = (alert.message || '').replace(/^Catalyst PR\s*/i, '')
     copyToClipboard(text)
 
+    // Update selected symbol + fire AHK (skip pseudo-symbols)
+    if (isRealSymbol(alert.symbol)) {
+      setSelectedSymbol(alert.symbol)
+      if (config.ahkEnabled && config.ahkUrl) {
+        fireAhk(alert.symbol, config.ahkUrl)
+      }
+    }
+
     // Open URL if present (filings, PRs)
     if (alert.url) {
       window.open(alert.url, '_blank')
     }
-  }, [])
+  }, [config.ahkEnabled, config.ahkUrl, setSelectedSymbol])
 
   const handleAddToWatchlist = useCallback((alert: Alert, watchlistId: string) => {
     addSymbolToWatchlist(watchlistId, {
@@ -178,7 +195,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         const alert = visibleAlerts[selectedAlertIndex]
         if (alert) {
           copyToClipboard(alert.symbol)
-          if (config.ahkEnabled && config.ahkUrl && !['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A'].includes(alert.symbol)) {
+          if (config.ahkEnabled && config.ahkUrl && isRealSymbol(alert.symbol)) {
             fireAhk(alert.symbol, config.ahkUrl)
           }
         }
@@ -409,33 +426,38 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
       </div>
 
       {/* Context Menu */}
-      {contextMenu.visible && contextMenu.alert && (
+      {contextMenu.visible && contextMenu.alert && (() => {
+        const ca = contextMenu.alert
+        const showSymbolActions = isRealSymbol(ca.symbol)
+        return (
         <div
           ref={contextMenuRef}
           className="fixed glass-panel rounded-lg shadow-2xl py-1 z-50 min-w-[160px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
+          {showSymbolActions && (
+            <button
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
+              onClick={() => {
+                toggleFlag(ca.symbol)
+                setContextMenu(prev => ({ ...prev, visible: false }))
+              }}
+            >
+              {flaggedSymbols.has(ca.symbol) ? '⚑ Unflag Symbol' : '⚐ Flag Symbol'}
+            </button>
+          )}
           <button
             className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
-            onClick={() => {
-              toggleFlag(contextMenu.alert!.symbol)
-              setContextMenu(prev => ({ ...prev, visible: false }))
-            }}
-          >
-            {flaggedSymbols.has(contextMenu.alert.symbol) ? '⚑ Unflag Symbol' : '⚐ Flag Symbol'}
-          </button>
-          <button
-            className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
-            onClick={() => handleCopyText(contextMenu.alert!)}
+            onClick={() => handleCopyText(ca)}
           >
             📋 Copy Alert Text
           </button>
-          {contextMenu.alert.url && (
+          {ca.url && (
             <>
               <button
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
                 onClick={() => {
-                  window.open(contextMenu.alert!.url, '_blank')
+                  window.open(ca.url, '_blank')
                   setContextMenu(prev => ({ ...prev, visible: false }))
                 }}
               >
@@ -444,7 +466,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
               <button
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
                 onClick={() => {
-                  copyToClipboard(contextMenu.alert!.url!)
+                  copyToClipboard(ca.url!)
                   setContextMenu(prev => ({ ...prev, visible: false }))
                 }}
               >
@@ -455,35 +477,39 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
           <button
             className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
             onClick={() => {
-              hideAlert(contextMenu.alert!.id)
+              hideAlert(ca.id)
               setContextMenu(prev => ({ ...prev, visible: false }))
             }}
           >
             👁 Hide Alert
           </button>
-          <div className="border-t border-gray-600 my-1" />
-          <div className="px-3 py-1 text-xs text-gray-500">Add to Watchlist:</div>
-          {watchlists.map((wl) => (
-            <button
-              key={wl.id}
-              className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700 pl-6"
-              onClick={() => handleAddToWatchlist(contextMenu.alert!, wl.id)}
-            >
-              {wl.name}
-            </button>
-          ))}
+          {showSymbolActions && (
+            <>
+              <div className="border-t border-gray-600 my-1" />
+              <div className="px-3 py-1 text-xs text-gray-500">Add to Watchlist:</div>
+              {watchlists.map((wl) => (
+                <button
+                  key={wl.id}
+                  className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700 pl-6"
+                  onClick={() => handleAddToWatchlist(ca, wl.id)}
+                >
+                  {wl.name}
+                </button>
+              ))}
+            </>
+          )}
           <div className="border-t border-gray-600 my-1" />
           <button
             className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700 text-red-400"
             onClick={() => {
-              removeAlert(contextMenu.alert!.id)
+              removeAlert(ca.id)
               setContextMenu(prev => ({ ...prev, visible: false }))
             }}
           >
             🗑 Delete Alert
           </button>
         </div>
-      )}
+      )})()}
     </div>
   )
 }

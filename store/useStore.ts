@@ -203,22 +203,24 @@ export const useStore = create<AppState>()(
             : new Date(alert.timestamp).getTime()
           if (isNaN(ts) || ts < state.clearedSince) return state
         }
-        // Dedup: prefer dedupKey (exact, from source), fall back to fuzzy
-        // message match. Both messages are run through normalizeAlertMessage
-        // so [TX-NewsX] prefixes and trailing price suffixes don't make the
-        // same item look like two.
+        // Dedup: matching dedupKeys is a positive signal (same source assigned
+        // them deliberately). A MISMATCH is not a signal of uniqueness, though
+        // — the polling fetch and the SignalR live frame for the same TX post
+        // often have different IDs (SignalR falls back to Date.now() when the
+        // server frame omits the id), so dedupKeys differ even when the alert
+        // is the same. So we never short-circuit-false on dedupKey: a hit
+        // returns true, a miss falls through to the normalized-message check.
         const normalizedNew = normalizeAlertMessage(alert.message)
         const isDuplicate = state.alerts.some(existing => {
-          if (alert.dedupKey && existing.dedupKey) {
-            return alert.dedupKey === existing.dedupKey
-          }
+          if (alert.dedupKey && existing.dedupKey && alert.dedupKey === existing.dedupKey) return true
           if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
-          const normalizedExisting = normalizeAlertMessage(existing.message)
-          if (normalizedExisting === normalizedNew) return true
-          const existFirst = normalizedExisting.slice(0, 40)
-          const newFirst = normalizedNew.slice(0, 40)
-          if (existFirst.length > 10 && existFirst === newFirst) return true
-          return false
+          // Exact-only after normalization. We used to also collapse on the
+          // first 40 chars matching, but the normalizer already strips the
+          // bracketed source prefixes + trailing ($price) catalyst suffix —
+          // the prefix fallback's only effect now is risking false-collapse
+          // on similar headlines (e.g. "Tesla Q1 earnings beat" vs "Tesla
+          // Q1 earnings beat estimates 15%").
+          return normalizeAlertMessage(existing.message) === normalizedNew
         })
         if (isDuplicate) return state
         if (typeof window !== 'undefined') {
@@ -248,9 +250,10 @@ export const useStore = create<AppState>()(
           })
         }
         if (gated.length === 0) return state
-        // Batch dedup: use dedupKey when available, fall back to a normalized
-        // message key so TX prefix variants + catalyst price suffixes don't
-        // sneak past as separate alerts.
+        // Batch dedup: same shape as addAlert — dedupKey match is a positive
+        // signal, but a miss must fall through to the normalized message check
+        // (polling vs SignalR for the same TX post can carry different
+        // dedupKeys, but they still need to collapse).
         const existingDedupKeys = new Set<string>()
         const existingMsgKeys = new Set<string>()
         for (const a of state.alerts) {
@@ -258,7 +261,7 @@ export const useStore = create<AppState>()(
           existingMsgKeys.add(`${a.symbol}|${normalizeAlertMessage(a.message)}|${a.type}`)
         }
         const unique = gated.filter(a => {
-          if (a.dedupKey) return !existingDedupKeys.has(a.dedupKey)
+          if (a.dedupKey && existingDedupKeys.has(a.dedupKey)) return false
           return !existingMsgKeys.has(`${a.symbol}|${normalizeAlertMessage(a.message)}|${a.type}`)
         })
         if (unique.length === 0) return state

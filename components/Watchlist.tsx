@@ -275,13 +275,18 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   // (SignalR) and DB (poll) sources.
   const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
   const mergedDbAlerts = dbAlertsSymbol === selectedSymbol ? dbAlerts : []
-  const seenKeys = new Set<string>()
-  // Per-symbol dedup: same symbol + same normalized message collapses to one
-  // row regardless of type or timestamp. Catalyst-confirmed alerts (which
-  // arrive 5-30 min after the underlying PR) no longer show as a separate
-  // entry from the original PR.
-  const symbolAlerts = [...liveAlerts, ...mergedDbAlerts]
+  // Per-symbol dedup: drop catalyst-type alerts when an underlying PR /
+  // TX / filing already covers the same story. If a catalyst is the only
+  // signal for this symbol, keep it so the user isn't left looking at an
+  // empty news pane.
+  const symbolAlertsMerged = [...liveAlerts, ...mergedDbAlerts]
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+  const nonCatalystMessages = new Set(
+    symbolAlertsMerged.filter(a => a.type !== 'catalyst').map(a => normalizeAlertMessage(a.message))
+  )
+  const seenKeys = new Set<string>()
+  const symbolAlerts = symbolAlertsMerged
+    .filter(a => a.type !== 'catalyst' || !nonCatalystMessages.has(normalizeAlertMessage(a.message)))
     .filter(a => {
       const key = `${a.symbol}|${normalizeAlertMessage(a.message)}`
       if (seenKeys.has(key)) return false

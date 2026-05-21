@@ -469,8 +469,9 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         {renderSep()}
         {renderField('Theme', 'Theme', data.Theme || '\u2014', data.Theme)}
         {renderSep()}
-        {renderField('Type', 'Type', data.Type || '\u2014', data.Type)}
-        {renderSep()}
+        {/* Justin (5/21): hide Type from the TC ribbon, keep it editable in
+            the Admin Dashboard. The field stays in StockDataItem + on the
+            server \u2014 we just don't render it here. */}
         {renderField('Exchange', 'Exchange', data.Exchange || '\u2014', data.Exchange)}
         {renderSep()}
         {renderLink('Dilution', `https://dilutiontracker.com/app/search/${encodeURIComponent(t)}?a=6lpa88`)}
