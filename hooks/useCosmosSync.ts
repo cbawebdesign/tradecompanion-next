@@ -154,6 +154,26 @@ export function useCosmosSync() {
         const xshow = pick('xShowAllTweets', 'XshowAllTweets')
         if (xshow && !localState.config.xShowAllTweets) cfgPatch.xShowAllTweets = xshow
 
+        // Watchlist dropdown order — restore by mapping server-side names back
+        // to local UUIDs. Has to come AFTER the watchlist restore above so the
+        // UUIDs we look up are the freshly-assigned ones. Only apply if local
+        // doesn't already have an order set (don't clobber a user who's
+        // already reordered on this device).
+        if (cloudCfg.watchlistOrder
+            && (!localState.config.watchlistOrder || localState.config.watchlistOrder.length === 0)) {
+          try {
+            const names = JSON.parse(cloudCfg.watchlistOrder)
+            if (Array.isArray(names) && names.length > 0) {
+              const wls = useStore.getState().watchlists
+              const ids = names
+                .map((n: string) => wls.find((w) => w.name === n)?.id)
+                .filter((id: string | undefined): id is string => !!id)
+              if (ids.length > 0) useStore.getState().reorderWatchlists(ids)
+              console.log(`CosmosSync: Restored watchlist order (${ids.length} of ${names.length} names matched)`)
+            }
+          } catch {/* ignore */}
+        }
+
         if (Object.keys(cfgPatch).length > 0) {
           useStore.setState({ config: { ...localState.config, ...cfgPatch } })
           console.log(`CosmosSync: Restored ${Object.keys(cfgPatch).length} config scalars from cloud:`, Object.keys(cfgPatch))
@@ -227,6 +247,14 @@ export function useCosmosSync() {
       }
     }
 
+    // Watchlist dropdown order — push as a list of NAMES, not UUIDs. UUIDs
+    // are regenerated per device on first pull, so syncing by UUID would
+    // never resolve on the other side. Names round-trip cleanly because the
+    // watchlists payload itself is keyed by name.
+    const watchlistOrderNames = (state.config.watchlistOrder || [])
+      .map((id) => state.watchlists.find((w) => w.id === id)?.name)
+      .filter((n): n is string => typeof n === 'string')
+
     const payload = {
       watchlists: watchlistsForBackend,
       configs: {
@@ -245,6 +273,7 @@ export function useCosmosSync() {
         flaggedSymbols: JSON.stringify(Array.from(state.flaggedSymbols)),
         alertSubscriptions: JSON.stringify(state.alertSubscriptions),
         subscribedAlerts: JSON.stringify(subscribedAlerts),
+        watchlistOrder: JSON.stringify(watchlistOrderNames),
       },
     }
 
@@ -278,7 +307,7 @@ export function useCosmosSync() {
     }
   }, [watchlists, flaggedSymbols, alertSubscriptions, config.theme, config.excludeFilings,
     config.filteredPrPositive, config.filteredPrNegative, config.showAllTradeExchange,
-    config.ttsEnabled, config.audioEnabled, syncToCosmos, userKey])
+    config.ttsEnabled, config.audioEnabled, config.watchlistOrder, syncToCosmos, userKey])
 
   // Expose a bypass-debounce sync so Settings can flush on textarea blur /
   // explicit save. Also resets the dedup hash so a force-sync always goes

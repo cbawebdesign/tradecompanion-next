@@ -53,6 +53,22 @@ function applyServerStateToStore(userData: any): string {
     }
   } catch {/* ignore */}
 
+  // Watchlist dropdown order — server stores names, we map back to local
+  // UUIDs (which were freshly minted by the watchlist restore above).
+  try {
+    const names = JSON.parse(cfg.watchlistOrder || '[]')
+    if (Array.isArray(names) && names.length > 0) {
+      const wls = useStore.getState().watchlists
+      const ids = names
+        .map((n: string) => wls.find((w) => w.name === n)?.id)
+        .filter((id: string | undefined): id is string => !!id)
+      if (ids.length > 0) {
+        useStore.getState().reorderWatchlists(ids)
+        summary.push(`watchlist order (${ids.length})`)
+      }
+    }
+  } catch {/* ignore */}
+
   // Alert subscriptions.
   try {
     const arr = JSON.parse(cfg.alertSubscriptions || '[]')
