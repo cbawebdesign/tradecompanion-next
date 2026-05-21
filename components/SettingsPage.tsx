@@ -179,49 +179,30 @@ export function SettingsPage() {
     }
   }, [config.userKey, config.hubUrl])
 
-  // User Sync: Push current state to server
+  // User Sync: Push current state to server.
+  //
+  // Justin (5/20): "tried syncing but the flagged list didn't sync up". The
+  // old implementation built its own payload with `flagged_symbols` at the
+  // top level AND a truncated `configs` (missing flaggedSymbols, excludeFilings,
+  // alertSubscriptions, etc.). The Pull side reads from `configs.flaggedSymbols`,
+  // so the data was being pushed to a field nobody reads — and the rest of
+  // the config was being wiped on every Push.
+  //
+  // Fix: delegate to forceCosmosSyncNow(), which already builds the correct,
+  // complete payload that the auto-sync uses.
   const handlePush = useCallback(async () => {
     if (!config.userKey) return
     setSyncStatus('syncing')
     setSyncMessage('Pushing to server...')
     try {
-      const watchlistData: Record<string, string[]> = {}
-      watchlists.forEach(wl => {
-        watchlistData[wl.name] = wl.symbols.map(s => s.symbol)
-      })
-
-      const configData: Record<string, string> = {
-        theme: config.theme,
-        hubUrl: config.hubUrl,
-        tradingViewId: config.tradingViewId,
-        audioEnabled: String(config.audioEnabled),
-        marketCapMin: String(config.marketCapMin),
-        marketCapMax: String(config.marketCapMax),
-      }
-
-      const payload = {
-        id: config.userKey,
-        user_key: config.userKey,
-        watchlists: watchlistData,
-        configs: configData,
-        flagged_symbols: Array.from(flaggedSymbols),
-      }
-
-      console.log('[UserSync] Pushing payload:', JSON.stringify(payload, null, 2))
-
-      const resp = await fetch(proxyUrl(`${config.hubUrl}/user/${encodeURIComponent(config.userKey)}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      await forceCosmosSyncNow()
       setSyncStatus('success')
       setSyncMessage('Pushed to server successfully')
     } catch (err: any) {
       setSyncStatus('error')
       setSyncMessage(`Push failed: ${err.message}`)
     }
-  }, [config, watchlists, flaggedSymbols])
+  }, [config.userKey])
 
   // TradingView webhook registration
   const handleTvRegister = useCallback(async () => {

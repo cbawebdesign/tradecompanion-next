@@ -1,15 +1,22 @@
 /**
- * Most recent past 4pm ET (NY) timestamp, skipping weekends.
+ * The 4pm ET close of the trading day strictly BEFORE today.
  *
  * Used as the `since` param for /AlertsBySymbol so the data ribbon shows
- * every PR/filing/TX/catalyst since the previous market close — not just
- * since midnight today. Justin's GEMI report (5/15): after-close earnings
- * + a 5/14 16:32 PR were hidden because the server defaulted to "midnight
- * ET today" when no since was provided.
+ * the full current-session news flow (premarket + intraday + after-hours)
+ * regardless of when the user opens TC.
  *
- * Holidays not currently filtered. Walking back one extra day on a Tuesday
- * after a Monday holiday will simply return Monday 4pm, which is fine —
- * the goal is "don't lose after-close events", not exact market calendar.
+ * Justin's bug (5/19, 8:31 PM ET): "previous close" was implemented as
+ * "most recent past 4pm ET", so opening TC after-hours on a weekday
+ * filtered out everything from earlier that same session — a 13:45 VUZI
+ * PR and morning INM filings disappeared. Trader expectation is to see
+ * the whole session of news whether you check at 9am, 2pm, or 9pm.
+ *
+ * Algorithm: take yesterday in ET, walk back over weekends until we hit
+ * a weekday, return that day at 4pm ET.
+ *
+ * Holidays not currently modeled. A Tuesday after a Monday holiday will
+ * return Monday 4pm — slightly over-inclusive but acceptable (the goal
+ * is to not LOSE events, never to be precise about the calendar).
  */
 export function prevMarketCloseISO(): string {
   const now = Date.now()
@@ -42,13 +49,13 @@ export function prevMarketCloseISO(): string {
     return candidates[0]
   }
 
-  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+  // Start from YESTERDAY in ET, walk back across weekends until we hit a
+  // weekday. We deliberately never return today's 4pm even when it's already
+  // past — the user still wants to see today's session news in the ribbon.
+  for (let dayOffset = 1; dayOffset < 8; dayOffset++) {
     const { yyyymmdd, dow } = getETDateParts(now - dayOffset * 86400000)
     if (dow === 'Sat' || dow === 'Sun') continue
-    const closeUtc = et4pmAsUtcMs(yyyymmdd)
-    if (closeUtc <= now) {
-      return new Date(closeUtc).toISOString()
-    }
+    return new Date(et4pmAsUtcMs(yyyymmdd)).toISOString()
   }
   // Fallback — shouldn't reach this on a planet with seven-day weeks.
   return new Date(now - 3 * 86400000).toISOString()
