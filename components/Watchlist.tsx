@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { proxyUrl } from '@/lib/proxyUrl'
@@ -377,6 +377,10 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     return () => document.removeEventListener('mousedown', handleDocumentClick)
   }, [setActivePane])
 
+  // Ref so the keyboard handler reads the *latest* sorted list without
+  // re-binding the global keydown listener on every render.
+  const sortedSymbolsRef = useRef<{ symbol: string }[]>([])
+
   // Keyboard navigation - only when this pane is active
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -390,7 +394,9 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         || (e.target as HTMLElement)?.isContentEditable
       if (inInput && e.key !== 'Escape') return
 
-      const symbols = currentWatchlist.symbols
+      // Walk the sorted (visible) list, not the raw insertion order — so
+      // pressing ↓ moves to the row visually below the current one.
+      const symbols = sortedSymbolsRef.current
       const currentIndex = symbols.findIndex(s => s.symbol === selectedSymbol)
 
       if (e.key === 'ArrowDown') {
@@ -454,8 +460,12 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     return val < 1 ? val.toFixed(4) : val.toFixed(2)
   }
 
-  // Get sorted symbols
-  const getSortedSymbols = () => {
+  // Sorted view of the current watchlist. Used by both the table render
+  // AND the up/down arrow keyboard handler — without this shared view,
+  // arrow keys walked the raw insertion order while the table showed
+  // the user's sort, so ↓ from row 0 visually jumped wherever the raw
+  // array's second element happened to land.
+  const sortedSymbols = useMemo(() => {
     if (!currentWatchlist) return []
     const syms = [...currentWatchlist.symbols]
     if (!sortCol) return syms
@@ -470,7 +480,9 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       }
       return sortDir === 'desc' ? -cmp : cmp
     })
-  }
+  }, [currentWatchlist, sortCol, sortDir, quotes])
+  // Keep the keyboard-nav ref pointed at the latest sorted list.
+  sortedSymbolsRef.current = sortedSymbols
 
   const sortArrow = (col: 'symbol' | 'change') => {
     if (sortCol !== col) return ''
@@ -626,7 +638,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                 </tr>
               </thead>
               <tbody>
-                {getSortedSymbols().map((item) => {
+                {sortedSymbols.map((item) => {
                   const quote = quotes[item.symbol]
                   const isFlagged = flaggedSymbols.has(item.symbol)
                   const changeClass = quote?.change > 0 ? 'price-up' : quote?.change < 0 ? 'price-down' : 'price-neutral'

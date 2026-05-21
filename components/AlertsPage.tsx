@@ -120,12 +120,18 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     return () => document.removeEventListener('mousedown', handleDocumentClick)
   }, [setActivePane])
 
+  // Ref so the keyboard handler reads the *latest* sorted flagged list
+  // without re-binding the global keydown listener on every render.
+  const flaggedListRef = useRef<{ symbol: string }[]>([])
+
   // Keyboard navigation - only when this pane is active
   useEffect(() => {
     if (!isActive) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      const flaggedArray = Array.from(flaggedSymbols)
+      // Walk the visible (sorted) flagged list so ↓ moves to the row
+      // visually below — not the next entry in the raw Set insertion order.
+      const flaggedArray = flaggedListRef.current.map(r => r.symbol)
       if (flaggedArray.length === 0) return
 
       // Don't intercept keys when user is typing in an input/textarea/select
@@ -153,7 +159,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, flaggedSymbols, selectedSymbol, setSelectedSymbol, toggleFlag])
+  }, [isActive, selectedSymbol, setSelectedSymbol, toggleFlag])
 
   // Convert flagged symbols to array with quote data, then optionally sort.
   // Symbols without a quote sort to the bottom for numeric columns so the
@@ -178,6 +184,8 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       return (av - bv) * dir
     })
   })()
+  // Keep the keyboard-nav ref in sync with whatever's currently rendered.
+  flaggedListRef.current = flaggedList
 
   // DB alerts state
   const [dbAlerts, setDbAlerts] = useState<Alert[]>([])
