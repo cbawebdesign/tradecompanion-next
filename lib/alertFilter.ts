@@ -21,6 +21,25 @@ export const GATED_TYPES: Record<string, AlertType> = {
 // All 4 gated subscription keys (used for the per-watchlist default + UI).
 export const GATED_SUBSCRIPTION_KEYS: AlertType[] = ['Filings', 'PRs', 'TradeExchange', 'X']
 
+// Default flagged-list subscriptions: every gated type enabled, audio on.
+// Matches Justin's spec — flagging means "I want to see everything for
+// this symbol", and audio matches the per-watchlist default UX.
+export function defaultFlaggedAlertSubscriptions(): Record<string, { enabled: boolean; audioEnabled: boolean }> {
+  const out: Record<string, { enabled: boolean; audioEnabled: boolean }> = {}
+  for (const k of GATED_SUBSCRIPTION_KEYS) out[k] = { enabled: true, audioEnabled: true }
+  return out
+}
+
+// Resolve which alert types a flagged symbol is subscribed to. Reads the
+// user's config, falls back to the all-on default when unset (existing
+// installs that haven't seen the new setting yet).
+export function flaggedSubscribedTypes(
+  cfg: Record<string, { enabled: boolean; audioEnabled: boolean }> | undefined,
+): AlertType[] {
+  const src = cfg ?? defaultFlaggedAlertSubscriptions()
+  return GATED_SUBSCRIPTION_KEYS.filter(k => src[k]?.enabled)
+}
+
 export const SUBSCRIPTION_LABELS: Record<AlertType, string> = {
   PRs: 'Press Releases',
   Filings: 'SEC Filings',

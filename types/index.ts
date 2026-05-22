@@ -141,6 +141,12 @@ export interface AppConfig {
   // Watchlist dropdown display order (array of watchlist IDs).
   // If absent, watchlists are shown in their creation order.
   watchlistOrder?: string[]
+  // Per-type subscription settings for flagged symbols. Mirrors the per-
+  // watchlist subscription UX. Justin (5/21): flagging a symbol should
+  // ensure its alerts arrive even if the symbol isn't on a subscribed
+  // watchlist. Default is all-on so the UX matches the historical "flag
+  // means I want to see everything for this symbol" behavior.
+  flaggedAlertSubscriptions?: Record<string, { enabled: boolean; audioEnabled: boolean }>
 }
 
 // SignalR connection state

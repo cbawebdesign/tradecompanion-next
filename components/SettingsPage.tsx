@@ -6,8 +6,9 @@ import { proxyUrl } from '@/lib/proxyUrl'
 import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
 import { copyToClipboard } from '@/lib/clipboard'
 import { getSession, clearSession } from '@/components/LoginGate'
-import type { AppTheme, MascotSize, MascotCharacter } from '@/types'
+import type { AppTheme, MascotSize, MascotCharacter, AlertType } from '@/types'
 import { MASCOT_CHARACTERS } from './AlertMascot'
+import { defaultFlaggedAlertSubscriptions } from '@/lib/alertFilter'
 
 const THEMES: { value: AppTheme; label: string; description: string }[] = [
   { value: 'blue', label: 'Deep Blue', description: 'Deep blue trading terminal (default)' },
@@ -75,6 +76,15 @@ function applyServerStateToStore(userData: any): string {
     if (Array.isArray(arr) && arr.length > 0) {
       useStore.setState({ alertSubscriptions: arr })
       summary.push(`${arr.length} subscription(s)`)
+    }
+  } catch {/* ignore */}
+
+  // Flagged-list alert subscriptions.
+  try {
+    const parsed = JSON.parse(cfg.flaggedAlertSubscriptions || '{}')
+    if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+      useStore.getState().updateConfig({ flaggedAlertSubscriptions: parsed } as any)
+      summary.push('flagged subscriptions')
     }
   } catch {/* ignore */}
 
@@ -1003,6 +1013,68 @@ export function SettingsPage() {
                     </button>
                   </li>
                 ))}
+              </ul>
+            )
+          })()}
+        </section>
+
+        {/* Flagged-list alert subscriptions. Justin (5/21): wants the same
+            per-type subscription control he has on watchlists, but applied
+            to flagged symbols regardless of which list they're on. Default
+            is all-on. */}
+        <section className="glass-panel rounded-lg p-4">
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-secondary)' }}>Flagged List Alerts</h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+            Subscribe flagged symbols to these alert types regardless of which watchlist they're on. Additive — never reduces alerts that a watchlist subscription already enables.
+          </p>
+          {(() => {
+            const TYPES: { type: AlertType; label: string }[] = [
+              { type: 'PRs', label: 'Press Releases' },
+              { type: 'Filings', label: 'SEC Filings' },
+              { type: 'TradeExchange', label: 'Trade Exchange' },
+              { type: 'X', label: 'Tweets (X)' },
+            ]
+            const subs = config.flaggedAlertSubscriptions ?? defaultFlaggedAlertSubscriptions()
+            const setSub = (type: AlertType, patch: Partial<{ enabled: boolean; audioEnabled: boolean }>) => {
+              const current = subs[type] ?? { enabled: true, audioEnabled: true }
+              updateConfig({
+                flaggedAlertSubscriptions: { ...subs, [type]: { ...current, ...patch } },
+              } as any)
+            }
+            return (
+              <ul className="space-y-1">
+                {TYPES.map(({ type, label }) => {
+                  const cur = subs[type] ?? { enabled: true, audioEnabled: true }
+                  return (
+                    <li
+                      key={type}
+                      className="flex items-center gap-3 px-2 py-1.5 rounded"
+                      style={{ background: 'var(--bg-glass)' }}
+                    >
+                      <label className="flex items-center gap-2 flex-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={cur.enabled}
+                          onChange={(e) => setSub(type, { enabled: e.target.checked })}
+                        />
+                        <span className="text-sm" style={{ color: 'var(--text-primary)' }}>{label}</span>
+                      </label>
+                      <label
+                        className="flex items-center gap-1.5 cursor-pointer"
+                        style={{ opacity: cur.enabled ? 1 : 0.4 }}
+                        title="Play audio when this type fires for a flagged symbol"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={cur.audioEnabled}
+                          disabled={!cur.enabled}
+                          onChange={(e) => setSub(type, { audioEnabled: e.target.checked })}
+                        />
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>audio</span>
+                      </label>
+                    </li>
+                  )
+                })}
               </ul>
             )
           })()}

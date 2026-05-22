@@ -12,6 +12,7 @@
 import { useEffect, useRef, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { flaggedSubscribedTypes } from '@/lib/alertFilter'
 
 const DEBOUNCE_MS = 3000  // wait 3s after last change before syncing
 
@@ -174,6 +175,18 @@ export function useCosmosSync() {
           } catch {/* ignore */}
         }
 
+        // Flagged-list alert subscriptions — restore the per-type enabled +
+        // audio map. Only overwrite local when the user hasn't customized
+        // this device yet.
+        if (cloudCfg.flaggedAlertSubscriptions && !localState.config.flaggedAlertSubscriptions) {
+          try {
+            const parsed = JSON.parse(cloudCfg.flaggedAlertSubscriptions)
+            if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+              cfgPatch.flaggedAlertSubscriptions = parsed
+            }
+          } catch {/* ignore */}
+        }
+
         if (Object.keys(cfgPatch).length > 0) {
           useStore.setState({ config: { ...localState.config, ...cfgPatch } })
           console.log(`CosmosSync: Restored ${Object.keys(cfgPatch).length} config scalars from cloud:`, Object.keys(cfgPatch))
@@ -226,6 +239,22 @@ export function useCosmosSync() {
       }
     }
 
+    // Flagged symbols: union the user's flagged-list subscription types onto
+    // each flagged symbol's pass-list. Justin's spec — flagging a symbol
+    // should ensure its alerts come through even when the symbol isn't on
+    // a subscribed watchlist. Subscriptions are additive: flagging never
+    // *removes* a type a watchlist already enabled.
+    const flaggedTypes = flaggedSubscribedTypes(state.config.flaggedAlertSubscriptions)
+    if (flaggedTypes.length > 0) {
+      Array.from(state.flaggedSymbols).forEach((sym) => {
+        const key = sym.toUpperCase()
+        const set = subscribedAlerts[key] ?? (subscribedAlerts[key] = [])
+        for (const t of flaggedTypes) {
+          if (!set.includes(t)) set.push(t)
+        }
+      })
+    }
+
     // UUID-drift guard. If the user has watchlists with symbols AND
     // alertSubscriptions records, the flat map should NOT be empty. Empty
     // means every sub.watchlistId references a watchlist that no longer
@@ -274,6 +303,7 @@ export function useCosmosSync() {
         alertSubscriptions: JSON.stringify(state.alertSubscriptions),
         subscribedAlerts: JSON.stringify(subscribedAlerts),
         watchlistOrder: JSON.stringify(watchlistOrderNames),
+        flaggedAlertSubscriptions: JSON.stringify(state.config.flaggedAlertSubscriptions || {}),
       },
     }
 
@@ -307,7 +337,8 @@ export function useCosmosSync() {
     }
   }, [watchlists, flaggedSymbols, alertSubscriptions, config.theme, config.excludeFilings,
     config.filteredPrPositive, config.filteredPrNegative, config.showAllTradeExchange,
-    config.ttsEnabled, config.audioEnabled, config.watchlistOrder, syncToCosmos, userKey])
+    config.ttsEnabled, config.audioEnabled, config.watchlistOrder,
+    config.flaggedAlertSubscriptions, syncToCosmos, userKey])
 
   // Expose a bypass-debounce sync so Settings can flush on textarea blur /
   // explicit save. Also resets the dedup hash so a force-sync always goes
