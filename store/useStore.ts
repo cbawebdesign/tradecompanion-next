@@ -30,6 +30,14 @@ interface AppState {
   connectionState: ConnectionState
   setConnectionState: (state: ConnectionState) => void
 
+  // Initial startup window. True for ~8 seconds after app mount so the
+  // various initial fetches (SignalR backfill, Airtable poll, TX poll,
+  // catalyst poll, etc.) have a chance to land before we render. Used to
+  // show a "Loading alerts…" placeholder instead of the million-row scroll
+  // Justin's been seeing on app start.
+  isBootstrapping: boolean
+  setBootstrapping: (value: boolean) => void
+
   // Focus/Active pane management
   activePane: PaneId
   setActivePane: (pane: PaneId) => void
@@ -163,6 +171,9 @@ export const useStore = create<AppState>()(
       // Connection state
       connectionState: 'disconnected',
       setConnectionState: (connectionState) => set({ connectionState }),
+
+      isBootstrapping: true,
+      setBootstrapping: (isBootstrapping) => set({ isBootstrapping }),
 
       // Focus/Active pane management
       activePane: null,

@@ -50,6 +50,21 @@ function CloseConfirmation() {
   return null
 }
 
+// Startup-window timer. isBootstrapping defaults to true on every fresh
+// load (it's not persisted) and we flip it false after ~8 seconds — long
+// enough for SignalR backfill + initial Airtable / TX / catalyst polls to
+// land. The AlertBar reads this flag and shows a quiet "Loading alerts…"
+// placeholder instead of letting users watch the million-row scroll fly
+// past on startup.
+function BootstrapWindow() {
+  const setBootstrapping = useStore((s) => s.setBootstrapping)
+  useEffect(() => {
+    const t = setTimeout(() => setBootstrapping(false), 8000)
+    return () => clearTimeout(t)
+  }, [setBootstrapping])
+  return null
+}
+
 // Split hooks into isolated components so re-renders don't cascade.
 // Previously all 13 hooks were in one component — when usePriceAlerts or
 // useQuoteBroadcast triggered (every 250ms from quotes), ALL hooks re-ran.
@@ -128,6 +143,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <ThemeProvider>
           <LoginGate>
             <CloseConfirmation />
+            <BootstrapWindow />
             <SignalRProvider>
               {children}
             </SignalRProvider>

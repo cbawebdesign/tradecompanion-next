@@ -53,6 +53,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     setActivePane,
     updateSymbolInWatchlist,
     triggeredPriceAlerts,
+    isBootstrapping,
   } = useStore()
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -248,6 +249,25 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     const hit = findEntry(symbol)
     if (!hit) return
     updateSymbolInWatchlist(hit.wl.id, { ...hit.entry, [field]: value })
+  }
+
+  // During the first ~8 sec after app start, suppress the timeline render
+  // so the user doesn't watch the SignalR + Airtable + TX backfill flood
+  // scroll past. Justin: "instead of showing a million messages scrolling
+  // on the screen, just show 'Loading Alerts' blank while backfilling".
+  if (isBootstrapping) {
+    return (
+      <div
+        ref={containerRef}
+        className={clsx(
+          'glass-panel rounded-lg px-4 py-2 text-sm flex items-center justify-center transition-all duration-200',
+          isActive ? 'pane-active' : 'pane-inactive'
+        )}
+        style={{ height: `${config.alertBarHeightPercent ?? 25}%`, flexShrink: 0, color: 'var(--text-muted)' }}
+      >
+        <span className="italic">Loading alerts…</span>
+      </div>
+    )
   }
 
   if (visibleAlerts.length === 0) {
