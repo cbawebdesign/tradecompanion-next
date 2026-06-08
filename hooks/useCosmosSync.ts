@@ -284,6 +284,20 @@ export function useCosmosSync() {
       .map((id) => state.watchlists.find((w) => w.id === id)?.name)
       .filter((n): n is string => typeof n === 'string')
 
+    // Alert subscriptions keyed by watchlist NAME (not UUID). The raw
+    // alertSubscriptions array references device-local watchlist UUIDs, which
+    // are regenerated on every restore — so syncing it verbatim orphans every
+    // subscription on the receiving device (Justin: "opened it today and alerts
+    // were disabled across all watchlists"). Names round-trip cleanly because
+    // the watchlists payload itself is keyed by name; the restore side rebuilds
+    // alertSubscriptions against the freshly-minted UUIDs.
+    const subsByName: Record<string, { alertType: string; audioEnabled: boolean }[]> = {}
+    for (const sub of state.alertSubscriptions) {
+      const wl = state.watchlists.find((w) => w.id === sub.watchlistId)
+      if (!wl) continue
+      ;(subsByName[wl.name] ??= []).push({ alertType: sub.alertType, audioEnabled: sub.audioEnabled })
+    }
+
     const payload = {
       watchlists: watchlistsForBackend,
       configs: {
@@ -301,6 +315,7 @@ export function useCosmosSync() {
         marketCapMax: String(state.config.marketCapMax),
         flaggedSymbols: JSON.stringify(Array.from(state.flaggedSymbols)),
         alertSubscriptions: JSON.stringify(state.alertSubscriptions),
+        alertSubscriptionsByName: JSON.stringify(subsByName),
         subscribedAlerts: JSON.stringify(subscribedAlerts),
         watchlistOrder: JSON.stringify(watchlistOrderNames),
         flaggedAlertSubscriptions: JSON.stringify(state.config.flaggedAlertSubscriptions || {}),

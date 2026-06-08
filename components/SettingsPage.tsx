@@ -70,12 +70,35 @@ function applyServerStateToStore(userData: any): string {
     }
   } catch {/* ignore */}
 
-  // Alert subscriptions.
+  // Alert subscriptions. Prefer the name-keyed map (alertSubscriptionsByName)
+  // and rebuild against the freshly-minted watchlist UUIDs — the raw
+  // alertSubscriptions array references the SENDING device's UUIDs, which no
+  // longer exist here after the restore above regenerated them. Using the
+  // stale UUIDs orphans every subscription, so the timeline filter drops all
+  // gated alerts (Justin: "alerts were disabled across all watchlists").
+  // Fall back to the legacy array for docs saved before this key existed.
   try {
-    const arr = JSON.parse(cfg.alertSubscriptions || '[]')
-    if (Array.isArray(arr) && arr.length > 0) {
-      useStore.setState({ alertSubscriptions: arr })
-      summary.push(`${arr.length} subscription(s)`)
+    const byName = JSON.parse(cfg.alertSubscriptionsByName || '{}')
+    if (byName && typeof byName === 'object' && Object.keys(byName).length > 0) {
+      const wls = useStore.getState().watchlists
+      const rebuilt = wls.flatMap((wl) =>
+        (Array.isArray(byName[wl.name]) ? byName[wl.name] : []).map((s: any) => ({
+          id: crypto.randomUUID(),
+          alertType: s.alertType,
+          watchlistId: wl.id,
+          audioEnabled: s.audioEnabled ?? true,
+        }))
+      )
+      if (rebuilt.length > 0) {
+        useStore.setState({ alertSubscriptions: rebuilt })
+        summary.push(`${rebuilt.length} subscription(s)`)
+      }
+    } else {
+      const arr = JSON.parse(cfg.alertSubscriptions || '[]')
+      if (Array.isArray(arr) && arr.length > 0) {
+        useStore.setState({ alertSubscriptions: arr })
+        summary.push(`${arr.length} subscription(s)`)
+      }
     }
   } catch {/* ignore */}
 
