@@ -84,7 +84,12 @@ export function useAirtablePolling() {
 
         const params = new URLSearchParams({
           view: view.viewId,
-          maxRecords: isInitial ? '5' : '20',  // only show last 5 on first load to avoid spam
+          // Initial backfill: pull the full session (bounded by the IS_AFTER
+          // date filter below, so this can't drag in multiple days). The old
+          // cap of 5 silently truncated legit items behind the date filter —
+          // Justin saw the RSS backfill miss an entry. Polls stay at 20 (just
+          // new items since last seen).
+          maxRecords: isInitial ? '100' : '20',
           'sort[0][field]': 'pubDate',
           'sort[0][direction]': 'desc',
           // Server-side filter — much cheaper than fetching then filtering, and
