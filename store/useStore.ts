@@ -195,10 +195,17 @@ export const useStore = create<AppState>()(
       // Alerts
       alerts: [],
       addAlert: (alert) => set((state) => {
+        // [TVDIAG] Temporary diagnostic for Justin's "timeline fills up with
+        // 100 and I stop getting new TradingView alerts". Logs the outcome of
+        // every tradingview alert so we can see if it's gated, cleared,
+        // deduped, or added-but-sorted-below-the-visible-100. Remove once the
+        // root cause is confirmed.
+        const tvDiag = alert.type === 'tradingview'
         // Signal/noise gate — unsubscribed alert types for non-flagged symbols
         // never hit the timeline. Unfiltered types (TradingView/catalyst/rss/mail)
         // always pass. See lib/alertFilter.ts.
         if (!shouldShowAlert(alert, state.flaggedSymbols, state.watchlists, state.alertSubscriptions)) {
+          if (tvDiag) console.warn('[TVDIAG] DROPPED: subscription gate', { symbol: alert.symbol, msg: alert.message })
           return state
         }
         // Cleared-timeline floor — once the user clicks "Clear All Alerts",
@@ -212,7 +219,10 @@ export const useStore = create<AppState>()(
           const ts = alert.timestamp instanceof Date
             ? alert.timestamp.getTime()
             : new Date(alert.timestamp).getTime()
-          if (isNaN(ts) || ts < state.clearedSince) return state
+          if (isNaN(ts) || ts < state.clearedSince) {
+            if (tvDiag) console.warn('[TVDIAG] DROPPED: cleared-floor', { symbol: alert.symbol, tsValid: !isNaN(ts), ts, clearedSince: state.clearedSince })
+            return state
+          }
         }
         // Dedup: matching dedupKeys is a positive signal (same source assigned
         // them deliberately). A MISMATCH is not a signal of uniqueness, though
@@ -222,8 +232,10 @@ export const useStore = create<AppState>()(
         // is the same. So we never short-circuit-false on dedupKey: a hit
         // returns true, a miss falls through to the normalized-message check.
         const normalizedNew = normalizeAlertMessage(alert.message)
+        let tvDupMsg = ''
+        let tvDupType = ''
         const isDuplicate = state.alerts.some(existing => {
-          if (alert.dedupKey && existing.dedupKey && alert.dedupKey === existing.dedupKey) return true
+          if (alert.dedupKey && existing.dedupKey && alert.dedupKey === existing.dedupKey) { if (tvDiag) { tvDupMsg = existing.message; tvDupType = existing.type } return true }
           if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
           // Exact-only after normalization. We used to also collapse on the
           // first 40 chars matching, but the normalizer already strips the
@@ -231,15 +243,25 @@ export const useStore = create<AppState>()(
           // the prefix fallback's only effect now is risking false-collapse
           // on similar headlines (e.g. "Tesla Q1 earnings beat" vs "Tesla
           // Q1 earnings beat estimates 15%").
-          return normalizeAlertMessage(existing.message) === normalizedNew
+          const hit = normalizeAlertMessage(existing.message) === normalizedNew
+          if (hit && tvDiag) { tvDupMsg = existing.message; tvDupType = existing.type }
+          return hit
         })
-        if (isDuplicate) return state
+        if (isDuplicate) {
+          if (tvDiag) console.warn('[TVDIAG] DROPPED: duplicate', { symbol: alert.symbol, msg: alert.message, matchedMsg: tvDupMsg, matchedType: tvDupType })
+          return state
+        }
         if (typeof window !== 'undefined') {
           try { logAlert(alert, 'addAlert') } catch {}
         }
         // Sort by timestamp desc (newest first) so backfilled alerts land in
         // chronological order instead of arriving-group-by-type order.
-        return { alerts: sortAlertsByTimestampDesc([alert, ...state.alerts]).slice(0, 500) }
+        const sorted = sortAlertsByTimestampDesc([alert, ...state.alerts])
+        if (tvDiag) {
+          const idx = sorted.findIndex(a => a.id === alert.id)
+          console.log('[TVDIAG] ADDED', { symbol: alert.symbol, sortIndex: idx, total: sorted.length, visibleInTop100: idx >= 0 && idx < 100, ts: alert.timestamp })
+        }
+        return { alerts: sorted.slice(0, 500) }
       }),
       addAlerts: (newAlerts) => set((state) => {
         // Apply the same subscription gate as addAlert, in bulk.

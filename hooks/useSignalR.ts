@@ -541,10 +541,14 @@ export function useSignalR() {
         connection.on('tradingViewAlertRaw', (data: any) => {
           // console.log('tradingViewAlertRaw received:', data)
 
+          // [TVDIAG] log every raw TV frame received off SignalR, before any
+          // dedup — so we can confirm delivery even when it's later dropped.
+          console.log('[TVDIAG] SignalR received tradingViewAlertRaw', { id: data.id || data.Id || '', received_utc: data.received_utc, seenIds: tvAlertIdsRef.current.size })
+
           // Dedup by alert ID (prevents replay on reconnect/backfill)
           const alertId = data.id || data.Id || ''
           if (alertId && tvAlertIdsRef.current.has(alertId)) {
-            console.log('SignalR: Skipping duplicate TradingView alert:', alertId)
+            console.warn('[TVDIAG] DROPPED: SignalR dedup-set hit (already seen this id)', alertId)
             return
           }
           if (alertId) tvAlertIdsRef.current.add(alertId)
