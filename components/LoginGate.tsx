@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { applyServerStateToStore } from '@/lib/applyServerState'
 
 // ── Animated candlestick chart background ──────────────────────────────
 
@@ -232,7 +233,6 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
 
   const hubUrl = useStore((s) => s.config.hubUrl)
   const updateConfig = useStore((s) => s.updateConfig)
-  const setWatchlists = useStore((s) => s.setWatchlists)
 
   const baseApi = hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/api'
 
@@ -248,29 +248,24 @@ export function LoginGate({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Pull watchlists from server after login
+  // Pull the FULL user record from server after login. The session lives in
+  // sessionStorage, so a browser/Windows restart forces a re-login — this must
+  // therefore restore everything (watchlists IN ORDER, per-watchlist alert
+  // subscriptions, flagged symbols, and ALL settings), not just watchlists.
+  // It used to restore watchlists only (with regenerated UUIDs), which
+  // orphaned subscriptions and dropped settings on every re-login — the cause
+  // of Justin's "all my settings are gone after restart". Shared with the
+  // Settings "Pull from server" / "Load Key" buttons.
   const pullUserData = useCallback(async (userKey: string) => {
     try {
       const resp = await fetch(proxyUrl(`${baseApi}/user/${encodeURIComponent(userKey)}`))
       if (!resp.ok) return
       const userData = await resp.json()
-      if (userData.watchlists && Object.keys(userData.watchlists).length > 0) {
-        const restored = Object.entries(userData.watchlists).map(([name, symbols]: [string, any]) => ({
-          id: crypto.randomUUID(),
-          name,
-          symbols: (symbols as string[]).map((sym: string) => ({
-            symbol: sym,
-            upperAlert: null,
-            lowerAlert: null,
-            notes: '',
-          })),
-        }))
-        setWatchlists(restored)
-      }
+      applyServerStateToStore(userData)
     } catch (err) {
       console.warn('Failed to pull user data on login:', err)
     }
-  }, [baseApi, setWatchlists])
+  }, [baseApi])
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault()

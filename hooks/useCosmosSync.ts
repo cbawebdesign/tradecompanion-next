@@ -242,6 +242,22 @@ export function useCosmosSync() {
 
     const state = useStore.getState()
 
+    // SAFETY: never let a pristine/empty local state overwrite good server
+    // data. A forced re-login (sessionStorage session is cleared on browser
+    // restart) or a failed restore can briefly leave the store at defaults
+    // while a userKey is still set; pushing that would wipe the user's cloud
+    // doc (watchlists, subscriptions, and — since the webConfig blob — every
+    // setting). If nothing meaningful is populated, refuse to push. The user
+    // genuinely clearing everything is a rare edge we accept not syncing.
+    const isPristine =
+      state.watchlists.every((w) => w.symbols.length === 0)
+      && state.alertSubscriptions.length === 0
+      && state.flaggedSymbols.size === 0
+    if (isPristine) {
+      console.warn('CosmosSync: refusing to push — local state is pristine/empty (would overwrite server)')
+      return
+    }
+
     // Convert Zustand watchlist format to backend format:
     // Backend expects: { "WatchlistName": ["SYM1", "SYM2"] }
     // Zustand has: [{ id, name, symbols: [{ symbol, upperAlert, ... }] }]
