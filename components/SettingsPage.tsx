@@ -31,16 +31,28 @@ function applyServerStateToStore(userData: any): string {
   const summary: string[] = []
   const cfg = (userData?.configs ?? {}) as Record<string, string | undefined>
 
-  // Watchlists — convert dict { name: [symbols] } to Zustand array.
+  // Watchlists — convert dict { name: [symbols] } to Zustand array, restored
+  // in the server's saved dropdown order (names; unknown names sort last).
+  // We set watchlistOrder to the freshly-minted UUIDs inline, so order
+  // round-trips reliably instead of depending on a separate name→UUID remap.
   if (userData?.watchlists && Object.keys(userData.watchlists).length > 0) {
-    const restored = Object.entries(userData.watchlists).map(([name, symbols]: [string, any]) => ({
-      id: crypto.randomUUID(),
-      name,
-      symbols: (symbols as string[]).map((sym: string) => ({
-        symbol: sym, upperAlert: null, lowerAlert: null, notes: '',
-      })),
-    }))
+    let orderNames: string[] = []
+    try { const n = JSON.parse(cfg.watchlistOrder || '[]'); if (Array.isArray(n)) orderNames = n } catch {/* ignore */}
+    const rank = (name: string) => {
+      const i = orderNames.indexOf(name)
+      return i === -1 ? Number.MAX_SAFE_INTEGER : i
+    }
+    const restored = Object.entries(userData.watchlists)
+      .sort((a, b) => rank(a[0]) - rank(b[0]))
+      .map(([name, symbols]: [string, any]) => ({
+        id: crypto.randomUUID(),
+        name,
+        symbols: (symbols as string[]).map((sym: string) => ({
+          symbol: sym, upperAlert: null, lowerAlert: null, notes: '',
+        })),
+      }))
     useStore.getState().setWatchlists(restored)
+    useStore.getState().reorderWatchlists(restored.map((w) => w.id))
     const total = restored.reduce((n, wl) => n + wl.symbols.length, 0)
     summary.push(`${restored.length} watchlist(s) / ${total} symbols`)
   }
@@ -54,21 +66,7 @@ function applyServerStateToStore(userData: any): string {
     }
   } catch {/* ignore */}
 
-  // Watchlist dropdown order — server stores names, we map back to local
-  // UUIDs (which were freshly minted by the watchlist restore above).
-  try {
-    const names = JSON.parse(cfg.watchlistOrder || '[]')
-    if (Array.isArray(names) && names.length > 0) {
-      const wls = useStore.getState().watchlists
-      const ids = names
-        .map((n: string) => wls.find((w) => w.name === n)?.id)
-        .filter((id: string | undefined): id is string => !!id)
-      if (ids.length > 0) {
-        useStore.getState().reorderWatchlists(ids)
-        summary.push(`watchlist order (${ids.length})`)
-      }
-    }
-  } catch {/* ignore */}
+  // (Watchlist dropdown order is restored inline with the watchlists above.)
 
   // Alert subscriptions. Prefer the name-keyed map (alertSubscriptionsByName)
   // and rebuild against the freshly-minted watchlist UUIDs — the raw
@@ -111,23 +109,41 @@ function applyServerStateToStore(userData: any): string {
     }
   } catch {/* ignore */}
 
-  // Config scalars. Legacy desktop wrote PascalCase keys, web uses camelCase.
-  const pick = (...keys: string[]) => {
-    for (const k of keys) {
-      const v = cfg[k]
-      if (typeof v === 'string' && v.length > 0) return v
+  // Full settings blob (preferred) — every Settings-tab field in one shot.
+  // This is an explicit "Pull from server", so overwrite local wholesale.
+  // Falls back to the individual legacy keys below for desktop-origin docs
+  // (or older web docs) that predate the blob.
+  let appliedBlob = false
+  try {
+    if (cfg.webConfig) {
+      const blob = JSON.parse(cfg.webConfig)
+      if (blob && typeof blob === 'object' && Object.keys(blob).length > 0) {
+        useStore.getState().updateConfig(blob as any)
+        appliedBlob = true
+        summary.push(`${Object.keys(blob).length} setting(s)`)
+      }
     }
-    return undefined
-  }
-  const cfgPatch: Record<string, string> = {}
-  const ef = pick('excludeFilings', 'ExcludeFilings'); if (ef) cfgPatch.excludeFilings = ef
-  const fpp = pick('filteredPrPositive', 'FilterNewsPositive'); if (fpp) cfgPatch.filteredPrPositive = fpp
-  const fpn = pick('filteredPrNegative', 'FilterNewsNegative'); if (fpn) cfgPatch.filteredPrNegative = fpn
-  const tvid = pick('tradingViewId', 'TradingViewId'); if (tvid) cfgPatch.tradingViewId = tvid
-  const xshow = pick('xShowAllTweets', 'XshowAllTweets'); if (xshow) cfgPatch.xShowAllTweets = xshow
-  if (Object.keys(cfgPatch).length > 0) {
-    useStore.getState().updateConfig(cfgPatch as any)
-    summary.push(`${Object.keys(cfgPatch).length} setting(s)`)
+  } catch {/* ignore */}
+
+  if (!appliedBlob) {
+    // Config scalars. Legacy desktop wrote PascalCase keys, web uses camelCase.
+    const pick = (...keys: string[]) => {
+      for (const k of keys) {
+        const v = cfg[k]
+        if (typeof v === 'string' && v.length > 0) return v
+      }
+      return undefined
+    }
+    const cfgPatch: Record<string, string> = {}
+    const ef = pick('excludeFilings', 'ExcludeFilings'); if (ef) cfgPatch.excludeFilings = ef
+    const fpp = pick('filteredPrPositive', 'FilterNewsPositive'); if (fpp) cfgPatch.filteredPrPositive = fpp
+    const fpn = pick('filteredPrNegative', 'FilterNewsNegative'); if (fpn) cfgPatch.filteredPrNegative = fpn
+    const tvid = pick('tradingViewId', 'TradingViewId'); if (tvid) cfgPatch.tradingViewId = tvid
+    const xshow = pick('xShowAllTweets', 'XshowAllTweets'); if (xshow) cfgPatch.xShowAllTweets = xshow
+    if (Object.keys(cfgPatch).length > 0) {
+      useStore.getState().updateConfig(cfgPatch as any)
+      summary.push(`${Object.keys(cfgPatch).length} setting(s)`)
+    }
   }
 
   return summary.length > 0 ? `Restored ${summary.join(', ')}.` : 'Nothing on server to restore.'

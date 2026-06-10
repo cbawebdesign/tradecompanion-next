@@ -1,6 +1,7 @@
 "use client"
 
 import { useStore } from '@/store/useStore'
+import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
 import { GATED_SUBSCRIPTION_KEYS, SUBSCRIPTION_LABELS } from '@/lib/alertFilter'
 import type { AlertType } from '@/types'
 
@@ -14,6 +15,10 @@ export function WatchlistSubscriptionsModal({ watchlistId, onClose }: Props) {
   const subscriptions = useStore(s => s.alertSubscriptions)
   const addAlertSubscription = useStore(s => s.addAlertSubscription)
   const removeAlertSubscription = useStore(s => s.removeAlertSubscription)
+
+  // Flush the subscription change to the cloud immediately on close instead of
+  // waiting on the 3s debounce — which could be lost if the tab closed first.
+  const handleClose = () => { void forceCosmosSyncNow(); onClose() }
 
   if (!watchlist) return null
 
@@ -33,7 +38,7 @@ export function WatchlistSubscriptionsModal({ watchlistId, onClose }: Props) {
     <div
       className="fixed inset-0 z-50 flex items-center justify-center"
       style={{ background: 'rgba(0,0,0,0.65)' }}
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="glass-panel rounded-lg p-5 w-full max-w-md"
@@ -51,7 +56,7 @@ export function WatchlistSubscriptionsModal({ watchlistId, onClose }: Props) {
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="text-xl leading-none -mt-1 -mr-1 px-2"
             style={{ color: 'var(--text-muted)' }}
             aria-label="Close"
@@ -123,7 +128,7 @@ export function WatchlistSubscriptionsModal({ watchlistId, onClose }: Props) {
             All off
           </button>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="btn btn-primary text-xs py-1.5 px-3"
           >
             Done

@@ -135,7 +135,7 @@ const defaultAlertSounds: Record<string, { enabled: boolean; frequency: number; 
   mail: { enabled: true, frequency: 550, duration: 200 },
 }
 
-const defaultConfig: AppConfig = {
+export const defaultConfig: AppConfig = {
   tradingViewId: '',
   apiKey: '',
   hubUrl: 'https://tradecompanion3.azurewebsites.net/api',

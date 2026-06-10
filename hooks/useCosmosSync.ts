@@ -10,7 +10,7 @@
 //   - On config change: debounced push to Cosmos
 
 import { useEffect, useRef, useCallback } from 'react'
-import { useStore } from '@/store/useStore'
+import { useStore, defaultConfig } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { flaggedSubscribedTypes } from '@/lib/alertFilter'
 
@@ -187,8 +187,33 @@ export function useCosmosSync() {
           } catch {/* ignore */}
         }
 
+        // Full settings blob — fill any field still at its default value
+        // (fresh browser / new device convenience). Only defaults are
+        // overwritten, so this never clobbers a device the user has already
+        // customized; the explicit Settings → "Pull from server" button does a
+        // full overwrite instead.
+        if (cloudCfg.webConfig) {
+          try {
+            const blob = JSON.parse(cloudCfg.webConfig)
+            if (blob && typeof blob === 'object') {
+              const curCfg = localState.config as unknown as Record<string, unknown>
+              const defCfg = defaultConfig as unknown as Record<string, unknown>
+              for (const [k, v] of Object.entries(blob)) {
+                const cur = curCfg[k]
+                const def = defCfg[k]
+                if (JSON.stringify(cur) === JSON.stringify(def) && JSON.stringify(v) !== JSON.stringify(cur)) {
+                  (cfgPatch as Record<string, unknown>)[k] = v
+                }
+              }
+            }
+          } catch {/* ignore */}
+        }
+
         if (Object.keys(cfgPatch).length > 0) {
-          useStore.setState({ config: { ...localState.config, ...cfgPatch } })
+          // Functional updater reads CURRENT config, not the stale snapshot
+          // captured above — otherwise this would clobber config changes made
+          // in between (e.g. watchlistOrder set by the order-restore block).
+          useStore.setState((s) => ({ config: { ...s.config, ...cfgPatch } }))
           console.log(`CosmosSync: Restored ${Object.keys(cfgPatch).length} config scalars from cloud:`, Object.keys(cfgPatch))
         }
       } catch (err) {
@@ -280,9 +305,33 @@ export function useCosmosSync() {
     // are regenerated per device on first pull, so syncing by UUID would
     // never resolve on the other side. Names round-trip cleanly because the
     // watchlists payload itself is keyed by name.
-    const watchlistOrderNames = (state.config.watchlistOrder || [])
+    // Effective FULL dropdown order: configured order first (resolved to
+    // names), then any watchlists not yet in that list, in array order. We
+    // push the complete name list so order round-trips even when the user
+    // never explicitly reordered — the old code pushed only
+    // config.watchlistOrder, which was usually empty/partial, so order didn't
+    // sync (Justin: "watch lists are out of order after I pull").
+    const orderedIds = [
+      ...(state.config.watchlistOrder || []).filter((id) => state.watchlists.some((w) => w.id === id)),
+      ...state.watchlists.filter((w) => !(state.config.watchlistOrder || []).includes(w.id)).map((w) => w.id),
+    ]
+    const watchlistOrderNames = orderedIds
       .map((id) => state.watchlists.find((w) => w.id === id)?.name)
       .filter((n): n is string => typeof n === 'string')
+
+    // Full settings blob — every Settings-tab field syncs in one shot so a
+    // field can never be silently dropped again (Justin: "ALL settings should
+    // sync"). Excludes identity/infra keys and fields handled separately
+    // (watchlistOrder as names above; flaggedAlertSubscriptions below) plus
+    // device-local window layout (pane sizes differ per monitor).
+    const WEBCONFIG_DENYLIST = new Set([
+      'userKey', 'hubUrl', 'watchlistOrder', 'flaggedAlertSubscriptions',
+      'alertBarHeight', 'alertBarHeightPercent', 'watchlistSplitPercent', 'flaggedListSplitPercent',
+    ])
+    const webConfig: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(state.config)) {
+      if (!WEBCONFIG_DENYLIST.has(k)) webConfig[k] = v
+    }
 
     // Alert subscriptions keyed by watchlist NAME (not UUID). The raw
     // alertSubscriptions array references device-local watchlist UUIDs, which
@@ -319,6 +368,7 @@ export function useCosmosSync() {
         subscribedAlerts: JSON.stringify(subscribedAlerts),
         watchlistOrder: JSON.stringify(watchlistOrderNames),
         flaggedAlertSubscriptions: JSON.stringify(state.config.flaggedAlertSubscriptions || {}),
+        webConfig: JSON.stringify(webConfig),
       },
     }
 
@@ -350,10 +400,21 @@ export function useCosmosSync() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
     }
-  }, [watchlists, flaggedSymbols, alertSubscriptions, config.theme, config.excludeFilings,
-    config.filteredPrPositive, config.filteredPrNegative, config.showAllTradeExchange,
-    config.ttsEnabled, config.audioEnabled, config.watchlistOrder,
-    config.flaggedAlertSubscriptions, syncToCosmos, userKey])
+    // Depend on the whole config object so ANY settings change triggers a
+    // sync — listing individual fields meant new settings silently never
+    // synced. The payload-hash check below makes redundant pushes a no-op.
+  }, [watchlists, flaggedSymbols, alertSubscriptions, config, syncToCosmos, userKey])
+
+  // Best-effort flush when the tab is hidden or closed, so a change made
+  // inside the 3s debounce window isn't lost (Justin: subscription toggles
+  // weren't saving when he closed the tab right after). visibilitychange fires
+  // reliably on tab-switch / close, unlike beforeunload.
+  useEffect(() => {
+    if (!userKey) return
+    const onHide = () => { if (document.visibilityState === 'hidden') syncToCosmos() }
+    document.addEventListener('visibilitychange', onHide)
+    return () => document.removeEventListener('visibilitychange', onHide)
+  }, [userKey, syncToCosmos])
 
   // Expose a bypass-debounce sync so Settings can flush on textarea blur /
   // explicit save. Also resets the dedup hash so a force-sync always goes
