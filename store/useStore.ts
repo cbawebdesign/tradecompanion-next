@@ -261,11 +261,6 @@ export const useStore = create<AppState>()(
           const idx = sorted.findIndex(a => a.id === alert.id)
           console.log('[TVDIAG] ADDED', { symbol: alert.symbol, sortIndex: idx, total: sorted.length, visibleInTop100: idx >= 0 && idx < 100, ts: alert.timestamp })
         }
-        // Hold-cap stays 500 for now: the timeline is virtualized so all 500
-        // are *viewable* (display is no longer capped at 100), but `alerts` is
-        // persisted to localStorage on every add, so raising this further
-        // multiplies that write cost (a likely "spazzing" source under flood).
-        // Raising it needs the persistence cost addressed first.
         return { alerts: sorted.slice(0, 500) }
       }),
       addAlerts: (newAlerts) => set((state) => {
