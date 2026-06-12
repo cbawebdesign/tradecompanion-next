@@ -236,6 +236,14 @@ export const useStore = create<AppState>()(
         let tvDupType = ''
         const isDuplicate = state.alerts.some(existing => {
           if (alert.dedupKey && existing.dedupKey && alert.dedupKey === existing.dedupKey) { if (tvDiag) { tvDupMsg = existing.message; tvDupType = existing.type } return true }
+          // TradingView alerts legitimately REPEAT through the day — the same
+          // setup firing again is a new, meaningful signal, not a duplicate.
+          // Never collapse them on matching message (Justin confirmed via the
+          // Admin Dashboard that the alerts arrive but were dropped as dupes).
+          // True replays on reconnect are already filtered upstream by the
+          // SignalR alert-id dedup set (tvAlertIdsRef), and the dedupKey check
+          // above still guards an exact same-id re-add.
+          if (alert.type === 'tradingview') return false
           if (existing.symbol !== alert.symbol || existing.type !== alert.type) return false
           // Exact-only after normalization. We used to also collapse on the
           // first 40 chars matching, but the normalizer already strips the
@@ -295,6 +303,9 @@ export const useStore = create<AppState>()(
         }
         const unique = gated.filter(a => {
           if (a.dedupKey && existingDedupKeys.has(a.dedupKey)) return false
+          // TradingView alerts legitimately repeat — never message-dedup them
+          // (mirrors addAlert). Only an exact dedupKey replay is dropped above.
+          if (a.type === 'tradingview') return true
           return !existingMsgKeys.has(`${a.symbol}|${normalizeAlertMessage(a.message)}|${a.type}`)
         })
         if (unique.length === 0) return state
