@@ -69,8 +69,58 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
   const contextMenuRef = useRef<HTMLDivElement>(null)
 
-  // Filter out hidden alerts
-  const visibleAlerts = alerts.filter(a => !hiddenAlertIds.has(a.id)).slice(0, 100)
+  // Filter out hidden alerts. NOTE: no longer capped at 100 — the list is
+  // virtualized below (only the rows in/near the viewport are rendered), so
+  // the timeline can show the full session without the "spazzing" Justin saw
+  // when hundreds of <tr> rendered at once.
+  const visibleAlerts = alerts.filter(a => !hiddenAlertIds.has(a.id))
+
+  // ── Virtualization (windowing) ──────────────────────────────────────────
+  // Rows are single-line (the message cell uses `truncate`), so a fixed row
+  // height works. We render only the slice in/near the viewport plus spacer
+  // rows above/below to preserve scroll height. rowH is measured from a real
+  // row so the scroll extent stays accurate across themes / zoom.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [scrollTop, setScrollTop] = useState(0)
+  const [viewportH, setViewportH] = useState(400)
+  const [rowH, setRowH] = useState(29)
+  const OVERSCAN = 12
+
+  // Track the scroll viewport height (pane is user-resizable).
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const measure = () => setViewportH(el.clientHeight)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Measure actual row height from a rendered row (cheap, guarded).
+  useEffect(() => {
+    const el = scrollRef.current?.querySelector('tr[data-alert-row]') as HTMLElement | null
+    if (el && el.offsetHeight > 0 && Math.abs(el.offsetHeight - rowH) > 1) setRowH(el.offsetHeight)
+  })
+
+  const totalRows = visibleAlerts.length
+  const startIndex = Math.max(0, Math.floor(scrollTop / rowH) - OVERSCAN)
+  const endIndex = Math.min(totalRows, Math.ceil((scrollTop + viewportH) / rowH) + OVERSCAN)
+  const windowedAlerts = visibleAlerts.slice(startIndex, endIndex)
+  const padTop = startIndex * rowH
+  const padBottom = Math.max(0, (totalRows - endIndex) * rowH)
+
+  // Keep the keyboard-selected row in view. Computed arithmetically so it
+  // works even when the selected row isn't currently rendered (windowed out).
+  useEffect(() => {
+    if (selectedAlertIndex < 0) return
+    const el = scrollRef.current
+    if (!el) return
+    const top = selectedAlertIndex * rowH
+    const bottom = top + rowH
+    if (top < el.scrollTop) el.scrollTop = top
+    else if (bottom > el.scrollTop + el.clientHeight) el.scrollTop = bottom - el.clientHeight
+  }, [selectedAlertIndex, rowH])
 
   // Close context menu when clicking outside
   useEffect(() => {
@@ -314,7 +364,11 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
       </div>
 
       {/* Table */}
-      <div className="flex-1 overflow-auto">
+      <div
+        ref={scrollRef}
+        className="flex-1 overflow-auto"
+        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+      >
         <table className="w-full text-sm alert-bar-table">
           <thead className="sticky top-0 bg-gray-800 text-xs text-gray-400">
             <tr>
@@ -331,12 +385,15 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
             </tr>
           </thead>
           <tbody>
-            {visibleAlerts.map((alert, index) => {
+            {padTop > 0 && <tr aria-hidden style={{ height: padTop }}><td colSpan={6} className="p-0" /></tr>}
+            {windowedAlerts.map((alert, i) => {
+              const index = startIndex + i
               const isFlagged = flaggedSymbols.has(alert.symbol)
               const isSelected = isActive && index === selectedAlertIndex
               return (
                 <tr
                   key={alert.id}
+                  data-alert-row
                   className={clsx(
                     'hover:bg-gray-700/50 cursor-pointer border-b border-gray-800',
                     isSelected && 'bg-blue-900/50'
@@ -441,6 +498,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                 </tr>
               )
             })}
+            {padBottom > 0 && <tr aria-hidden style={{ height: padBottom }}><td colSpan={6} className="p-0" /></tr>}
           </tbody>
         </table>
       </div>
