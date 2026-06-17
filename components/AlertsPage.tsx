@@ -497,7 +497,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                         </td>
                         <td className="font-mono font-semibold">{symbol}</td>
                         <td className={clsx('text-right font-mono', changeClass)}>
-                          {quote?.last?.toFixed(2) || '-'}
+                          {quote?.last != null ? (quote.last < 1 ? quote.last.toFixed(4) : quote.last.toFixed(2)) : '-'}
                         </td>
                         <td className={clsx('text-right font-mono', changeClass)}>
                           {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}

@@ -16,7 +16,11 @@
 export function normalizeAlertMessage(msg: string | undefined | null): string {
   if (!msg) return ''
   return msg
-    .replace(/^\s*\[[A-Za-z0-9_.-]+\]\s*/, '')
+    // Strip a leading [Source] / [+] / [-] / [+-] prefix. The `+` matters: the
+    // FilteredPR alert tags the same headline as "[+] ..." / "[-] ...", so
+    // without it the filtered copy never collapsed against the plain PR and
+    // showed twice in the data ribbon (Justin's [+] duplicate).
+    .replace(/^\s*\[[A-Za-z0-9_.+-]+\]\s*/, '')
     .replace(/\s*\(\$\d+(?:\.\d+)?\)\s*$/, '')
     .replace(/\s+/g, ' ')
     .trim()

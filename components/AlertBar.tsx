@@ -96,12 +96,13 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
   const handleContextMenu = useCallback((e: React.MouseEvent, alert: Alert) => {
     e.preventDefault()
-    setContextMenu({
-      visible: true,
-      x: e.clientX,
-      y: e.clientY,
-      alert,
-    })
+    // Clamp to the viewport so the menu (incl. its "move/copy to watchlist"
+    // items) never renders off-screen — Justin hit this right-clicking near the
+    // right/bottom edge of the timeline.
+    const MENU_W = 200, MENU_H = 340
+    const x = Math.max(4, Math.min(e.clientX, window.innerWidth - MENU_W))
+    const y = Math.max(4, Math.min(e.clientY, window.innerHeight - MENU_H))
+    setContextMenu({ visible: true, x, y, alert })
   }, [])
 
   const handleCopyText = useCallback((alert: Alert) => {
@@ -179,14 +180,18 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        setSelectedAlertIndex(prev =>
-          prev < visibleAlerts.length - 1 ? prev + 1 : 0
-        )
+        const next = selectedAlertIndex < visibleAlerts.length - 1 ? selectedAlertIndex + 1 : 0
+        setSelectedAlertIndex(next)
+        // Follow the selection with the data ribbon (parity with flagged list /
+        // watchlist arrow-nav — Justin wants the ribbon to update on the timeline too).
+        const sym = visibleAlerts[next]?.symbol
+        if (sym) setSelectedSymbol(sym)
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
-        setSelectedAlertIndex(prev =>
-          prev > 0 ? prev - 1 : visibleAlerts.length - 1
-        )
+        const next = selectedAlertIndex > 0 ? selectedAlertIndex - 1 : visibleAlerts.length - 1
+        setSelectedAlertIndex(next)
+        const sym = visibleAlerts[next]?.symbol
+        if (sym) setSelectedSymbol(sym)
       } else if (e.key === ' ' && selectedAlertIndex >= 0) {
         // Space → fire AHK + copy symbol to clipboard. Used to also toggle
         // the flag (paired with AHK) but Justin asked to disable that —
