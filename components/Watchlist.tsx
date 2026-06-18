@@ -122,6 +122,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const [isAddingInline, setIsAddingInline] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
   const [subscriptionsModalFor, setSubscriptionsModalFor] = useState<string | null>(null)
+  const [copyPasteMsg, setCopyPasteMsg] = useState('')
   const inlineInputRef = useRef<HTMLInputElement>(null)
   // Split percent is sourced from config so the Flagged Symbols view (AlertsPage)
   // shares the same divider position. Dragging here persists + syncs both views.
@@ -314,6 +315,42 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     })
     setNewSymbol('')
   }, [newSymbol, selectedWatchlistId, currentWatchlist, addSymbolToWatchlist])
+
+  // Copy the current watchlist's symbols to the clipboard as a comma-separated
+  // list (so it can be pasted into another TC list or an outside platform).
+  const handleCopyList = useCallback(() => {
+    const syms = (currentWatchlist?.symbols || []).map(s => s.symbol)
+    if (syms.length === 0) return
+    copyToClipboard(syms.join(','))
+    setCopyPasteMsg(`Copied ${syms.length}`)
+    setTimeout(() => setCopyPasteMsg(''), 1500)
+  }, [currentWatchlist])
+
+  // Paste a comma/space/newline-separated symbol list from the clipboard into
+  // the current watchlist. APPENDS (keeps existing symbols), skips duplicates.
+  const handlePasteList = useCallback(async () => {
+    const wlId = selectedWatchlistId || currentWatchlist?.id
+    if (!wlId) return
+    let text = ''
+    try { text = await navigator.clipboard.readText() } catch {
+      setCopyPasteMsg('Clipboard blocked')
+      setTimeout(() => setCopyPasteMsg(''), 1500)
+      return
+    }
+    const parsed = Array.from(new Set(
+      text.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(s => /^[A-Z][A-Z0-9.\-]{0,7}$/.test(s))
+    ))
+    const existing = new Set((currentWatchlist?.symbols || []).map(s => s.symbol.toUpperCase()))
+    let added = 0
+    for (const symbol of parsed) {
+      if (existing.has(symbol)) continue
+      addSymbolToWatchlist(wlId, { symbol, upperAlert: null, lowerAlert: null, notes: '' })
+      existing.add(symbol)
+      added++
+    }
+    setCopyPasteMsg(added > 0 ? `Added ${added}` : 'Nothing to add')
+    setTimeout(() => setCopyPasteMsg(''), 1500)
+  }, [selectedWatchlistId, currentWatchlist, addSymbolToWatchlist])
 
   const handleAddWatchlist = useCallback((e: React.FormEvent) => {
     e.preventDefault()
@@ -547,6 +584,29 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </button>
+          )}
+        </div>
+
+        {/* Copy / Paste symbol list (watchlist view only — not the flagged list).
+            Copy = this list's symbols to clipboard; Paste = append a comma/space
+            -separated list from the clipboard, skipping duplicates. */}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleCopyList}
+            className="text-xs py-1 px-2 bg-gray-700 border border-gray-600 rounded hover:bg-gray-600"
+            title="Copy this watchlist's symbols (comma-separated) to the clipboard"
+          >
+            Copy
+          </button>
+          <button
+            onClick={handlePasteList}
+            className="text-xs py-1 px-2 bg-gray-700 border border-gray-600 rounded hover:bg-gray-600"
+            title="Paste comma/space-separated symbols from the clipboard into this watchlist (appends, skips duplicates)"
+          >
+            Paste
+          </button>
+          {copyPasteMsg && (
+            <span className="text-xs text-gray-400">{copyPasteMsg}</span>
           )}
         </div>
 
