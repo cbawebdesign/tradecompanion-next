@@ -5,6 +5,7 @@ import { AlertBar } from '@/components/AlertBar'
 import { Watchlist } from '@/components/Watchlist'
 import { AlertsPage } from '@/components/AlertsPage'
 import { ScannerPage } from '@/components/ScannerPage'
+import { ThemesPage } from '@/components/ThemesPage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
@@ -15,6 +16,7 @@ const TABS = [
   { id: 1, label: 'Alerts', icon: '🔔' },
   { id: 2, label: 'Watchlist', icon: '📋' },
   { id: 3, label: 'Scanner', icon: '📊' },
+  { id: 4, label: 'Themes', icon: '🚀' },
   { id: 5, label: 'Settings', icon: '⚙️' },
 ]
 
@@ -62,6 +64,7 @@ export default function Home() {
         {activeTab === 1 && <AlertsPage />}
         {activeTab === 2 && <Watchlist />}
         {activeTab === 3 && <ScannerPage />}
+        {activeTab === 4 && <ThemesPage />}
         {activeTab === 5 && <SettingsPage />}
       </main>
 
