@@ -99,6 +99,11 @@ interface AppState {
   toggleFlag: (symbol: string) => void
   isFlagged: (symbol: string) => boolean
 
+  // Favorited sectors/themes (keyed "kind:value", e.g. "theme:Space"). Capped
+  // at 10 — they surface as tiles on the Alerts page.
+  favoriteThemes: string[]
+  toggleFavoriteTheme: (key: string) => void
+
   // Config
   config: AppConfig
   updateConfig: (updates: Partial<AppConfig>) => void
@@ -469,6 +474,17 @@ export const useStore = create<AppState>()(
       }),
       isFlagged: (symbol) => get().flaggedSymbols.has(symbol),
 
+      // Favorited sectors/themes (persisted). Cap at 10; adding past the cap
+      // is a no-op so the ★ simply won't toggle on (surfaced in the UI).
+      favoriteThemes: [],
+      toggleFavoriteTheme: (key) => set((state) => {
+        if (state.favoriteThemes.includes(key)) {
+          return { favoriteThemes: state.favoriteThemes.filter(k => k !== key) }
+        }
+        if (state.favoriteThemes.length >= 10) return state
+        return { favoriteThemes: [...state.favoriteThemes, key] }
+      }),
+
       // Config
       config: defaultConfig,
       updateConfig: (updates) => set((state) => ({
@@ -539,6 +555,7 @@ export const useStore = create<AppState>()(
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
         alertSubscriptions: state.alertSubscriptions,
         hasMigratedSubs: state.hasMigratedSubs,
+        favoriteThemes: state.favoriteThemes,
         // clearedSince intentionally NOT persisted — Justin: "they are gone
         // until a reboot." On reload the gate resets so today's full history
         // is available again via backfill.
