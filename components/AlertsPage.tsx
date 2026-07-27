@@ -12,6 +12,8 @@ import { PriceAlertInput } from './PriceAlertInput'
 import { fireAhk } from '@/lib/ahk'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
+import { formatAlertText } from '@/lib/formatAlertText'
+import { alertTypeTextClass } from '@/lib/alertTypeColor'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
 
@@ -585,7 +587,6 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                   <thead className="sticky top-0 bg-gray-800 text-xs text-gray-400">
                     <tr>
                       <th className="w-20 px-2 py-1 text-left">Time</th>
-                      <th className="w-24 px-2 py-1 text-left">Type</th>
                       <th className="px-2 py-1 text-left">Message</th>
                       <th className="w-16 px-2 py-1"></th>
                     </tr>
@@ -596,25 +597,10 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                         <td className="px-2 py-1 text-gray-400 font-mono text-xs">
                           {formatTime(alert.timestamp)}
                         </td>
-                        <td className="px-2 py-1">
-                          <span
-                            className={clsx(
-                              'text-xs px-1.5 py-0.5 rounded',
-                              alert.type === 'price' && 'bg-green-900/50 text-green-400',
-                              alert.type === 'filing' && 'bg-blue-900/50 text-blue-400',
-                              alert.type === 'news' && 'bg-purple-900/50 text-purple-400',
-                              alert.type === 'catalyst' && 'bg-orange-900/50 text-orange-400',
-                              alert.type === 'trade_exchange' && 'bg-yellow-900/50 text-yellow-400',
-                              alert.type === 'scanner' && 'bg-cyan-900/50 text-cyan-400',
-                            )}
-                          >
-                            {alert.type}
-                          </span>
-                        </td>
-                        <td className="px-2 py-1 text-gray-300">
+                        <td className={clsx('px-2 py-1 break-words', alertTypeTextClass(alert.type))}>
                           {alert.url ? (
-                            <a href={alert.url} target="_blank" rel="noopener noreferrer" className="hover:underline">{alert.message}</a>
-                          ) : alert.message}
+                            <a href={alert.url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">{formatAlertText(alert.message)}</a>
+                          ) : formatAlertText(alert.message)}
                         </td>
                         <td className="px-2 py-1 text-center whitespace-nowrap">
                           <button

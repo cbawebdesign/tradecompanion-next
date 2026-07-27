@@ -3,6 +3,7 @@
 import { useStore } from '@/store/useStore'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import type { Alert } from '@/types'
+import { formatAlertText } from '@/lib/formatAlertText'
 
 // Mascot character collections
 const MASCOT_CHARACTERS = {
@@ -219,7 +220,7 @@ export function AlertMascot({ isPopout = false }: AlertMascotProps) {
               {currentAlert.symbol}
             </div>
             <div className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
-              {currentAlert.message}
+              {formatAlertText(currentAlert.message)}
             </div>
             {/* Speech bubble arrow */}
             <div

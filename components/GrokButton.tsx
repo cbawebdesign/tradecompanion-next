@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { formatAlertText } from '@/lib/formatAlertText'
 
 const GROK_API_URL = 'https://tradecompanion-grok.azurewebsites.net/api/groksummary-func'
 
@@ -24,6 +25,9 @@ export function GrokButton({
   const handleClick = useCallback(async () => {
     if (isLoading) return
     setIsLoading(true)
+    // Clean the quote preview the same way the timeline/ribbon do (strip
+    // [TX-News1]/[Source] prefix + decode entities).
+    const cleanText = formatAlertText(alertText)
 
     // Open window immediately (must be in click handler to avoid popup blocker)
     const win = window.open('', '_blank')
@@ -55,7 +59,7 @@ export function GrokButton({
         <div class="title">${symbol} - ${alertType}</div>
       </div>
       <div class="content">
-        ${alertText ? `<div class="quote">${alertText.substring(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;')}${alertText.length > 150 ? '...' : ''}</div>` : ''}
+        ${cleanText ? `<div class="quote">${cleanText.substring(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;')}${cleanText.length > 150 ? '...' : ''}</div>` : ''}
         <div class="loading">
           <div class="icon">🤖</div>
           <div class="text">Analyzing...</div>
@@ -74,8 +78,8 @@ export function GrokButton({
 
       const contentEl = win.document.querySelector('.content')
       if (contentEl) {
-        const quoteHtml = alertText
-          ? `<div class="quote">${alertText.substring(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;')}${alertText.length > 150 ? '...' : ''}</div>`
+        const quoteHtml = cleanText
+          ? `<div class="quote">${cleanText.substring(0, 150).replace(/</g, '&lt;').replace(/>/g, '&gt;')}${cleanText.length > 150 ? '...' : ''}</div>`
           : ''
         if (data.success && data.summary) {
           const formattedSummary = data.summary

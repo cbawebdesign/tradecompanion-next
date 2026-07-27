@@ -9,6 +9,8 @@ import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
+import { formatAlertText } from '@/lib/formatAlertText'
+import { alertTypeTextClass } from '@/lib/alertTypeColor'
 
 // Check if alert should show Grok button (any alert with a URL worth summarizing)
 const shouldShowGrok = (alert: Alert): boolean => {
@@ -384,30 +386,17 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                       ✕
                     </button>
                   </td>
-                  <td className="px-2 py-1 text-gray-300 truncate max-w-md">
+                  <td className="px-2 py-1 max-w-md">
                     <span
                       className={clsx(
-                        'text-xs px-1.5 py-0.5 rounded mr-2',
-                        alert.type === 'price' && 'bg-green-900/50 text-green-400',
-                        alert.type === 'filing' && 'bg-blue-900/50 text-blue-400',
-                        alert.type === 'news' && 'bg-purple-900/50 text-purple-400',
-                        alert.type === 'catalyst' && 'bg-orange-900/50 text-orange-400',
-                        alert.type === 'trade_exchange' && 'bg-yellow-900/50 text-yellow-400',
-                        alert.type === 'scanner' && 'bg-cyan-900/50 text-cyan-400',
-                        alert.type === 'tweet' && 'bg-sky-900/50 text-sky-400',
-                        alert.type === 'tradingview' && 'bg-emerald-900/50 text-emerald-400',
-                      )}
-                    >
-                      {alert.type}
-                    </span>
-                    <span
-                      className={clsx(
-                        alert.url && 'underline cursor-pointer hover:text-blue-400'
+                        'break-words',
+                        alertTypeTextClass(alert.type),
+                        alert.url && 'underline cursor-pointer hover:opacity-80'
                       )}
                       onClick={(e) => alert.url && handleAlertMessageClick(e, alert)}
                       title={alert.url ? 'Click to open URL and copy' : undefined}
                     >
-                      {alert.message}
+                      {formatAlertText(alert.message)}
                     </span>
                     {alert.type === 'price' && (() => {
                       const hit = findEntry(alert.symbol)
