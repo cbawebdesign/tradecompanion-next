@@ -10,7 +10,7 @@ import { PopOutButton } from './PopOutButton'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { formatAlertText } from '@/lib/formatAlertText'
-import { alertTypeTextClass } from '@/lib/alertTypeColor'
+import { alertDisplayColor } from '@/lib/alertTypeColor'
 
 // Check if alert should show Grok button (any alert with a URL worth summarizing)
 const shouldShowGrok = (alert: Alert): boolean => {
@@ -371,7 +371,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                   <td className="px-2 py-1 text-gray-400 font-mono text-xs">
                     {formatTime(alert.timestamp)}
                   </td>
-                  <td className="px-2 py-1 font-mono font-semibold" style={{ color: alert.color }}>
+                  <td className="px-2 py-1 font-mono font-semibold" style={{ color: alertDisplayColor(alert) }}>
                     {alert.symbol}
                   </td>
                   <td className="px-2 py-1">
@@ -390,9 +390,9 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                     <span
                       className={clsx(
                         'break-words',
-                        alertTypeTextClass(alert.type),
                         alert.url && 'underline cursor-pointer hover:opacity-80'
                       )}
+                      style={{ color: alertDisplayColor(alert) }}
                       onClick={(e) => alert.url && handleAlertMessageClick(e, alert)}
                       title={alert.url ? 'Click to open URL and copy' : undefined}
                     >

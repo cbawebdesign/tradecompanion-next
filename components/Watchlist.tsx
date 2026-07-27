@@ -14,7 +14,7 @@ import { ResizableTh } from './ResizableTh'
 import { PriceAlertInput } from './PriceAlertInput'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { formatAlertText } from '@/lib/formatAlertText'
-import { alertTypeTextClass } from '@/lib/alertTypeColor'
+import { alertDisplayColor } from '@/lib/alertTypeColor'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
@@ -870,9 +870,9 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         <td className="px-2 py-1 text-gray-400 font-mono text-xs">
                           {formatTime(alert.timestamp)}
                         </td>
-                        <td className={clsx('px-2 py-1 break-words', alertTypeTextClass(alert.type))}>
+                        <td className="px-2 py-1 break-words" style={{ color: alertDisplayColor(alert) }}>
                           {alert.url ? (
-                            <a href={alert.url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80">{formatAlertText(alert.message)}</a>
+                            <a href={alert.url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80" style={{ color: 'inherit' }}>{formatAlertText(alert.message)}</a>
                           ) : formatAlertText(alert.message)}
                         </td>
                         <td className="px-2 py-1 text-center whitespace-nowrap">
