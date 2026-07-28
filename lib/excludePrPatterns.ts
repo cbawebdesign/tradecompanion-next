@@ -1,3 +1,5 @@
+import { decodeEntities } from './formatAlertText'
+
 // Default ambulance-chaser / class-action PR blacklist.
 // Pipe-delimited regex alternation, case-insensitive.
 // Mirrors Util.DEFAULT_EXCLUDE_PR_PATTERNS in the legacy desktop app.
@@ -42,8 +44,11 @@ export function buildExcludePrRegex(configuredPattern?: string): RegExp | null {
   }
 }
 
-// Check if a headline should be dropped by the blacklist.
+// Check if a headline should be dropped by the blacklist. Decode HTML entities
+// first: headlines now arrive with `&amp;`/`&#39;` encoding, but the patterns
+// use plain `&`/`'`, so law-firm names like "Levi & Korinsky" stopped matching
+// once the feed started encoding — the "ambulance-chaser filter broke" bug.
 export function isBlacklistedPr(headline: string | undefined | null, regex: RegExp | null): boolean {
   if (!regex || !headline) return false
-  return regex.test(headline)
+  return regex.test(decodeEntities(headline))
 }
