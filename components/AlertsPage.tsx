@@ -12,6 +12,7 @@ import { PriceAlertInput } from './PriceAlertInput'
 import { fireAhk } from '@/lib/ahk'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
+import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
 import { copyToClipboard } from '@/lib/clipboard'
@@ -310,6 +311,10 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   // underlying PR / TX / filing in our DB), show it. Otherwise the user
   // sees nothing despite a real event having happened.
   const symbolAlertsMerged = [...liveAlerts, ...mergedDbAlerts]
+    // Ambulance-chaser blacklist for the flagged-symbol drill-down pane. Same
+    // leak as Watchlist: these dbAlerts are fetched directly from /AlertsBySymbol
+    // and bypass the store's central addAlert filter. Idempotent for live alerts.
+    .filter(a => !shouldBlacklistAlert(a.type, a.message, config.excludePrPatterns))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   const nonCatalystMessages = new Set(
     symbolAlertsMerged.filter(a => a.type !== 'catalyst').map(a => normalizeAlertMessage(a.message))
@@ -597,7 +602,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                         <td className="px-2 py-1 text-gray-400 font-mono text-xs">
                           {formatTime(alert.timestamp)}
                         </td>
-                        <td className="px-2 py-1 break-words" style={{ color: alertDisplayColor(alert) }}>
+                        <td className="px-2 py-1 break-words" style={{ color: alertDisplayColor(alert), fontWeight: 600 }}>
                           {alert.url ? (
                             <a href={alert.url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80" style={{ color: 'inherit' }}>{formatAlertText(alert.message)}</a>
                           ) : formatAlertText(alert.message)}

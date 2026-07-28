@@ -26,6 +26,13 @@ export function getRemotePrBlacklist(): string | null {
   return remotePatterns
 }
 
+// Memoize the compiled regex keyed on the resolved pattern string. The store
+// now runs the blacklist on EVERY incoming alert (see shouldBlacklistAlert),
+// so recompiling `new RegExp(...)` per alert would be wasteful on high-volume
+// feeds. The pattern only changes when the admin edits it or the user changes
+// Settings, so a single-entry cache is effectively free after first use.
+let cachedRegex: { key: string; regex: RegExp | null } | null = null
+
 // Compile configured pattern into a regex, preferring remote → local → default.
 // Returns null if every layer resolves to empty (unusual — default is non-empty).
 export function buildExcludePrRegex(configuredPattern?: string): RegExp | null {
@@ -36,12 +43,37 @@ export function buildExcludePrRegex(configuredPattern?: string): RegExp | null {
   ]
   const chosen = tryPatterns.find(p => typeof p === 'string' && p.trim().length > 0)
   if (!chosen) return null
+  if (cachedRegex && cachedRegex.key === chosen) return cachedRegex.regex
+  let regex: RegExp | null
   try {
-    return new RegExp(chosen, 'i')
+    regex = new RegExp(chosen, 'i')
   } catch (err) {
     console.warn('excludePrPatterns: invalid regex, falling back to null', err)
-    return null
+    regex = null
   }
+  cachedRegex = { key: chosen, regex }
+  return regex
+}
+
+// Alert types that carry PR / news / catalyst headlines — the surfaces the
+// ambulance-chaser blacklist is meant to clean. Everything else is exempt:
+//   - tweet   : FinTwit legitimately discusses "securities fraud" / "investor alert"
+//   - rss/mail: Justin's curated YouTube / Substack / Articles feeds
+//   - price/scanner/tradingview/trade_exchange: not headlines
+const BLACKLISTABLE_TYPES = new Set(['news', 'catalyst', 'filing'])
+
+// Central decision used by the store's addAlert/addAlerts so EVERY ingest path
+// (catalyst polling, the alert auditor, all SignalR frames, newsHub) drops
+// blacklisted PRs — not just the two hooks that filtered inline. This was the
+// real "ambulance-chaser filter does nothing" bug: catalyst PRs (e.g. $CAPR
+// "securities fraud") arrive via a path that never filtered.
+export function shouldBlacklistAlert(
+  type: string,
+  message: string | undefined | null,
+  configuredPattern?: string,
+): boolean {
+  if (!BLACKLISTABLE_TYPES.has(type)) return false
+  return isBlacklistedPr(message, buildExcludePrRegex(configuredPattern))
 }
 
 // Check if a headline should be dropped by the blacklist. Decode HTML entities

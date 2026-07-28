@@ -13,6 +13,7 @@ import { StockDataRibbon } from './StockDataRibbon'
 import { ResizableTh } from './ResizableTh'
 import { PriceAlertInput } from './PriceAlertInput'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
+import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
@@ -283,6 +284,12 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   // signal for this symbol, keep it so the user isn't left looking at an
   // empty news pane.
   const symbolAlertsMerged = [...liveAlerts, ...mergedDbAlerts]
+    // Ambulance-chaser blacklist for the drill-down news pane. These dbAlerts
+    // come straight from /AlertsBySymbol and never pass through the store's
+    // central addAlert filter, so blacklisted catalyst/filing PRs would still
+    // show here — this is the "$CAPR data ribbon" leak. Live alerts were already
+    // filtered upstream, so this pass is idempotent for them.
+    .filter(a => !shouldBlacklistAlert(a.type, a.message, config.excludePrPatterns))
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
   const nonCatalystMessages = new Set(
     symbolAlertsMerged.filter(a => a.type !== 'catalyst').map(a => normalizeAlertMessage(a.message))
@@ -870,7 +877,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         <td className="px-2 py-1 text-gray-400 font-mono text-xs">
                           {formatTime(alert.timestamp)}
                         </td>
-                        <td className="px-2 py-1 break-words" style={{ color: alertDisplayColor(alert) }}>
+                        <td className="px-2 py-1 break-words" style={{ color: alertDisplayColor(alert), fontWeight: 600 }}>
                           {alert.url ? (
                             <a href={alert.url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80" style={{ color: 'inherit' }}>{formatAlertText(alert.message)}</a>
                           ) : formatAlertText(alert.message)}

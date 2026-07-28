@@ -1,7 +1,7 @@
 "use client"
 
 import { useStore } from '@/store/useStore'
-import { useEffect, useLayoutEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import type { Alert } from '@/types'
 import { formatAlertText } from '@/lib/formatAlertText'
 
@@ -50,7 +50,6 @@ export function AlertMascot({ isPopout = false }: AlertMascotProps) {
   const [contextMenuPos, setContextMenuPos] = useState({ x: 0, y: 0 })
   const [videoPlaying, setVideoPlaying] = useState(false)
 
-  const contextMenuRef = useRef<HTMLDivElement | null>(null)
   const prevAlertCountRef = useRef(alerts.length)
   const videoRef = useRef<HTMLVideoElement>(null)
   const speechTimerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -153,20 +152,6 @@ export function AlertMascot({ isPopout = false }: AlertMascotProps) {
     window.addEventListener('click', close)
     return () => window.removeEventListener('click', close)
   }, [showContextMenu])
-
-  // Clamp the menu into the viewport after render. The mascot lives ~200px off
-  // the bottom by default, so its raw clientX/clientY menu ran off-screen —
-  // same overflow fix as the timeline/watchlist menus. Guarded to settle in one pass.
-  useLayoutEffect(() => {
-    if (!showContextMenu || !contextMenuRef.current) return
-    const rect = contextMenuRef.current.getBoundingClientRect()
-    const pad = 6
-    let x = contextMenuPos.x
-    let y = contextMenuPos.y
-    if (x + rect.width + pad > window.innerWidth) x = Math.max(pad, window.innerWidth - rect.width - pad)
-    if (y + rect.height + pad > window.innerHeight) y = Math.max(pad, window.innerHeight - rect.height - pad)
-    if (x !== contextMenuPos.x || y !== contextMenuPos.y) setContextMenuPos({ x, y })
-  }, [showContextMenu, contextMenuPos.x, contextMenuPos.y])
 
   // Click to dismiss current alert (only if not dragging)
   const handleClick = useCallback(() => {
@@ -300,8 +285,7 @@ export function AlertMascot({ isPopout = false }: AlertMascotProps) {
       {/* Context Menu */}
       {showContextMenu && (
         <div
-          ref={contextMenuRef}
-          className="fixed z-[60] glass-panel rounded-lg py-1 min-w-[160px] max-h-[80vh] overflow-y-auto"
+          className="fixed z-[60] glass-panel rounded-lg py-1 min-w-[160px]"
           style={{ left: contextMenuPos.x, top: contextMenuPos.y }}
         >
           {!isPopout && (

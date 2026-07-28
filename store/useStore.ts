@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert, AlertSubscription, AlertType } from '@/types'
 import { logAlert } from '@/lib/alertLogger'
 import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
+import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
 
 // Keep the alert timeline in strict chronological order (newest first).
@@ -213,6 +214,16 @@ export const useStore = create<AppState>()(
           if (tvDiag) console.warn('[TVDIAG] DROPPED: subscription gate', { symbol: alert.symbol, msg: alert.message })
           return state
         }
+        // Ambulance-chaser / class-action PR blacklist — applied CENTRALLY here
+        // so every ingest path is covered (catalyst polling, the auditor, all
+        // SignalR frames, newsHub), not just the two hooks that filtered inline.
+        // That coverage gap is why $CAPR-style "securities fraud" catalyst PRs
+        // kept slipping through. Fails open (shows the alert) if the regex is
+        // empty/invalid. Scoped to news/catalyst/filing — see shouldBlacklistAlert.
+        if (shouldBlacklistAlert(alert.type, alert.message, state.config.excludePrPatterns)) {
+          if (tvDiag) console.warn('[TVDIAG] DROPPED: pr-blacklist', { symbol: alert.symbol, msg: alert.message })
+          return state
+        }
         // Cleared-timeline floor — once the user clicks "Clear All Alerts",
         // anything older than that moment must NOT come back via the
         // auditor / polling backfills / Airtable replays. Real-time alerts
@@ -280,6 +291,11 @@ export const useStore = create<AppState>()(
         // Apply the same subscription gate as addAlert, in bulk.
         let gated = newAlerts.filter(a =>
           shouldShowAlert(a, state.flaggedSymbols, state.watchlists, state.alertSubscriptions)
+        )
+        // Central ambulance-chaser blacklist (mirrors addAlert) — covers the
+        // batch/backfill paths (auditor, Airtable/TX initial loads) too.
+        gated = gated.filter(a =>
+          !shouldBlacklistAlert(a.type, a.message, state.config.excludePrPatterns)
         )
         // Cleared-timeline floor — applied here too so backfill batches
         // (auditor / new-symbol-backfill / Airtable initial / TX initial)

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useStore } from '@/store/useStore'
 import { PriceAlertInput } from './PriceAlertInput'
 import { clsx } from 'clsx'
@@ -98,24 +98,14 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
   const handleContextMenu = useCallback((e: React.MouseEvent, alert: Alert) => {
     e.preventDefault()
-    // Open at the cursor; the layout effect below measures the real menu size
-    // and clamps it into the viewport. (The old fixed 340px height estimate was
-    // too small for a long "Add to Watchlist" list, so it still ran off-screen.)
-    setContextMenu({ visible: true, x: e.clientX, y: e.clientY, alert })
+    // Clamp to the viewport so the menu (incl. its "move/copy to watchlist"
+    // items) never renders off-screen — Justin hit this right-clicking near the
+    // right/bottom edge of the timeline.
+    const MENU_W = 200, MENU_H = 340
+    const x = Math.max(4, Math.min(e.clientX, window.innerWidth - MENU_W))
+    const y = Math.max(4, Math.min(e.clientY, window.innerHeight - MENU_H))
+    setContextMenu({ visible: true, x, y, alert })
   }, [])
-
-  // Clamp the context menu into the viewport after it renders — flips up/left
-  // if it would overflow. The menu is scrollable (max-h below) so it never
-  // exceeds the viewport. Guarded so it settles in one pass.
-  useLayoutEffect(() => {
-    if (!contextMenu.visible || !contextMenuRef.current) return
-    const rect = contextMenuRef.current.getBoundingClientRect()
-    const pad = 6
-    let x = contextMenu.x, y = contextMenu.y
-    if (x + rect.width + pad > window.innerWidth) x = Math.max(pad, window.innerWidth - rect.width - pad)
-    if (y + rect.height + pad > window.innerHeight) y = Math.max(pad, window.innerHeight - rect.height - pad)
-    if (x !== contextMenu.x || y !== contextMenu.y) setContextMenu(prev => ({ ...prev, x, y }))
-  }, [contextMenu.visible, contextMenu.x, contextMenu.y])
 
   const handleCopyText = useCallback((alert: Alert) => {
     const text = `${alert.symbol}: ${(alert.message || '').replace(/^Catalyst PR\s*/i, '')}`
@@ -402,7 +392,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                         'break-words',
                         alert.url && 'underline cursor-pointer hover:opacity-80'
                       )}
-                      style={{ color: alertDisplayColor(alert) }}
+                      style={{ color: alertDisplayColor(alert), fontWeight: 600 }}
                       onClick={(e) => alert.url && handleAlertMessageClick(e, alert)}
                       title={alert.url ? 'Click to open URL and copy' : undefined}
                     >
@@ -456,7 +446,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         return (
         <div
           ref={contextMenuRef}
-          className="fixed glass-panel rounded-lg shadow-2xl py-1 z-50 min-w-[160px] max-h-[80vh] overflow-y-auto"
+          className="fixed glass-panel rounded-lg shadow-2xl py-1 z-50 min-w-[160px]"
           style={{ left: contextMenu.x, top: contextMenu.y }}
         >
           {showSymbolActions && (
