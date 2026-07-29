@@ -60,7 +60,12 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const isActive = activePane === 'alertbar'
-  const [selectedAlertIndex, setSelectedAlertIndex] = useState<number>(-1)
+  // Track the selected timeline row by its stable alert id, NOT its index.
+  // New alerts prepend to the top, so an index-based selection would drift up
+  // one row on every incoming alert (Justin: the highlighted row moves, and DEL
+  // hits the row above if an alert lands at the same moment). Tracking by id
+  // keeps the selection glued to the same alert regardless of list shifts.
+  const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
     visible: false,
@@ -180,49 +185,64 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         || (e.target as HTMLElement)?.isContentEditable
       if (isEditable) return
 
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        const next = selectedAlertIndex < visibleAlerts.length - 1 ? selectedAlertIndex + 1 : 0
-        setSelectedAlertIndex(next)
+      // Resolve the current selection to a live index each keypress (the list
+      // may have shifted since last press as new alerts arrived). -1 = nothing
+      // selected yet.
+      const curIndex = selectedAlertId
+        ? visibleAlerts.findIndex(a => a.id === selectedAlertId)
+        : -1
+
+      const selectRow = (i: number) => {
+        const a = visibleAlerts[i]
+        if (!a) return
+        setSelectedAlertId(a.id)
         // Follow the selection with the data ribbon (parity with flagged list /
         // watchlist arrow-nav — Justin wants the ribbon to update on the timeline too).
-        const sym = visibleAlerts[next]?.symbol
-        if (sym) setSelectedSymbol(sym)
+        setSelectedSymbol(a.symbol)
+      }
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        selectRow(curIndex < visibleAlerts.length - 1 ? curIndex + 1 : 0)
       } else if (e.key === 'ArrowUp') {
         e.preventDefault()
-        const next = selectedAlertIndex > 0 ? selectedAlertIndex - 1 : visibleAlerts.length - 1
-        setSelectedAlertIndex(next)
-        const sym = visibleAlerts[next]?.symbol
-        if (sym) setSelectedSymbol(sym)
-      } else if (e.key === ' ' && selectedAlertIndex >= 0) {
+        selectRow(curIndex > 0 ? curIndex - 1 : visibleAlerts.length - 1)
+      } else if (e.key === ' ' && curIndex >= 0) {
         // Space → fire AHK + copy symbol to clipboard. Used to also toggle
         // the flag (paired with AHK) but Justin asked to disable that —
         // pressing space from the alerts timeline shouldn't surprise-flag
         // a symbol just to fire an AHK script.
         e.preventDefault()
-        const alert = visibleAlerts[selectedAlertIndex]
+        const alert = visibleAlerts[curIndex]
         if (alert) {
           copyToClipboard(alert.symbol)
           if (config.ahkEnabled && config.ahkUrl && isRealSymbol(alert.symbol)) {
             fireAhk(alert.symbol, config.ahkUrl)
           }
         }
-      } else if (e.key === 'Enter' && selectedAlertIndex >= 0) {
+      } else if (e.key === 'Enter' && curIndex >= 0) {
         // Enter to select and go to watchlist
         e.preventDefault()
-        const alert = visibleAlerts[selectedAlertIndex]
+        const alert = visibleAlerts[curIndex]
         if (alert) handleAlertClick(alert)
-      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedAlertIndex >= 0) {
-        // Delete or Backspace to remove alert
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && curIndex >= 0) {
+        // Delete/Backspace removes the SELECTED alert (by id), then advances the
+        // selection to the row that was just below it so repeated DEL keeps
+        // deleting down the list. Deleting by id (not index) means a new alert
+        // landing at the same instant can't cause us to delete the wrong row.
         e.preventDefault()
-        const alert = visibleAlerts[selectedAlertIndex]
-        if (alert) removeAlert(alert.id)
+        const alert = visibleAlerts[curIndex]
+        if (alert) {
+          const nextSel = visibleAlerts[curIndex + 1] || visibleAlerts[curIndex - 1] || null
+          setSelectedAlertId(nextSel ? nextSel.id : null)
+          removeAlert(alert.id)
+        }
       }
     }
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isActive, visibleAlerts, selectedAlertIndex, toggleFlag, removeAlert, handleAlertClick])
+  }, [isActive, visibleAlerts, selectedAlertId, toggleFlag, removeAlert, handleAlertClick])
 
   const formatTime = (date: Date) => {
     const d = new Date(date)
@@ -340,7 +360,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
           <tbody>
             {visibleAlerts.map((alert, index) => {
               const isFlagged = flaggedSymbols.has(alert.symbol)
-              const isSelected = isActive && index === selectedAlertIndex
+              const isSelected = isActive && alert.id === selectedAlertId
               return (
                 <tr
                   key={alert.id}
@@ -350,7 +370,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                   )}
                   onContextMenu={(e) => handleContextMenu(e, alert)}
                   onClick={() => {
-                    setSelectedAlertIndex(index)
+                    setSelectedAlertId(alert.id)
                     handleAlertClick(alert)
                   }}
                 >
