@@ -406,7 +406,16 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                       ✕
                     </button>
                   </td>
-                  <td className="px-2 py-1 max-w-md">
+                  <td
+                    className="px-2 py-1 max-w-md"
+                    /* Override .alert-bar-table td { white-space: nowrap } for the
+                       message cell only, so long PR / trade-exchange messages wrap
+                       to a 2nd line instead of being cut off (Justin's request).
+                       Inline style beats the stylesheet rule; Time/Symbol columns
+                       stay single-line. The 26px row height is a min, so the row
+                       grows to fit the wrapped text. */
+                    style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}
+                  >
                     <span
                       className={clsx(
                         'break-words',
