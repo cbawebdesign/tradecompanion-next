@@ -3,7 +3,17 @@
 import { useEffect } from 'react'
 import { setRemotePrBlacklist } from '@/lib/excludePrPatterns'
 
-const ADMIN_ENDPOINT = 'https://tradecompanion3.azurewebsites.net/api/tcadmin/pr-blacklist'
+// Prefer the SAME-ORIGIN proxy (Next.js rewrite /tc3 -> tradecompanion3) so the
+// fetch is never subject to cross-origin (CORS) blocking. The direct Azure URL
+// is only CORS-allowed for a specific origin allowlist, so on any other origin
+// the remote admin list silently failed to load and clients fell back to the
+// hardcoded default — i.e. "the admin dashboard blacklist doesn't filter".
+// Absolute URL kept as a fallback for environments without the proxy (e.g. a
+// packaged desktop build serving static files with no Next server).
+const ADMIN_ENDPOINTS = [
+  '/tc3/api/tcadmin/pr-blacklist',
+  'https://tradecompanion3.azurewebsites.net/api/tcadmin/pr-blacklist',
+]
 const REFRESH_MS = 5 * 60 * 1000  // pull every 5 min so admin edits propagate within one window
 
 // Fetches the centralized PR blacklist from the admin dashboard endpoint and
@@ -17,16 +27,20 @@ export function useRemotePrBlacklist() {
     let cancelled = false
 
     async function fetchOnce() {
-      try {
-        const resp = await fetch(ADMIN_ENDPOINT, { cache: 'no-store' })
-        if (!resp.ok) return
-        const data = await resp.json()
-        if (cancelled) return
-        setRemotePrBlacklist(typeof data.patterns === 'string' ? data.patterns : null)
-      } catch {
-        // Network error — leave remote as-is (could be a previous fetch's value
-        // on a reconnect, or null if this is the first attempt). Local fallback
-        // chain takes over.
+      // Try the same-origin proxy first, then the absolute URL. First success wins.
+      for (const url of ADMIN_ENDPOINTS) {
+        try {
+          const resp = await fetch(url, { cache: 'no-store' })
+          if (!resp.ok) continue
+          const data = await resp.json()
+          if (cancelled) return
+          setRemotePrBlacklist(typeof data.patterns === 'string' ? data.patterns : null)
+          return
+        } catch {
+          // Try the next endpoint. If all fail, leave remote as-is (previous
+          // value on a reconnect, or null on first attempt) — the local
+          // fallback chain (per-Settings value, then hardcoded default) applies.
+        }
       }
     }
 
