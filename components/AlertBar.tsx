@@ -74,6 +74,11 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     y: 0,
     alert: null,
   })
+  // Clamped display position, kept SEPARATE from contextMenu.x/y (the raw cursor
+  // anchor). The clamp effect depends on the raw anchor and writes menuPos, so it
+  // can't re-trigger itself — writing back into contextMenu.x/y instead looped
+  // forever under the live timeline re-render ("Maximum update depth exceeded").
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 })
 
   const contextMenuRef = useRef<HTMLDivElement>(null)
 
@@ -108,19 +113,21 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     // we can measure the rendered menu. (The old fixed 200x340 estimate guessed
     // wrong for long watchlist lists and still let the bottom run off-screen.)
     setContextMenu({ visible: true, x: e.clientX, y: e.clientY, alert })
+    setMenuPos({ x: e.clientX, y: e.clientY })  // start at cursor; clamp refines
   }, [])
 
-  // Measure-and-clamp the context menu into the viewport after it renders, and
-  // give it a scrollable max-height — mirrors the working SymbolContextMenu so a
-  // long "move/copy to watchlist" list flips up / scrolls instead of being cut off.
+  // Measure-and-clamp the menu into the viewport after it renders, with a
+  // scrollable max-height. Depends on the RAW anchor (contextMenu.x/y, stable
+  // once the menu is open) and writes menuPos (display) → runs once, never loops.
   useLayoutEffect(() => {
     if (!contextMenu.visible || !contextMenuRef.current) return
     const rect = contextMenuRef.current.getBoundingClientRect()
     const pad = 8
-    let { x, y } = contextMenu
+    let x = contextMenu.x
+    let y = contextMenu.y
     if (x + rect.width + pad > window.innerWidth) x = Math.max(pad, window.innerWidth - rect.width - pad)
     if (y + rect.height + pad > window.innerHeight) y = Math.max(pad, window.innerHeight - rect.height - pad)
-    if (x !== contextMenu.x || y !== contextMenu.y) setContextMenu(prev => ({ ...prev, x, y }))
+    setMenuPos({ x, y })
   }, [contextMenu.visible, contextMenu.x, contextMenu.y])
 
   const handleCopyText = useCallback((alert: Alert) => {
@@ -492,7 +499,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         <div
           ref={contextMenuRef}
           className="fixed glass-panel rounded-lg shadow-2xl py-1 z-[1000] min-w-[160px] max-h-[80vh] overflow-y-auto"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
+          style={{ left: menuPos.x, top: menuPos.y }}
         >
           {showSymbolActions && (
             <button

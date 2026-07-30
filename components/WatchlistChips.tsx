@@ -26,33 +26,45 @@ export function WatchlistChips({ symbol }: WatchlistChipsProps) {
   const adderRef = useRef<HTMLDivElement | null>(null)
   const btnRef = useRef<HTMLButtonElement | null>(null)
   const menuRef = useRef<HTMLDivElement | null>(null)
-  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  // `anchor` = raw position under the + button, set ONCE per open (stable).
+  // `pos`    = final clamped position the menu actually renders at.
+  // Keeping these separate is the whole ballgame: the clamp effect depends on
+  // `anchor` (which doesn't change while open) and writes `pos`, so it can never
+  // re-trigger itself. The earlier version depended on the same state it wrote,
+  // and under the live-updating ribbon the menu's measured size shifted between
+  // renders, so it re-clamped forever → "Maximum update depth exceeded" crash
+  // when you hit "+". Mirrors the working SymbolContextMenu (clamps off the
+  // trigger coords, not the position it sets).
+  const [anchor, setAnchor] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
+  const [pos, setPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
 
   // Open the picker anchored under the + button. It's portaled to <body> below
   // so it floats over the whole app instead of being clipped by the ribbon
-  // (Justin: "float this dropdown across the entire app"). Mirrors the working
-  // SymbolContextMenu pattern EXACTLY — notably, NO scroll/resize close listener:
-  // an earlier version added a capture-phase scroll-close, and because the data
-  // ribbon streams live updates, any scroll dismissed the menu the instant it
-  // opened — that's what broke the "+". Menus are short-lived; click-away/Esc is enough.
+  // (Justin: "float this dropdown across the entire app"). NO scroll/resize close
+  // listener — the data ribbon streams updates and a capture-phase scroll-close
+  // dismissed the menu on open. Click-away / Esc is enough.
   const openAdder = () => {
     if (adderOpen) { setAdderOpen(false); return }
     const r = btnRef.current?.getBoundingClientRect()
-    if (r) setMenuPos({ top: r.bottom + 4, left: r.left })
+    const a = r ? { top: r.bottom + 4, left: r.left } : { top: 0, left: 0 }
+    setAnchor(a)
+    setPos(a)
     setAdderOpen(true)
   }
 
   // Clamp into the viewport after render (flip up/left if it would run off-screen —
   // Justin: the bottom of the list was getting cut off with lots of watchlists).
+  // Depends on `anchor` ONLY (stable per open), writes `pos` → runs once, never loops.
   useLayoutEffect(() => {
     if (!adderOpen || !menuRef.current) return
     const rect = menuRef.current.getBoundingClientRect()
     const pad = 8
-    let { top, left } = menuPos
+    let top = anchor.top
+    let left = anchor.left
     if (top + rect.height + pad > window.innerHeight) top = Math.max(pad, window.innerHeight - rect.height - pad)
     if (left + rect.width + pad > window.innerWidth) left = Math.max(pad, window.innerWidth - rect.width - pad)
-    if (top !== menuPos.top || left !== menuPos.left) setMenuPos({ top, left })
-  }, [adderOpen, menuPos.top, menuPos.left])
+    setPos({ top, left })
+  }, [adderOpen, anchor.top, anchor.left])
 
   // Close on outside click (the menu is portaled, so check both refs) + Escape.
   useEffect(() => {
@@ -157,8 +169,8 @@ export function WatchlistChips({ symbol }: WatchlistChipsProps) {
               ref={menuRef}
               className="fixed z-[1000] min-w-[160px] max-h-[80vh] overflow-y-auto py-1 rounded shadow-lg border"
               style={{
-                top: menuPos.top,
-                left: menuPos.left,
+                top: pos.top,
+                left: pos.left,
                 background: 'var(--bg-panel, #1a1a2e)',
                 borderColor: 'var(--border-glass, #333)',
               }}
