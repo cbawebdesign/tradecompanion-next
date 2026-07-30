@@ -562,9 +562,18 @@ export function useSignalR() {
               rawText = parsed.raw_text || parsed.text || parsed.message || parsed.alert || rawText
             } catch { /* not JSON, use as-is */ }
           }
-          // Extract symbol from first word, strip $ cashtag prefix (same as legacy TradingView.cs)
+          // Extract symbol from first word, strip $ cashtag prefix (same as legacy TradingView.cs).
+          // Accept, besides standard 1-5 letter tickers:
+          //   - crypto pairs   BTCUSD / ETHUSD / SOLUSDT  (USD/USDT/USDC/PERP suffix)
+          //   - futures        ES1! / NQ1! / CL1! / ZN1!  (letters + optional digits + "!")
+          // Justin tracks these in TradingView and clicks the alert to load the chart;
+          // the old /^[A-Z]{1,5}$/ rejected them, so the symbol came through empty/unclickable.
           const firstWord = (rawText.split(' ')[0] || '').replace(/^\$/, '').toUpperCase()
-          const symbol = /^[A-Z]{1,5}$/.test(firstWord) ? firstWord : ''
+          const isTvSymbol =
+            /^[A-Z]{1,5}$/.test(firstWord) ||                       // AAPL, TSLA
+            /^[A-Z]{2,10}(USD|USDT|USDC|PERP)$/.test(firstWord) ||  // BTCUSD, ETHUSD, SOLUSDT
+            /^[A-Z]{1,4}\d*!$/.test(firstWord)                       // ES1!, NQ1!, CL1!
+          const symbol = isTvSymbol ? firstWord : ''
           const alert: Alert = {
             id: crypto.randomUUID(),
             dedupKey: `tv:${alertId || Date.now()}`,
