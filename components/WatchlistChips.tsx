@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState, useRef, useEffect } from 'react'
+import { useMemo, useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useStore } from '@/store/useStore'
 
 interface WatchlistChipsProps {
@@ -23,17 +24,52 @@ export function WatchlistChips({ symbol }: WatchlistChipsProps) {
 
   const [adderOpen, setAdderOpen] = useState(false)
   const adderRef = useRef<HTMLDivElement | null>(null)
+  const btnRef = useRef<HTMLButtonElement | null>(null)
+  const menuRef = useRef<HTMLDivElement | null>(null)
+  const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 })
 
-  // Close the +menu on outside click
+  // Open the picker anchored under the + button. It's portaled to <body> below
+  // so it floats over the whole app instead of being clipped by the ribbon
+  // (Justin: "float this dropdown across the entire app"). Mirrors the working
+  // SymbolContextMenu pattern EXACTLY — notably, NO scroll/resize close listener:
+  // an earlier version added a capture-phase scroll-close, and because the data
+  // ribbon streams live updates, any scroll dismissed the menu the instant it
+  // opened — that's what broke the "+". Menus are short-lived; click-away/Esc is enough.
+  const openAdder = () => {
+    if (adderOpen) { setAdderOpen(false); return }
+    const r = btnRef.current?.getBoundingClientRect()
+    if (r) setMenuPos({ top: r.bottom + 4, left: r.left })
+    setAdderOpen(true)
+  }
+
+  // Clamp into the viewport after render (flip up/left if it would run off-screen —
+  // Justin: the bottom of the list was getting cut off with lots of watchlists).
+  useLayoutEffect(() => {
+    if (!adderOpen || !menuRef.current) return
+    const rect = menuRef.current.getBoundingClientRect()
+    const pad = 8
+    let { top, left } = menuPos
+    if (top + rect.height + pad > window.innerHeight) top = Math.max(pad, window.innerHeight - rect.height - pad)
+    if (left + rect.width + pad > window.innerWidth) left = Math.max(pad, window.innerWidth - rect.width - pad)
+    if (top !== menuPos.top || left !== menuPos.left) setMenuPos({ top, left })
+  }, [adderOpen, menuPos.top, menuPos.left])
+
+  // Close on outside click (the menu is portaled, so check both refs) + Escape.
   useEffect(() => {
     if (!adderOpen) return
     const onDoc = (e: MouseEvent) => {
-      if (adderRef.current && !adderRef.current.contains(e.target as Node)) {
-        setAdderOpen(false)
-      }
+      const t = e.target as Node
+      if (adderRef.current?.contains(t)) return
+      if (menuRef.current?.contains(t)) return
+      setAdderOpen(false)
     }
+    const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAdderOpen(false) }
     document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
+    window.addEventListener('keydown', onEsc)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      window.removeEventListener('keydown', onEsc)
+    }
   }, [adderOpen])
 
   const upper = symbol.toUpperCase()
@@ -108,22 +144,25 @@ export function WatchlistChips({ symbol }: WatchlistChipsProps) {
         <div ref={adderRef} className="relative inline-block">
           <button
             type="button"
-            onClick={() => setAdderOpen((v) => !v)}
+            ref={btnRef}
+            onClick={openAdder}
             className="inline-flex items-center justify-center w-5 h-5 rounded hover:bg-white/10"
             style={{ color: '#00e676' }}
             title="Add to watchlist"
           >
             +
           </button>
-          {adderOpen && (
+          {adderOpen && createPortal(
             <div
-              className="absolute z-50 mt-1 min-w-[140px] py-1 rounded shadow-lg border"
+              ref={menuRef}
+              className="fixed z-[1000] min-w-[160px] max-h-[80vh] overflow-y-auto py-1 rounded shadow-lg border"
               style={{
-                top: '100%',
-                left: 0,
+                top: menuPos.top,
+                left: menuPos.left,
                 background: 'var(--bg-panel, #1a1a2e)',
                 borderColor: 'var(--border-glass, #333)',
               }}
+              onClick={(e) => e.stopPropagation()}
             >
               <div
                 className="px-3 py-1 text-[10px] font-semibold uppercase tracking-wider border-b"
@@ -135,14 +174,15 @@ export function WatchlistChips({ symbol }: WatchlistChipsProps) {
                 <button
                   key={wl.id}
                   type="button"
-                  onClick={() => handleAdd(wl.id)}
+                  onClick={() => { handleAdd(wl.id); setAdderOpen(false) }}
                   className="w-full text-left px-3 py-1 hover:bg-white/10"
                   style={{ color: 'var(--text-primary)' }}
                 >
                   {wl.name}
                 </button>
               ))}
-            </div>
+            </div>,
+            document.body
           )}
         </div>
       )}
