@@ -18,7 +18,7 @@ const AIRTABLE_API = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${AIRTABLE
 
 // Justin's TC views
 const VIEWS = [
-  { viewId: 'viwvIDrUsiBwiKJ1j', name: 'YouTube', alertSymbol: 'YT', color: '#f87171', type: 'rss' as const },
+  { viewId: 'viwvIDrUsiBwiKJ1j', name: 'YouTube', alertSymbol: 'YT', color: '#FF6719', type: 'rss' as const },  // match SUB (Justin: make YT the same as Substack)
   { viewId: 'viw5JrpSlgZx4eoSc', name: 'Substack', alertSymbol: 'SUB', color: '#FF6719', type: 'rss' as const },
   { viewId: 'viwlz9QFqMEtwdrWl', name: 'Articles', alertSymbol: 'NEWS', color: '#4FC3F7', type: 'mail' as const },
 ]

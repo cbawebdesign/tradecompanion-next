@@ -11,8 +11,8 @@ export function alertTypeColorHex(type: string | undefined | null): string {
   switch ((type || '').toLowerCase()) {
     case 'trade_exchange': return '#fdba74' // light orange
     case 'catalyst':       return '#f97316' // orange
-    case 'filing':         return '#60a5fa' // blue
-    case 'news':           return '#c084fc' // purple (press releases)
+    case 'filing':         return '#60a5fa' // light blue
+    case 'news':           return '#2563eb' // darker blue (press releases — Justin: purple was hard to read)
     case 'tweet':          return '#38bdf8' // sky
     case 'tradingview':    return '#34d399' // emerald
     case 'scanner':        return '#22d3ee' // cyan

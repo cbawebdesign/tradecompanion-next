@@ -253,6 +253,10 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         if (alert) {
           const nextSel = visibleAlerts[curIndex + 1] || visibleAlerts[curIndex - 1] || null
           setSelectedAlertId(nextSel ? nextSel.id : null)
+          // Follow the new row with the data ribbon too (Justin: after DEL he hits
+          // spacebar to fire AHK on the next alert, but the ribbon wasn't updating
+          // to the new symbol). Mirrors arrow-key nav.
+          if (nextSel) setSelectedSymbol(nextSel.symbol)
           removeAlert(alert.id)
         }
       }

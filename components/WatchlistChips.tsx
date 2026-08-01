@@ -167,7 +167,7 @@ export function WatchlistChips({ symbol }: WatchlistChipsProps) {
           {adderOpen && createPortal(
             <div
               ref={menuRef}
-              className="fixed z-[1000] min-w-[160px] max-h-[80vh] overflow-y-auto py-1 rounded shadow-lg border"
+              className="fixed z-[1000] min-w-[160px] max-h-[80vh] overflow-y-auto py-1 rounded shadow-lg border text-xs"
               style={{
                 top: pos.top,
                 left: pos.left,
