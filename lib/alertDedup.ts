@@ -26,3 +26,23 @@ export function normalizeAlertMessage(msg: string | undefined | null): string {
     .trim()
     .toLowerCase()
 }
+
+// Common SEC form codes. Filings are stored as "8-K: {title}" on the live/poll
+// path but arrive as just "{title}" from the per-symbol REST feed — strip the
+// form code so both key the same. Conservative (real form codes only) so it
+// never chops a normal title. Runs after normalizeAlertMessage (already lowercase).
+const FILING_FORM_PREFIX =
+  /^(?:8-k|10-[kq]|s-[1348]|f-[1346]|6-k|20-f|40-f|11-k|def ?14[ac]|defa?14[ac]|prer?14[ac]|sc 13[dg]|sc to-[a-z]|424b\d+|fwp|13f\S*|n-\S+|[3-6])(?:\/a)?:\s*/
+
+/**
+ * Stable cross-source key for matching "the same alert" — symbol|type|first-40
+ * of the NORMALIZED message. Used by both the store's removeAlert (to remember
+ * user deletions) and the alert-auditor (so it won't re-inject them). Normalizing
+ * on BOTH sides is essential: the live/stored message carries a [Source] / form
+ * prefix the auditor's REST-feed text does not, so a raw-substring key never matched.
+ */
+export function alertMatchKey(symbol: string, type: string, message: string | undefined | null): string {
+  let m = normalizeAlertMessage(message)
+  if (type === 'filing') m = m.replace(FILING_FORM_PREFIX, '')
+  return `${symbol}|${type}|${m.substring(0, 40)}`
+}

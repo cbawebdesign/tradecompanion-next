@@ -4,7 +4,7 @@ import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionSta
 import { logAlert } from '@/lib/alertLogger'
 import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
-import { normalizeAlertMessage } from '@/lib/alertDedup'
+import { normalizeAlertMessage, alertMatchKey } from '@/lib/alertDedup'
 
 // Keep the alert timeline in strict chronological order (newest first).
 // Backfill races (catalysts poll at 5s, filings at a different cadence, etc.)
@@ -68,6 +68,11 @@ interface AppState {
   // gone for the rest of the day.
   clearedSince: number | null
   hiddenAlertIds: Set<string>
+  // Keys (symbol|type|first-40-chars) of alerts the user DELETED this session, so
+  // the alert-auditor's poll doesn't re-inject them (Justin: deleted TX/filings
+  // sometimes reappear). Session-only — not persisted, to avoid suppressing a
+  // genuinely new alert that happens to share the key on a later day.
+  removedAlertKeys: Set<string>
   hideAlert: (id: string) => void
   removeAlert: (id: string) => void
 
@@ -335,7 +340,8 @@ export const useStore = create<AppState>()(
       markAlertRead: (id) => set((state) => ({
         alerts: state.alerts.map(a => a.id === id ? { ...a, read: true } : a)
       })),
-      clearAlerts: () => set({ alerts: [], hiddenAlertIds: new Set(), clearedSince: Date.now() }),
+      clearAlerts: () => set({ alerts: [], hiddenAlertIds: new Set(), removedAlertKeys: new Set(), clearedSince: Date.now() }),
+      removedAlertKeys: new Set(),
       clearedSince: null,
       hiddenAlertIds: new Set(),
       hideAlert: (id) => set((state) => {
@@ -343,9 +349,18 @@ export const useStore = create<AppState>()(
         newHidden.add(id)
         return { hiddenAlertIds: newHidden }
       }),
-      removeAlert: (id) => set((state) => ({
-        alerts: state.alerts.filter(a => a.id !== id)
-      })),
+      removeAlert: (id) => set((state) => {
+        const alert = state.alerts.find(a => a.id === id)
+        const filtered = state.alerts.filter(a => a.id !== id)
+        if (!alert) return { alerts: filtered }
+        // Record the deleted alert's NORMALIZED key (shared alertMatchKey — strips
+        // the [Source]/form prefix so it matches the auditor's key computed from the
+        // un-prefixed REST feed; a raw substring key silently missed TX + filings).
+        const key = alertMatchKey(alert.symbol, alert.type, alert.message)
+        const removedAlertKeys = new Set(state.removedAlertKeys)
+        removedAlertKeys.add(key)
+        return { alerts: filtered, removedAlertKeys }
+      }),
 
       // Quotes
       quotes: {},

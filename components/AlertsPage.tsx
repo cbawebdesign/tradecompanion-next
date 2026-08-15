@@ -331,7 +331,13 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
 
   const formatTime = (date: Date) => {
     const d = new Date(date)
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    // Prior calendar day(s) get a MM/DD/YY date prefix so the day is clear
+    // (Justin — data-ribbon/drill-down only). Same-day items stay time-only.
+    if (d.toDateString() !== new Date().toDateString()) {
+      return `${d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} ${time}`
+    }
+    return time
   }
 
   return (
@@ -578,8 +584,8 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
         <div className="flex flex-col overflow-hidden" style={{ width: `${100 - splitPercent}%`, background: 'var(--bg-glass-light)' }}>
           <div className="px-3 py-2 glass-header flex-shrink-0">
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
-              Alerts for {selectedSymbol || '—'}
-              {selectedSymbol && <span className="text-xs text-gray-500 ml-2">({symbolAlerts.length}){dbAlertsLoading && ' loading...'}</span>}
+              {selectedSymbol || '—'}
+              {selectedSymbol && dbAlertsLoading && <span className="text-xs text-gray-500 ml-2">loading...</span>}
             </h3>
           </div>
           <div className="px-2 pt-1 flex-shrink-0">

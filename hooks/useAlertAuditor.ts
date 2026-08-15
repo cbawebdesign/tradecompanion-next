@@ -9,6 +9,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { alertMatchKey } from '@/lib/alertDedup'
 import type { Alert } from '@/types'
 
 // Module-level state to survive React remounts
@@ -97,8 +98,11 @@ function isMarketHours(): boolean {
 }
 
 // Build a dedup key for an alert (matches store.addAlert logic)
+// Shared normalized key so the auditor's existing/seen/fresh dedup matches the
+// store's dedup + removeAlert deletions (strips the [Source]/form prefix that the
+// live/stored message carries but the REST feed does not).
 function alertKey(symbol: string, type: string, message: string): string {
-  return `${symbol}|${type}|${(message || '').substring(0, 40).toLowerCase()}`
+  return alertMatchKey(symbol, type, message)
 }
 
 export function useAlertAuditor() {
@@ -131,6 +135,10 @@ export function useAlertAuditor() {
       }
       // Also include previously seen auditor keys
       seenAlertKeys.forEach(k => existingKeys.add(k))
+      // ...and alerts the user DELETED this session, so we don't re-inject them
+      // (Justin: deleted trade-exchange messages / filings reappearing). Same
+      // key format as alertKey(), populated by removeAlert.
+      useStore.getState().removedAlertKeys.forEach(k => existingKeys.add(k))
 
       // Floor for what the auditor will fetch. Three sources, take the max:
       //   - lastAuditTime: avoid re-checking what we already audited
