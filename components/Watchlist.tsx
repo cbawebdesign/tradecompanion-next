@@ -195,9 +195,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     }
     if (selectedSymbol === dbAlertsSymbol) return
 
-    // Show cached data instantly if available
+    // Show cached data instantly if available. An EMPTY cached array is not a
+    // hit — a symbol prefetched during a slow/cold window can cache [] and would
+    // otherwise paint an empty pane and never revalidate; fall through to fetch.
     const cached = dbAlertsCache[selectedSymbol.toUpperCase()]
-    if (cached) {
+    if (cached && cached.length > 0) {
       setDbAlerts(cached)
       setDbAlertsSymbol(selectedSymbol)
       setDbAlertsLoading(false)
@@ -205,8 +207,12 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       setDbAlertsLoading(true)
     }
 
+    // No client-side hard timeout: mid-day the cold cross-partition AlertsBySymbol
+    // query can exceed 15s, and aborting it dumped the user into an empty pane
+    // ("nothing showed up… came back on re-select"). The cleanup abort below still
+    // cancels the request the moment the user switches symbols, so a truly
+    // abandoned request never lingers.
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000)
 
     const baseUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
     // Capture which symbol this fetch is for — the user may flip away before
@@ -223,7 +229,6 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
       `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}&since=${encodeURIComponent(prevMarketCloseISO())}`
     ), { signal: controller.signal })
       .then(r => {
-        clearTimeout(timeoutId)
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
       })
@@ -269,7 +274,6 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     return () => {
       aborted = true
       controller.abort()
-      clearTimeout(timeoutId)
     }
   }, [selectedSymbol, config.hubUrl])
 

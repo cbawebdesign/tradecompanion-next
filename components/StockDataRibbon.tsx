@@ -180,6 +180,11 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
   const [saveStatus, setSaveStatus] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const saveStatusTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Latest selected symbol, updated every render — lets an in-flight fetch's
+  // .then bail if the selection already moved on (covers the narrow window
+  // where a response resolves just before its AbortController fires).
+  const symbolRef = useRef(symbol)
+  symbolRef.current = symbol
 
   const baseApi = hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/api'
 
@@ -188,7 +193,11 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
     const upper = symbol.toUpperCase()
 
     if (sharedCache[upper]) setData(sharedCache[upper])
-    else setLoading(true)
+    // No cache yet: clear the previous symbol's data so the ribbon shows the
+    // Loading state instead of the WRONG symbol's (still-editable) data while
+    // this fetch is in flight. Editing that stale data saved to the wrong
+    // ticker — "while I'm updating it switches and I was updating the wrong symbol".
+    else { setData(null); setLoading(true) }
 
     abortRef.current?.abort()
     const controller = new AbortController()
@@ -201,6 +210,10 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         return r.json()
       })
       .then(json => {
+        // Selection changed while this response was in flight: abort() was called
+        // on our controller, but a response that resolved just before the abort
+        // would still run this .then and clobber the newly-selected symbol.
+        if (controller.signal.aborted || symbolRef.current?.toUpperCase() !== upper) return
         const item = json ? normalizeStockData(json, noteUser) : emptyData(upper)
         if (json) { sharedCache[upper] = item; persistCache() }
         setData(item)
@@ -227,6 +240,9 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
 
   const saveField = useCallback(() => {
     if (!data || !editingField) return
+    // Hard stop against an edit landing on a stale record: if a slow load swapped
+    // `data` to a different symbol than the one currently selected, never save.
+    if (!symbol || data.Ticker.toUpperCase() !== symbol.toUpperCase()) return
 
     const value = NUMBER_FIELDS.has(editingField)
       ? (fieldDraft.trim() === '' ? null : parseFloat(fieldDraft))
@@ -266,7 +282,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         if (saveStatusTimer.current) clearTimeout(saveStatusTimer.current)
         saveStatusTimer.current = setTimeout(() => setSaveStatus(null), 3000)
       })
-  }, [data, editingField, fieldDraft, baseApi, noteUser])
+  }, [data, editingField, fieldDraft, baseApi, noteUser, symbol])
 
   // --- Plain render helpers (NOT components — called as functions to avoid remount) ---
 

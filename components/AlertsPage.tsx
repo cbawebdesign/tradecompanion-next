@@ -204,9 +204,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     }
     if (selectedSymbol === dbAlertsSymbol) return
 
-    // Show cached data instantly if available
+    // Show cached data instantly if available. An EMPTY cached array is not a
+    // hit — a symbol prefetched during a slow/cold window can cache [] and would
+    // otherwise paint an empty pane and never revalidate; fall through to fetch.
     const cached = dbAlertsCache[selectedSymbol.toUpperCase()]
-    if (cached) {
+    if (cached && cached.length > 0) {
       setDbAlerts(cached)
       setDbAlertsSymbol(selectedSymbol)
       setDbAlertsLoading(false)
@@ -214,8 +216,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       setDbAlertsLoading(true)
     }
 
+    // No client-side hard timeout: mid-day the cold cross-partition AlertsBySymbol
+    // query can exceed 15s, and aborting it dumped the user into an empty pane
+    // ("nothing showed up… came back on re-select"). The cleanup abort below still
+    // cancels the request the moment the user switches symbols.
     const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), 15000)
     // Capture the symbol this fetch is for — the user may flip away before
     // we get a response, in which case we mustn't stomp on the new symbol's
     // state.
@@ -233,7 +238,6 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
       { signal: controller.signal }
     )
       .then(r => {
-        clearTimeout(timeoutId)
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()
       })
@@ -290,7 +294,6 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     return () => {
       aborted = true
       controller.abort()
-      clearTimeout(timeoutId)
     }
   }, [selectedSymbol, config.hubUrl])
 
