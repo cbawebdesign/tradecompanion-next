@@ -144,6 +144,7 @@ const defaultAlertSounds: Record<string, { enabled: boolean; frequency: number; 
   price: { enabled: true, frequency: 1200, duration: 150 },
   rss: { enabled: true, frequency: 500, duration: 250 },
   mail: { enabled: true, frequency: 550, duration: 200 },
+  scanner: { enabled: true, frequency: 850, duration: 150 },
 }
 
 export const defaultConfig: AppConfig = {
