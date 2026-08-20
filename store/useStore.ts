@@ -171,6 +171,7 @@ export const defaultConfig: AppConfig = {
   filteredPrNegative: '',
   showAllTradeExchange: false,
   xShowAllTweets: '',
+  bannedScannerSymbols: '',
   ahkEnabled: false,
   ahkUrl: 'http://localhost:9876',
   alertSounds: defaultAlertSounds,

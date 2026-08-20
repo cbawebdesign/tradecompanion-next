@@ -538,6 +538,36 @@ export function useSignalR() {
           }
         })
 
+        // 40%+ intraday gainer scanner: one line per symbol per day. Filtered against
+        // the user's per-user banned list (Settings) client-side so the ban list is
+        // instantly personal with no server round-trip.
+        connection.on('gainScanner', (data: any) => {
+          const symbol = (data.symbol || '').toUpperCase()
+          if (!symbol) return
+          const banned = new Set(
+            (configRef.current.bannedScannerSymbols || '')
+              .split(/[|,\s]+/)
+              .map((s: string) => s.trim().toUpperCase())
+              .filter(Boolean)
+          )
+          if (banned.has(symbol)) return
+          const pct = Number(data.pct || 0)
+          const price = Number(data.price || 0)
+          const alert: Alert = {
+            id: crypto.randomUUID(),
+            dedupKey: `gain:${symbol}:${new Date().toDateString()}`,  // one per symbol per day (matches server dedup + survives reconnect replay)
+            source: 'useSignalR:gainScanner',
+            symbol,
+            message: `▲ ${pct.toFixed(0)}% intraday — $${price.toFixed(2)}`,
+            type: 'scanner',
+            color: '#22c55e',
+            timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
+            read: false,
+          }
+          addAlert(alert)
+          handleAlertAudio('scanner', alert.message, configRef.current)
+        })
+
         connection.on('tradingViewAlertRaw', (data: any) => {
           // console.log('tradingViewAlertRaw received:', data)
 

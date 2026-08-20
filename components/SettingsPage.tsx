@@ -19,7 +19,7 @@ const THEMES: { value: AppTheme; label: string; description: string }[] = [
   { value: 'nebula', label: 'Nebula', description: 'Deep purple and blue cosmic vibes' },
 ]
 
-const APP_VERSION = '2.8.13'
+const APP_VERSION = '2.8.14'
 
 export function SettingsPage() {
   const { config, updateConfig, connectionState, watchlists, setWatchlists, flaggedSymbols, alertSubscriptions, reorderWatchlists } = useStore()
@@ -647,6 +647,21 @@ export function SettingsPage() {
               />
               <p className="text-xs text-gray-500 mt-1">
                 Pipe-separated Twitter usernames whose tweets always appear, even when they don't mention a watchlist symbol.
+              </p>
+            </div>
+
+            <div>
+              <label className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>Scanner — Ignore Symbols (40%+ Gainer Scanner)</label>
+              <input
+                type="text"
+                value={config.bannedScannerSymbols || ''}
+                onChange={(e) => updateConfig({ bannedScannerSymbols: e.target.value })}
+                onBlur={() => forceCosmosSyncNow()}
+                placeholder="BABA|NIO|XPEV (China names)"
+                className="w-full font-mono text-xs"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Pipe/comma separated tickers to hide from the 40% gainer scanner (e.g. China names). Applies only to you.
               </p>
             </div>
           </div>

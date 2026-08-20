@@ -128,6 +128,7 @@ export interface AppConfig {
   filteredPrNegative: string
   showAllTradeExchange: boolean  // show unfiltered trade exchange posts
   xShowAllTweets: string  // pipe-separated Twitter usernames whose tweets always pass (e.g. "nolimitgains|citrini7|theshortbear")
+  bannedScannerSymbols: string  // pipe/comma/space-separated tickers to hide from the 40%+ gainer scanner (e.g. "BABA|NIO" China names)
   ahkEnabled: boolean
   ahkUrl: string  // local companion server URL (e.g. http://localhost:9876)
   // Per-type audio settings
