@@ -1,0 +1,50 @@
+---
+description: UI invariants — symbol interactions and theming
+globs: components/**/*.tsx,app/**/*.tsx
+---
+
+# UI rules
+
+## The symbol invariant
+
+Anywhere a ticker is shown — timeline, watchlist, ribbon, themes popup,
+scanner, flagged list — it must support all three:
+
+1. **Flag / unflag** (spacebar, or click the flag)
+2. **Right-click → add to watchlist** (`components/SymbolContextMenu.tsx`)
+3. **AHK fire** on click or spacebar (`lib/ahk.ts`)
+
+This is a standing requirement from the user, not a nice-to-have. A new
+surface that shows symbols without these is incomplete.
+
+## Theming
+
+Five themes: `dark` (default), `blue`, `wallst`, `crimson`, `nebula` — all
+dark. Defined as CSS custom properties in `app/globals.css`.
+
+**Always use the variables**, never a hardcoded color:
+
+    var(--bg-base)  var(--bg-glass)      var(--border-glass)
+    var(--text-primary)  var(--text-secondary)  var(--text-muted)
+    var(--accent-primary)  var(--accent-glow)
+
+A literal hex in a component looks fine in the default theme and breaks in the
+other four. The exception is alert-type color, which is deliberately inline hex
+(see the alerts rule).
+
+Reusable classes already exist — `.glass-panel`, `.glass-card`,
+`.glass-header`, `.glass-input`, `.glass-btn`, `.btn-primary`. Use them rather
+than rebuilding the glass treatment.
+
+## Density
+
+This is a trading terminal, not a marketing page. Rows are 26px in the alert
+bar and deliberately tight elsewhere. Do not add padding, rounding or
+whitespace "for readability" — screen real estate is the scarce resource, and
+users are scanning many rows at once.
+
+## Pop-out windows
+
+`app/pop/*` render the same components in separate browser windows, synced via
+BroadcastChannel (`hooks/useCrossWindowSync.ts`). A component that reads from
+the store works in a pop-out automatically; one holding local state does not.

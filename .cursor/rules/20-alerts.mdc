@@ -1,0 +1,54 @@
+---
+description: Alert pipeline conventions — dedup keys, types, colors, filtering
+globs: hooks/**/*.ts,lib/**/*.ts,store/**/*.ts
+---
+
+# Alerts
+
+An alert is born in a hook, goes through `addAlert`/`addAlerts` in the store
+(which dedups), and renders in `AlertBar` (timeline) and the per-symbol ribbon.
+
+## The ten types
+
+`price` `filing` `news` `catalyst` `trade_exchange` `scanner` `tweet`
+`tradingview` `rss` `mail` — the union on `Alert.type` in `types/index.ts`.
+Adding one means touching the type, `lib/alertTypeColor.ts`, the subscription
+UI, and the audio defaults. Miss one and the alert fires with no color, no
+sound, or no way to subscribe.
+
+## Every alert needs a dedupKey
+
+Same alert arrives by several routes — SignalR live, REST poll, and the
+60-second auditor backfill. `dedupKey` is what stops three copies. Follow the
+existing `source:id` convention:
+
+    pr:{storyId}          fpr:{storyId}        tx:{postId}
+    filing:{cik}-{dcn}    tweet:{id}:{symbol}  tv:{alertId}
+    cat:{symbol}-{iso}    at:{guid}            gain:{symbol}:{date}
+
+Prefer a stable server-side id. Never use `Date.now()` in a dedupKey — it
+defeats the entire mechanism, because the same alert arriving twice gets two
+different keys.
+
+## Colors are inline hex, never Tailwind classes
+
+`lib/alertTypeColor.ts` returns hex strings applied via `style={{ color }}`.
+This is not a style preference. Tailwind's content scan covers `app/` and
+`components/` only — **class names written in `lib/` are purged from the CSS
+bundle**. That's a real bug that shipped: every alert type lost its color
+except filings. Use inline hex anywhere outside `app/`/`components/`.
+
+## Filtering
+
+- `lib/excludePrPatterns.ts` — ambulance-chaser / class-action PR blacklist.
+  Applies to headline types only, never to price or scanner alerts
+- `lib/filteredPr.ts` — the user's own keyword rules:
+  comma = OR, `&` = AND, `!` = NOT, `*` = wildcard. Ported from the legacy
+  C# app; keep the semantics identical
+- `config.excludeFilings` — pipe-separated SEC form types
+
+## Reducing alert count is a bug until proven otherwise
+
+If a change makes fewer alerts appear, that is the failure mode of this app,
+not a successful filter. Say so explicitly in the diff and explain why the
+dropped ones should be dropped.
