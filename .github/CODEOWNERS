@@ -1,0 +1,33 @@
+# Tier 3 — the files that fail silently.
+#
+# A broken dedup condition or a wrong date window does not throw, does not
+# log, and looks identical on screen. The alert simply never arrives. Normal
+# review cannot catch that, so these paths require review from someone who
+# knows the incident history.
+#
+# Everything not listed here needs no code-owner approval — Tier 1 and most
+# Tier 2 work merges on a green build. See CHANGE-PIPELINE.html.
+
+# Sync + restore — wiped every alert subscription on re-login once,
+# orphaned watchlists another time
+/hooks/useCosmosSync.ts        @cbawebdesign
+
+# Cross-source dedup — collapses genuinely distinct alerts when wrong
+/store/useStore.ts             @cbawebdesign
+/lib/alertDedup.ts             @cbawebdesign
+
+# Live alert ingestion — where most alert-loss bugs originate
+/hooks/useSignalR.ts           @cbawebdesign
+/hooks/useNewsHub.ts           @cbawebdesign
+
+# "Since previous close" — hid an entire session of news once
+/lib/marketCalendar.ts         @cbawebdesign
+
+# Identity and auth
+/components/LoginGate.tsx      @cbawebdesign
+/lib/applyServerState.ts       @cbawebdesign
+
+# CI and the rules themselves
+/.github/                      @cbawebdesign
+/.cursor/                      @cbawebdesign
+/AGENTS.md                     @cbawebdesign
