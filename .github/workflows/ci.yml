@@ -18,9 +18,13 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run lint
-
       # `next build` type-checks every file. That is the real gate here —
       # most regressions in this repo have been type/shape errors that this
       # catches and a visual review does not.
+      #
+      # No lint step: `npm run lint` is a stub. There is no ESLint config and
+      # no eslint dependency, so `next lint` drops into an interactive setup
+      # prompt and fails in CI. Adding ESLint properly is worth doing, but as
+      # its own change — turning it on cold would flag a lot of existing code
+      # and block every PR until that is dealt with.
       - run: npm run build
