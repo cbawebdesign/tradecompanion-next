@@ -179,9 +179,17 @@
 
   <section>
     <h2>The preview link is the important bit</h2>
-    <p class="prose">Worth saying on its own, because it's the thing that makes all of this safe: every change gets its own private copy of the app before it goes anywhere. Same real data, same login, just a different address.</p>
-    <p class="prose">So you never have to take my word for whether something looks right, and you never have to guess. Try it, and if you don't like it, close the tab and nothing happened. Use it as much as you want — during the session, at 3am, doesn't matter. It's completely separate from the one you trade on.</p>
-    <p class="prose">The one thing it can't tell you is whether something stopped arriving. That's the silent failure again — a preview shows you what's there, not what's missing.</p>
+    <p class="prose">Worth saying on its own, because it's the thing that makes all of this safe: every change gets its own copy of the app before it goes anywhere. Same login, same live market data, just a different address. So you never have to take my word for whether something looks right — try it yourself, and if you don't like it, close the tab and it never goes live.</p>
+    <p class="prose">Use it as much as you want, during the session or at 3am. The <em>app</em> is completely separate from the one you trade on.</p>
+
+    <div class="glass-panel panel wait">
+      <div class="panel-title">One thing to know — the data isn't separate</div>
+      <p>A preview runs its own copy of the app, but it talks to the <strong>same live backend</strong> as your real one. So anything that <em>saves</em> on a preview, saves for real: adding or reordering a watchlist, changing a setting, flagging a symbol, editing your alert subscriptions.</p>
+      <p>For most of what you'll be doing — colours, wording, emojis, layout, basically the whole green list — this doesn't matter at all, because none of it saves anything. Just don't treat a preview as a sandbox for anything that does. If you want to check how a watchlist behaves, use a throwaway one rather than the list you actually trade off.</p>
+      <p>A properly separate environment is on my list. I want to get to the bottom of the Azure bill first rather than add to it blind.</p>
+    </div>
+
+    <p class="prose">The other thing a preview can't tell you is whether something stopped arriving — that's the silent failure again. It shows you what's there, never what's missing.</p>
   </section>
 
   <section>
