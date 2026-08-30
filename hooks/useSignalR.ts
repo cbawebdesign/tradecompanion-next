@@ -8,6 +8,7 @@ import { handleAlertAudio } from '@/lib/alertAudio'
 import { isFilteredPrMatch } from '@/lib/filteredPr'
 import { buildExcludePrRegex, isBlacklistedPr } from '@/lib/excludePrPatterns'
 import { catalystConfirmer, buildConfirmedAlert } from '@/lib/catalystConfirmer'
+import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import type { Alert, Quote } from '@/types'
 
 interface NegotiateResult {
@@ -41,6 +42,52 @@ async function negotiate(baseUrl: string, userId: string): Promise<NegotiateResu
   }
 }
 
+/**
+ * Build a TradingView alert from a raw record.
+ *
+ * Used by BOTH the live SignalR frame and the startup backfill — they carry
+ * the same shape, and having two copies of this parsing was why backfilled
+ * alerts never matched the live ones.
+ */
+function buildTvAlert(data: any): Alert {
+  const alertId = data.id || data.Id || ''
+
+  let rawText = data.raw_text || data.rawText || ''
+  // Azure Function sets raw_text = entire POST body.
+  // If the body was JSON (e.g. curl test), extract the actual text from it.
+  if (rawText && rawText.trim().startsWith('{')) {
+    try {
+      const parsed = JSON.parse(rawText)
+      rawText = parsed.raw_text || parsed.text || parsed.message || parsed.alert || rawText
+    } catch { /* not JSON, use as-is */ }
+  }
+
+  // Extract symbol from first word, strip $ cashtag prefix (same as legacy TradingView.cs).
+  // Accept, besides standard 1-5 letter tickers:
+  //   - crypto pairs   BTCUSD / ETHUSD / SOLUSDT  (USD/USDT/USDC/PERP suffix)
+  //   - futures        ES1! / NQ1! / CL1! / ZN1!  (letters + optional digits + "!")
+  // Justin tracks these in TradingView and clicks the alert to load the chart;
+  // the old /^[A-Z]{1,5}$/ rejected them, so the symbol came through empty/unclickable.
+  const firstWord = (rawText.split(' ')[0] || '').replace(/^\$/, '').toUpperCase()
+  const isTvSymbol =
+    /^[A-Z]{1,5}$/.test(firstWord) ||                       // AAPL, TSLA
+    /^[A-Z]{2,10}(USD|USDT|USDC|PERP)$/.test(firstWord) ||  // BTCUSD, ETHUSD, SOLUSDT
+    /^[A-Z]{1,4}\d*!$/.test(firstWord)                      // ES1!, NQ1!, CL1!
+  const symbol = isTvSymbol ? firstWord : ''
+
+  return {
+    id: crypto.randomUUID(),
+    dedupKey: `tv:${alertId || Date.now()}`,
+    source: 'useSignalR:tradingViewAlertRaw',
+    symbol,
+    message: rawText || JSON.stringify(data),
+    type: 'tradingview',
+    color: '#4caf50',
+    timestamp: data.received_utc ? new Date(data.received_utc) : new Date(),
+    read: false,
+  }
+}
+
 export function useSignalR() {
   const connectionRef = useRef<HubConnection | null>(null)
   const subscribedSymbolsRef = useRef<string>('') // track what we've subscribed to
@@ -64,6 +111,7 @@ export function useSignalR() {
     config,
     setConnectionState,
     addAlert,
+    addAlerts,
     addScannerAlert,
     updateQuotes,
     watchlists,
@@ -583,38 +631,7 @@ export function useSignalR() {
           }
           if (alertId) tvAlertIdsRef.current.add(alertId)
 
-          let rawText = data.raw_text || data.rawText || ''
-          // Azure Function sets raw_text = entire POST body.
-          // If the body was JSON (e.g. curl test), extract the actual text from it.
-          if (rawText && rawText.trim().startsWith('{')) {
-            try {
-              const parsed = JSON.parse(rawText)
-              rawText = parsed.raw_text || parsed.text || parsed.message || parsed.alert || rawText
-            } catch { /* not JSON, use as-is */ }
-          }
-          // Extract symbol from first word, strip $ cashtag prefix (same as legacy TradingView.cs).
-          // Accept, besides standard 1-5 letter tickers:
-          //   - crypto pairs   BTCUSD / ETHUSD / SOLUSDT  (USD/USDT/USDC/PERP suffix)
-          //   - futures        ES1! / NQ1! / CL1! / ZN1!  (letters + optional digits + "!")
-          // Justin tracks these in TradingView and clicks the alert to load the chart;
-          // the old /^[A-Z]{1,5}$/ rejected them, so the symbol came through empty/unclickable.
-          const firstWord = (rawText.split(' ')[0] || '').replace(/^\$/, '').toUpperCase()
-          const isTvSymbol =
-            /^[A-Z]{1,5}$/.test(firstWord) ||                       // AAPL, TSLA
-            /^[A-Z]{2,10}(USD|USDT|USDC|PERP)$/.test(firstWord) ||  // BTCUSD, ETHUSD, SOLUSDT
-            /^[A-Z]{1,4}\d*!$/.test(firstWord)                       // ES1!, NQ1!, CL1!
-          const symbol = isTvSymbol ? firstWord : ''
-          const alert: Alert = {
-            id: crypto.randomUUID(),
-            dedupKey: `tv:${alertId || Date.now()}`,
-            source: 'useSignalR:tradingViewAlertRaw',
-            symbol,
-            message: rawText || JSON.stringify(data),
-            type: 'tradingview',
-            color: '#4caf50',
-            timestamp: data.received_utc ? new Date(data.received_utc) : new Date(),
-            read: false,
-          }
+          const alert = buildTvAlert(data)
           addAlert(alert)
           handleAlertAudio('tradingview', alert.message, configRef.current)
         })
@@ -676,7 +693,16 @@ export function useSignalR() {
         // Subscribe to quotes
         subscribeToQuotes()
 
-        // TradingView backfill: fetch recent alerts and seed dedup set
+        // TradingView backfill: rehydrate the timeline from server history.
+        //
+        // This used to fetch the same records and throw them away into the dedup
+        // set, so any TV alert that fired before the app was open simply did not
+        // exist in the timeline — Justin's "TV alerts from previous close need to
+        // stay in the data ribbon", open since 16 June.
+        //
+        // The window is the shared previous-close helper, matching the ribbon and
+        // every other source. Per-user scoping is the `userid` param, so one
+        // trader never sees another's webhooks.
         if (config.tradingViewId && !isLocalHub) {
           try {
             const trimmedUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
@@ -684,13 +710,33 @@ export function useSignalR() {
             console.log('SignalR: TradingView backfill from', backfillUrl)
             const resp = await fetch(proxyUrl(backfillUrl))
             if (resp.ok) {
-              const alerts = await resp.json()
-              if (Array.isArray(alerts)) {
-                console.log(`SignalR: TradingView backfill got ${alerts.length} alerts`)
-                alerts.forEach((a: any) => {
-                  const id = a.id || a.Id || ''
-                  if (id) tvAlertIdsRef.current.add(id)
-                })
+              const records = await resp.json()
+              if (Array.isArray(records)) {
+                console.log(`SignalR: TradingView backfill got ${records.length} alerts`)
+                const since = new Date(prevMarketCloseISO()).getTime()
+                const batch: Alert[] = []
+
+                for (const record of records) {
+                  const id = record.id || record.Id || ''
+                  // Seed the dedup set regardless of age, so a reconnect replay of
+                  // an older alert still can't duplicate it.
+                  if (id) {
+                    if (tvAlertIdsRef.current.has(id)) continue
+                    tvAlertIdsRef.current.add(id)
+                  }
+                  const alert = buildTvAlert(record)
+                  const ts = alert.timestamp.getTime()
+                  if (!Number.isFinite(ts) || ts < since) continue
+                  batch.push(alert)
+                }
+
+                // One store write — addAlerts sorts and dedups on dedupKey, so a
+                // record the live socket already delivered collapses instead of
+                // showing twice.
+                if (batch.length > 0) {
+                  addAlerts(batch)
+                  console.log(`SignalR: TradingView backfill added ${batch.length} alerts since previous close`)
+                }
                 console.log(`SignalR: TradingView dedup set seeded with ${tvAlertIdsRef.current.size} IDs`)
               }
             }
