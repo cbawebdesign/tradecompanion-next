@@ -1,0 +1,40 @@
+---
+description: What Trade Companion is and where everything lives
+alwaysApply: true
+---
+
+# Trade Companion — web app
+
+Real-time trading alerts and watchlist management. Next.js 14 App Router,
+React 18, TypeScript, Zustand, Tailwind. Deploys to Vercel on merge to
+`master`. Also runs inside Electron (`electron/`).
+
+The people using this are day traders watching it during market hours. A bug
+here is not a broken page — it is a missed catalyst on a live position.
+
+## Layout
+
+| Path | What's in it |
+|---|---|
+| `app/page.tsx` | Tab shell. 1 Alerts, 2 Watchlist, 3 Scanner, 4 Themes, 5 Settings |
+| `app/api/` | Server-side route handlers (keeps API keys off the client) |
+| `app/pop/` | Pop-out windows (alertbar, watchlist, scanner, mascot, alerts) |
+| `components/` | All UI. One file per surface, no nesting |
+| `hooks/` | One hook per data source. This is where alerts are born |
+| `lib/` | Pure helpers — dedup, filtering, colors, formatting |
+| `store/useStore.ts` | The entire Zustand store. Single file, ~600 lines |
+| `types/index.ts` | `Alert`, `AppConfig`, `Watchlist`, everything |
+
+## Backends it talks to
+
+- **Azure Functions** — `tradecompanion3.azurewebsites.net/api` (the "hub"),
+  configurable per user via `config.hubUrl`
+- **SignalR** — live alert push (`hooks/useSignalR.ts`)
+- **News hub** — separate JWT-authed SignalR (`hooks/useNewsHub.ts`)
+- **Airtable** — RSS / YouTube / Substack feeds
+- **Cosmos** — watchlist + settings sync (`hooks/useCosmosSync.ts`)
+
+Local dev hits CORS on all of these. `lib/proxyUrl.ts` rewrites those origins
+to Next rewrite paths when on localhost — always wrap outbound URLs in
+`proxyUrl()`. Do not add a new backend origin without adding it to both
+`PROXY_MAP` and `next.config.js` rewrites.

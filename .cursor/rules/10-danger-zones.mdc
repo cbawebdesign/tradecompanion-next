@@ -1,0 +1,35 @@
+---
+description: Files that must never be edited without human review
+alwaysApply: true
+---
+
+# Do not edit these without asking
+
+For any file below: **propose a diff and explain the reasoning. Do not apply
+the change.** Every one of these has already caused a production incident.
+
+| File | What it does | What went wrong before |
+|---|---|---|
+| `hooks/useCosmosSync.ts` | Settings + watchlist sync/restore | Wiped every alert subscription on re-login. Orphaned watchlists because IDs regenerate on restore |
+| `store/useStore.ts` → `addAlert` / `addAlerts` | Cross-source dedup | Collapsed genuinely distinct alerts into one |
+| `lib/alertDedup.ts` | Message normalisation + match keys | The `[+]` filtered-PR copy showed twice because the prefix wasn't stripped |
+| `hooks/useSignalR.ts`, `hooks/useNewsHub.ts` | Live alert ingestion | Where most alert-loss bugs originate |
+| `lib/marketCalendar.ts` + per-source `since` windows | "Since previous close" | Hid an entire session of news — a 13:45 PR and morning filings vanished |
+| Anything touching `userKey`, auth, or identity | Login + per-user data | Settings and subscriptions wiped on re-login |
+
+## Why these specifically
+
+**They fail silently.** A broken dedup condition or a wrong date window does
+not throw, does not log, and does not look different on screen. The alert
+simply never appears, and nobody finds out until a trade is missed.
+
+Normal review — "does the page still load?" — cannot catch this class of bug.
+That is why these are gated on a human who knows the history, not on whether
+the change looks reasonable.
+
+## The specific trap
+
+Do not "simplify", "tidy", or "optimise" a filter, a dedup check, or a date
+comparison. The convoluted-looking conditions in these files are convoluted
+because each clause fixes a real reported bug. Removing one looks like a
+cleanup and reads as an improvement in review.
