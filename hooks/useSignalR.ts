@@ -99,6 +99,9 @@ export function useSignalR() {
 
   // TradingView alert dedup: track alert IDs from Cosmos to prevent replay on reconnect
   const tvAlertIdsRef = useRef<Set<string>>(new Set())
+  // Set once the connection handler defines the backfill; onreconnected is
+  // registered before that point, so it reaches it through this ref.
+  const tvBackfillRef = useRef<((reason: string) => Promise<void>) | null>(null)
 
   // Stale quote detection: track last update time per symbol
   const quoteTimestampsRef = useRef<Map<string, number>>(new Map())
@@ -278,6 +281,11 @@ export function useSignalR() {
           // Force re-subscribe to quotes
           subscribedSymbolsRef.current = ''
           subscribeToQuotes()
+
+          // Catch up on anything the socket missed while it was down. For a
+          // 24/7 user this is the only time the TV backfill ever runs again
+          // after the tab was first opened.
+          tvBackfillRef.current?.('reconnect')
         })
 
         connection.onclose(() => {
@@ -695,55 +703,64 @@ export function useSignalR() {
 
         // TradingView backfill: rehydrate the timeline from server history.
         //
-        // This used to fetch the same records and throw them away into the dedup
-        // set, so any TV alert that fired before the app was open simply did not
-        // exist in the timeline — Justin's "TV alerts from previous close need to
-        // stay in the data ribbon", open since 16 June.
+        // This used to fetch the right records and throw them away into the
+        // dedup set, so any TV alert that fired before the app was open simply
+        // did not exist in the timeline — Justin's "TV alerts from previous
+        // close need to stay in the data ribbon", open since 16 June.
         //
-        // The window is the shared previous-close helper, matching the ribbon and
-        // every other source. Per-user scoping is the `userid` param, so one
-        // trader never sees another's webhooks.
-        if (config.tradingViewId && !isLocalHub) {
+        // Runs on first connect AND on every reconnect. That second call is the
+        // one that matters in practice: Justin keeps TC open 24/7 and never
+        // reboots, so the initial-connect path fires once and then never again.
+        // Sleep/wake and wifi drops come back through onreconnected, which is
+        // the only regular opportunity to catch up on what was missed while the
+        // socket was down.
+        //
+        // Safe to call repeatedly — every record is checked against the dedup
+        // set before it is built, and addAlerts dedups on dedupKey again.
+        const runTvBackfill = async (reason: string) => {
+          const cfg = configRef.current
+          if (!cfg.tradingViewId || isLocalHub) return
           try {
-            const trimmedUrl = config.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
-            const backfillUrl = `${trimmedUrl}/api/tv/alerts?userid=${encodeURIComponent(config.tradingViewId)}`
-            console.log('SignalR: TradingView backfill from', backfillUrl)
+            const trimmedUrl = cfg.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
+            const backfillUrl = `${trimmedUrl}/api/tv/alerts?userid=${encodeURIComponent(cfg.tradingViewId)}`
+            console.log(`SignalR: TradingView backfill (${reason}) from`, backfillUrl)
             const resp = await fetch(proxyUrl(backfillUrl))
-            if (resp.ok) {
-              const records = await resp.json()
-              if (Array.isArray(records)) {
-                console.log(`SignalR: TradingView backfill got ${records.length} alerts`)
-                const since = new Date(prevMarketCloseISO()).getTime()
-                const batch: Alert[] = []
+            if (!resp.ok) return
+            const records = await resp.json()
+            if (!Array.isArray(records)) return
+            console.log(`SignalR: TradingView backfill got ${records.length} alerts`)
 
-                for (const record of records) {
-                  const id = record.id || record.Id || ''
-                  // Seed the dedup set regardless of age, so a reconnect replay of
-                  // an older alert still can't duplicate it.
-                  if (id) {
-                    if (tvAlertIdsRef.current.has(id)) continue
-                    tvAlertIdsRef.current.add(id)
-                  }
-                  const alert = buildTvAlert(record)
-                  const ts = alert.timestamp.getTime()
-                  if (!Number.isFinite(ts) || ts < since) continue
-                  batch.push(alert)
-                }
+            const since = new Date(prevMarketCloseISO()).getTime()
+            const batch: Alert[] = []
 
-                // One store write — addAlerts sorts and dedups on dedupKey, so a
-                // record the live socket already delivered collapses instead of
-                // showing twice.
-                if (batch.length > 0) {
-                  addAlerts(batch)
-                  console.log(`SignalR: TradingView backfill added ${batch.length} alerts since previous close`)
-                }
-                console.log(`SignalR: TradingView dedup set seeded with ${tvAlertIdsRef.current.size} IDs`)
+            for (const record of records) {
+              const id = record.id || record.Id || ''
+              // Seed the dedup set regardless of age, so a reconnect replay of
+              // an older alert still can't duplicate it.
+              if (id) {
+                if (tvAlertIdsRef.current.has(id)) continue
+                tvAlertIdsRef.current.add(id)
               }
+              const alert = buildTvAlert(record)
+              const ts = alert.timestamp.getTime()
+              if (!Number.isFinite(ts) || ts < since) continue
+              batch.push(alert)
+            }
+
+            // One store write — addAlerts sorts and dedups on dedupKey, so a
+            // record the live socket already delivered collapses instead of
+            // showing twice.
+            if (batch.length > 0) {
+              addAlerts(batch)
+              console.log(`SignalR: TradingView backfill (${reason}) added ${batch.length} alerts since previous close`)
             }
           } catch (e) {
             console.log('SignalR: TradingView backfill failed (non-critical)', e)
           }
         }
+
+        tvBackfillRef.current = runTvBackfill
+        await runTvBackfill('connect')
 
         // Stale quote re-subscription: check every 30s for symbols with no update in >3 min
         // Only during market hours (avoid spamming re-subs outside hours)
@@ -794,6 +811,9 @@ export function useSignalR() {
     // Cleanup
     return () => {
       cancelled = true
+      // Drop the backfill closure — it captures this connection's config, and a
+      // reconnect on a rebuilt connection must not fire the old one.
+      tvBackfillRef.current = null
       if (tokenRefreshTimer) clearInterval(tokenRefreshTimer)
       if (staleQuoteTimer) clearInterval(staleQuoteTimer)
       if (quoteBatchTimerRef.current) clearTimeout(quoteBatchTimerRef.current)

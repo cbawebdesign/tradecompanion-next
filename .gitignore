@@ -37,3 +37,4 @@ next-env.d.ts
 **/node_modules/
 /electron/dist/
 /electron/node_modules/
+.env*
