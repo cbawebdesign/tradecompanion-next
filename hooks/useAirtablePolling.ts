@@ -36,7 +36,10 @@ const AIRTABLE_TOKEN = process.env.NEXT_PUBLIC_AIRTABLE_TOKEN || ''
 // 4 PM ET on the previous trading day, expressed as a UTC ISO string.
 // Used as the cutoff for Airtable RSS / YT / Substack pulls so backfills
 // don't drag in items from previous days.
-function previousMarketCloseISO(): string {
+// Exported for characterization tests — see tests/marketCalendar.test.ts.
+// This is a SECOND implementation of the same idea as lib/marketCalendar.ts
+// prevMarketCloseISO(); the tests document where they disagree.
+export function previousMarketCloseISO(): string {
   const nowUtc = new Date()
   // Convert to ET to find "today's" calendar day in ET.
   const etNow = new Date(nowUtc.toLocaleString('en-US', { timeZone: 'America/New_York' }))
