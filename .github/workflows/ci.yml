@@ -18,6 +18,12 @@ jobs:
 
       - run: npm ci
 
+      # Characterization tests over the pure alert logic — dedup, the
+      # previous-close helpers, the PR blacklist, FilteredPR keyword matching.
+      # These pin CURRENT behaviour so a refactor that silently drops or
+      # duplicates alerts fails here instead of on Justin's screen.
+      - run: npm test
+
       # `next build` type-checks every file. That is the real gate here —
       # most regressions in this repo have been type/shape errors that this
       # catches and a visual review does not.
