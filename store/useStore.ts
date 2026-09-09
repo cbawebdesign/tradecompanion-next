@@ -351,17 +351,36 @@ export const useStore = create<AppState>()(
         newHidden.add(id)
         return { hiddenAlertIds: newHidden }
       }),
+      // Deleting in the TIMELINE is scoped to the timeline. It used to splice the
+      // alert out of state.alerts — the same array the per-symbol data ribbon
+      // reads from — so clearing your working queue also erased the symbol's
+      // history. Justin: "TV alerts from previous close need to stay in the data
+      // ribbon. When they are deleted from the timeline, they are removed from
+      // the data ribbon."
+      //
+      // Those are two different panes with two different jobs. The timeline is a
+      // queue you work down; the ribbon is the record for a symbol. So hide it
+      // from the timeline (hiddenAlertIds, which AlertBar already filters on and
+      // which persists) and leave the alert in place for the ribbon.
       removeAlert: (id) => set((state) => {
         const alert = state.alerts.find(a => a.id === id)
-        const filtered = state.alerts.filter(a => a.id !== id)
-        if (!alert) return { alerts: filtered }
+        if (!alert) return {}
+
+        const hiddenAlertIds = new Set(state.hiddenAlertIds)
+        hiddenAlertIds.add(id)
+
         // Record the deleted alert's NORMALIZED key (shared alertMatchKey — strips
         // the [Source]/form prefix so it matches the auditor's key computed from the
         // un-prefixed REST feed; a raw substring key silently missed TX + filings).
+        // This set is now persisted: it was not, so it emptied on every reload and
+        // the auditor re-injected alerts the user had already deleted. Justin:
+        // "every now and then a Trade Exchange message or SEC filing will re-appear
+        // in the timeline after I already deleted it."
         const key = alertMatchKey(alert.symbol, alert.type, alert.message)
         const removedAlertKeys = new Set(state.removedAlertKeys)
         removedAlertKeys.add(key)
-        return { alerts: filtered, removedAlertKeys }
+
+        return { hiddenAlertIds, removedAlertKeys }
       }),
 
       // Quotes
@@ -586,6 +605,9 @@ export const useStore = create<AppState>()(
         alerts: state.alerts,
         scannerAlerts: state.scannerAlerts,
         hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
+        // Persisted so a reload does not forget what the user deleted — without
+        // this the auditor re-injects them on the next poll.
+        removedAlertKeys: Array.from(state.removedAlertKeys),
         alertSubscriptions: state.alertSubscriptions,
         hasMigratedSubs: state.hasMigratedSubs,
         favoriteThemes: state.favoriteThemes,
@@ -604,6 +626,11 @@ export const useStore = create<AppState>()(
         // Convert hiddenAlertIds back to Set after rehydration
         if (state && Array.isArray(state.hiddenAlertIds)) {
           state.hiddenAlertIds = new Set(state.hiddenAlertIds as unknown as string[])
+        }
+        // Same for removedAlertKeys — the auditor reads this to avoid re-adding
+        // alerts the user deleted, so it has to survive a reload.
+        if (state && Array.isArray(state.removedAlertKeys)) {
+          state.removedAlertKeys = new Set(state.removedAlertKeys as unknown as string[])
         }
         // One-time cleanup: dedup any accumulated duplicate symbols within
         // each watchlist. Justin saw 50+ identical rows for DXYZ on one list,
