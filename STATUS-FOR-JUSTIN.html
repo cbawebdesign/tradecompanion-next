@@ -84,7 +84,7 @@ li::marker{color:var(--tx3)}
     <div style="color:var(--tx2);font-size:15px;max-width:46ch">Check <strong>Settings</strong> — it shows the version. If it says anything lower, hard-refresh; your browser is holding the old one.</div>
   </div>
 
-  <p class="prose" style="margin-top:22px">Taken straight from the code and commit history rather than from memory, so it should square with your notes. <strong>14 updates since late July.</strong> Anything marked done is verified present in the app you're running right now.</p>
+  <p class="prose" style="margin-top:22px">I pulled this from the code rather than going off memory, so it should line up with your notes. <strong>14 updates since late July.</strong> Anything ticked below, I went and checked is actually in the app you're running — not just that I said I'd done it.</p>
 
   <h2>Your touch-up list</h2>
   <div class="glass">
@@ -103,7 +103,13 @@ li::marker{color:var(--tx3)}
 
   <h2>Speed</h2>
   <div class="glass">
-    <div class="row"><span class="tick t-part">◐</span><div class="what"><b>Ribbon “Loading” sometimes slow · 5–10s lag on a new flagged symbol</b><span><strong>Diagnosed.</strong> It isn't the queries — the server goes cold when it's been idle, so the first hit after a quiet stretch lags and then it's quick. That's exactly the sometimes-slow-sometimes-fine you described. The fix is keeping it warm and moving the heavy startup work off the load path, and that's a cost decision I need to make. Part of it is in already (v2.8.13).</span></div><span class="ver v-part">v2.8.13<br>partial</span></div>
+    <div class="row"><span class="tick t-part">◐</span><div class="what"><b>Ribbon loading, and the lag when you type in a new flagged symbol</b><span>We've thrown a lot at this already — the background warming, the caching, the query fix. That's why it's better than it used to be, and also why it's occasional now instead of constant.</span></div><span class="ver v-part">partial</span></div>
+  </div>
+  <div class="glass pad warn" style="margin-top:11px">
+    <div class="k">The bit that's left costs money</div>
+    <p>It's not the queries. The server goes cold when it's been sitting idle, so the first load after a quiet stretch drags and then everything's quick again. That's exactly the sometimes-slow-sometimes-fine you described.</p>
+    <p>We've done everything free. Actually killing it means paying Azure to keep the thing always awake, and that's a monthly cost rather than a code change.</p>
+    <p style="margin:0">Which runs into the bill you mentioned going up — same conversation. I'll price it for Friday and we can look at the bill at the same time, see if there's anything sitting there we don't need that pays for it.</p>
   </div>
 
   <h2>Bigger things</h2>
@@ -132,13 +138,13 @@ li::marker{color:var(--tx3)}
 
   <h2>What I need from you</h2>
   <div class="glass pad warn">
-    <div class="k">Three quick ones</div>
+    <div class="k">Three things only you can answer</div>
     <ul>
-      <li><strong>The scanner</strong> — does it fire, and is it too noisy? It's been on since Sunday and I've never seen it run during a session.</li>
-      <li><strong>TradingView alerts</strong> — are they there when you open TC in the morning? And do any show up twice?</li>
-      <li><strong>Deleted alerts</strong> — you've mentioned both that deleting from the timeline wipes it from the ribbon <em>and</em> that deleted ones come back. Those pull in opposite directions, so tell me which behaviour you'd want and I'll build to it.</li>
+      <li><strong>The scanner.</strong> Does it actually fire, and is it too much? It's been on since Sunday but I've never watched it during a real session.</li>
+      <li><strong>TradingView alerts.</strong> Are they sitting there when you open up in the morning? And is anything showing up twice?</li>
+      <li><strong>Deleted alerts.</strong> You've told me deleting from the timeline shouldn't wipe it from the ribbon, but also that deleted ones sometimes come back. Those kind of contradict, so tell me which way you actually want it and I'll build that.</li>
     </ul>
   </div>
 
-  <p class="foot">Built from the commit history on 9 September 2026, not from memory — every “done” above is verified present in the running code. If something here contradicts your notes, trust your notes and tell me: it means I've marked something done that isn't reaching you, which is worth knowing on its own.</p>
+  <p class="foot">Put together 9 September from the commit history. If anything here contradicts your notes, go with your notes and tell me — it'd mean something I think shipped isn't actually reaching you, and that's worth knowing on its own.</p>
 </div>
