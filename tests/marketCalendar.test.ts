@@ -1,21 +1,22 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
-import { previousMarketCloseISO } from '@/hooks/useAirtablePolling'
 
 /**
  * CHARACTERIZATION TESTS — "since previous close"
  *
- * There are FOUR implementations of this idea in the codebase:
+ * There were FOUR implementations of this idea. Two remain:
  *
- *   1. lib/marketCalendar.ts  prevMarketCloseISO()      — ET/DST-aware via Intl
- *   2. hooks/useAirtablePolling.ts previousMarketCloseISO() — hand-rolled offset
- *   3. Catalyst / Filings / TradeExchange polling — inline `M/D/YYYY H:M:S`
- *      built from BROWSER-LOCAL time (see the divergence test at the bottom)
- *   4. hooks/useAlertAuditor.ts — ET *midnight*, not previous close at all
- *
- * They disagree. That disagreement is the leading suspect for the days when
- * catalysts and PRs come back empty. These tests pin down what each one
- * actually returns so the four can be collapsed into one safely.
+ *   1. lib/marketCalendar.ts  prevMarketCloseISO()  — the one true helper
+ *   2. hooks/useAirtablePolling.ts — REMOVED, now calls (1). It used to return
+ *      the MOST RECENT past 4pm, so after the close it cut off a day later
+ *      than everything else and dropped RSS/YouTube/Substack items from
+ *      earlier the same session.
+ *   3. Catalyst / Filings / TradeExchange polling — still inline, built from
+ *      BROWSER-LOCAL time in `M/D/YYYY H:M:S`. Not yet unified: the backend
+ *      expects that string format, and changing it without being able to
+ *      verify against the API risks dropping alerts entirely.
+ *   4. hooks/useAlertAuditor.ts — ET *midnight*, not previous close. Also
+ *      still outstanding.
  *
  * NOTE: several of these document behaviour that is WRONG. They are labelled.
  */
@@ -62,56 +63,27 @@ describe('prevMarketCloseISO — the good one', () => {
   })
 })
 
-describe('previousMarketCloseISO — the Airtable copy', () => {
-  it('also walks back over weekends', () => {
-    at('2026-05-18T13:00:00Z') // Monday 9am ET
-    expect(previousMarketCloseISO().slice(0, 10)).toBe('2026-05-15')
-  })
-})
-
-describe('THE DIVERGENCE — why these must be unified', () => {
-  it('AFTER 4PM ET they return DIFFERENT DAYS — this is the real bug', () => {
-    // Both are DST-aware (the Airtable copy measures the real offset rather
-    // than hard-coding -5, so the two agree on the hour). The divergence is
-    // about WHICH DAY.
-    //
-    //   prevMarketCloseISO()      = YESTERDAY 4pm, always. Deliberate, so an
-    //                               after-hours user still sees today's news.
-    //   previousMarketCloseISO()  = MOST RECENT past 4pm. After the close that
-    //                               is TODAY 4pm.
-    //
-    // So from 4pm ET onward the Airtable feeds cut off twelve hours later than
-    // everything else, and RSS / YouTube / Substack items from earlier the same
-    // day get filtered out. That is precisely Justin's 5/19 complaint, still
-    // live in this second copy.
-    at('2026-05-19T23:00:00Z') // Tue 7pm ET — after the close
-    const good = prevMarketCloseISO()
-    const copy = previousMarketCloseISO()
-
-    expect(good.slice(0, 10)).toBe('2026-05-18') // Monday — correct
-    expect(copy.slice(0, 10)).toBe('2026-05-19') // Tuesday — the old bug
-    expect(good).not.toBe(copy)
+describe('UNIFIED — regression guard', () => {
+  it('the Airtable feeds now use the same cut-off as everything else', () => {
+    // Before the fix, useAirtablePolling had its own copy returning the MOST
+    // RECENT past 4pm. After the close that was TODAY 4pm, while every other
+    // source used YESTERDAY 4pm — so RSS/YouTube/Substack silently dropped
+    // items from earlier the same day. That copy is gone; this asserts the
+    // behaviour the whole app now shares.
+    at('2026-05-19T23:00:00Z') // Tue 7pm ET — after the close, where it used to break
+    expect(prevMarketCloseISO().slice(0, 10)).toBe('2026-05-18') // Monday
   })
 
-  it('BEFORE 4pm ET they agree, which is why this hides all morning', () => {
-    at('2026-05-19T13:00:00Z') // Tue 9am ET
-    expect(prevMarketCloseISO()).toBe(previousMarketCloseISO())
-  })
-
-  it('they agree on the DST hour — the offset is measured, not hard-coded', () => {
-    at('2026-07-15T12:00:00Z') // mid-EDT, before the close
-    expect(prevMarketCloseISO()).toBe(previousMarketCloseISO())
-  })
-
-  it('WRONG: the polling hooks send BROWSER-LOCAL time to an ET backend', () => {
-    // Catalyst/Filings/TradeExchange build their `since` inline as
+  it('STILL OUTSTANDING: the polling hooks send BROWSER-LOCAL time', () => {
+    // Catalyst/Filings/TradeExchange build `since` inline as
     //   `${d.getMonth()+1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:...`
-    // getHours() is the *browser's* timezone. On an ET machine this is
-    // invisible; anywhere else the request asks for the wrong window.
-    // Replicated here because the expression is inline and cannot be imported.
+    // getHours() is the browser's timezone, and the value is a local-format
+    // string rather than ISO. Invisible on an ET machine; wrong anywhere else.
+    // Not unified yet — the backend expects this exact format and it cannot be
+    // verified from here without API access.
     const d = new Date('2026-07-15T20:00:00Z')
     const inline = `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`
-    expect(inline).toContain(`${d.getHours()}:`)
     expect(inline).not.toContain('Z')
+    expect(inline).toContain(`${d.getHours()}:`)
   })
 })
