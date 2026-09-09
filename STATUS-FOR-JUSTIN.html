@@ -80,13 +80,13 @@ li::marker{color:var(--tx3)}
   </header>
 
   <div class="glass vbox">
-    <div><div class="vlab">You should be on</div><div class="vnum">v2.8.17</div></div>
+    <div><div class="vlab">You should be on</div><div class="vnum">v2.8.18</div></div>
     <div style="color:var(--tx2);font-size:15px;max-width:46ch">Check <strong>Settings</strong> — it shows the version. If it says anything lower, hard-refresh; your browser is holding the old one.</div>
   </div>
 
-  <p class="prose" style="margin-top:22px">I pulled this from the code rather than going off memory, so it should line up with your notes. <strong>14 updates since late July.</strong> Anything ticked below, I went and checked is actually in the app you're running — not just that I said I'd done it.</p>
+  <p class="prose" style="margin-top:22px">I pulled this from the code rather than going off memory, so it should line up with your notes. <strong>15 updates since late July.</strong> Anything ticked below, I went and checked is actually in the app you're running — not just that I said I'd done it.</p>
 
-  <h2>Your touch-up list</h2>
+  <h2>Your touch-up list <span style="margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.7px;color:var(--ok)">7 of 11 done</span></h2>
   <div class="glass">
     <div class="row"><span class="tick t-ok">✓</span><div class="what"><b>Press-release colour → darker blue</b><span>Purple was hard to read; light blue was taken by filings.</span></div><span class="ver v-ok">v2.8.11</span></div>
     <div class="row"><span class="tick t-ok">✓</span><div class="what"><b>YouTube font matched to Substack</b><span></span></div><span class="ver v-ok">v2.8.11</span></div>
@@ -94,9 +94,9 @@ li::marker{color:var(--tx3)}
     <div class="row"><span class="tick t-ok">✓</span><div class="what"><b>Watchlist dropdown text size reduced</b><span>The “+” menu from the data ribbon.</span></div><span class="ver v-ok">v2.8.11</span></div>
     <div class="row"><span class="tick t-ok">✓</span><div class="what"><b>Date stamp on prior-day items in the ribbon</b><span>MM/DD/YY alongside the time, as asked.</span></div><span class="ver v-ok">v2.8.12</span></div>
     <div class="row"><span class="tick t-ok">✓</span><div class="what"><b>TradingView alerts stay put</b><span>Everything since the previous close now loads on open or refresh. Two parts — the second one mattered because you never reboot, so the first fix would never have reached you.</span></div><span class="ver v-ok">v2.8.15<br>v2.8.16</span></div>
-    <div class="row"><span class="tick t-part">◐</span><div class="what"><b>Deleting from the timeline still clears it from the ribbon</b><span>The other half of the TV item. Not done — and it pulls against your “deleted alerts come back” note, so I want to ask you which behaviour you actually want before I touch it.</span></div><span class="ver v-part">open</span></div>
+    <div class="row"><span class="tick t-ok">✓</span><div class="what"><b>Deleting from the timeline no longer clears it from the ribbon</b><span>This and the reappearing alerts turned out to be the same bug — deleting was pulling the alert out of the list <em>both</em> panes read from. Now it just hides from the timeline, and the ribbon keeps the symbol's history.</span></div><span class="ver v-ok">v2.8.18</span></div>
     <div class="row"><span class="tick t-no">○</span><div class="what"><b>Price alerts lost when you unflag a symbol</b><span>Should carry over to every watchlist the symbol is on.</span></div><span class="ver v-no">open</span></div>
-    <div class="row"><span class="tick t-no">○</span><div class="what"><b>Deleted Trade Exchange / SEC alerts reappearing</b><span>Needs tracing rather than guessing — no error to follow.</span></div><span class="ver v-no">open</span></div>
+    <div class="row"><span class="tick t-ok">✓</span><div class="what"><b>Deleted Trade Exchange / SEC alerts reappearing</b><span>Not random after all — it was happening after a refresh. The record of what you'd deleted wasn't getting saved, so on reload the app forgot and put them back. It saves now.</span></div><span class="ver v-ok">v2.8.18</span></div>
     <div class="row"><span class="tick t-no">○</span><div class="what"><b>Company name in the ribbon header</b><span>Built, but stranded on my old machine and never pushed. Needs a backend field first.</span></div><span class="ver v-no">open</span></div>
     <div class="row"><span class="tick t-no">○</span><div class="what"><b>Admin dashboard — 6 themes + 2 sectors, and the hanging</b><span>Different app, not started.</span></div><span class="ver v-no">open</span></div>
   </div>
@@ -142,7 +142,7 @@ li::marker{color:var(--tx3)}
     <ul>
       <li><strong>The scanner.</strong> Does it actually fire, and is it too much? It's been on since Sunday but I've never watched it during a real session.</li>
       <li><strong>TradingView alerts.</strong> Are they sitting there when you open up in the morning? And is anything showing up twice?</li>
-      <li><strong>Deleted alerts.</strong> You've told me deleting from the timeline shouldn't wipe it from the ribbon, but also that deleted ones sometimes come back. Those kind of contradict, so tell me which way you actually want it and I'll build that.</li>
+      <li><strong>Deleted alerts — check it behaves now.</strong> Delete something off the timeline, click that symbol, and the ribbon should still have it. Then refresh and make sure it hasn't crept back into the timeline.</li>
     </ul>
   </div>
 
