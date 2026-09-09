@@ -509,25 +509,31 @@
   </section>
 
   <section>
-    <h2>The other repos</h2>
-    <p class="prose">This plan is written against the web app because it's the one that auto-deploys — the risk is structural, not incidental. The others differ:</p>
+    <h2>The four repos — who owns and works on what</h2>
+    <p class="prose">Verified from the GitHub API and commit history on 9 September, not from memory. The ownership split matters: it decides who can invite whom, and who is actually the right person to ask about a given bug.</p>
     <div class="scroll glass-panel">
       <table>
-        <thead><tr><th>Repo</th><th>Deploy</th><th>Posture</th></tr></thead>
+        <thead><tr><th>Repo</th><th>Owner</th><th>Who writes it</th><th>Deploy</th></tr></thead>
         <tbody>
-          <tr><td>tradecompanion-next</td><td>Vercel, auto on merge</td><td>This document.</td></tr>
-          <tr><td>Trade-Companion (legacy C#)</td><td>Justin pulls and builds locally</td><td>Inverted risk — a bad branch only breaks his own build, and he already works this way. Loosest rules of the four.</td></tr>
-          <tr><td>TcIsolatedWorker</td><td><span class="mono">func publish</span>, manual</td><td>Chris-only. A bad publish breaks alert delivery for every client at once, and there's no preview equivalent.</td></tr>
-          <tr><td>tc-admin</td><td>To confirm</td><td>Needs a look before it gets rules — I don't have it locally.</td></tr>
+          <tr><td><span class="mono">cbawebdesign/tradecompanion-next</span><br>the web app</td><td><strong>You</strong></td><td>You, alone — 171 commits, and no other contributor has ever pushed to it</td><td>Vercel, auto on merge</td></tr>
+          <tr><td><span class="mono">cbawebdesign/tc-admin</span><br>admin dashboard</td><td><strong>You</strong></td><td>You</td><td>To confirm</td></tr>
+          <tr><td><span class="mono">equitydynamics/TcIsolatedWorker</span><br>Azure Functions backend</td><td><strong>Justin</strong></td><td><strong>Jon — 66</strong> · you 46 · Justin 3</td><td><span class="mono">func publish</span>, manual</td></tr>
+          <tr><td><span class="mono">equitydynamics/Trade-Companion</span><br>legacy C# desktop</td><td><strong>Justin</strong></td><td><strong>Jon — 192</strong> · you 95</td><td>Justin pulls and builds</td></tr>
         </tbody>
       </table>
+    </div>
+
+    <div class="glass-panel panel alarm">
+      <div class="panel-title">Two things this corrects</div>
+      <p><strong>Justin is not a collaborator on the web app.</strong> He owns the two C# repos, but has never had access to <span class="mono">tradecompanion-next</span> — so the previews, the rules files, CODEOWNERS and everything else set up here are invisible to him until he gets a Write invite. That is step zero for the sandbox, and it was missed because owning <em>a</em> repo is easy to read as owning <em>the</em> repo.</p>
+      <p><strong>Jon is not just the data provider — he is the main author of the C# side.</strong> 192 commits on the legacy app and 66 on the backend, more than anyone. So the <span class="mono">/TC/headlines</span> <span class="mono">since</span> bug, the multi-ticker tagging and the cold-start init refactor are not "ask Jon about his API". They are changes in a repo Jon works in daily, and the backend is not Chris-only as this document previously claimed.</p>
     </div>
   </section>
 
   <section>
     <h2>Open questions</h2>
     <ol>
-      <li><strong>Which four repos did you send him?</strong> I only have <span class="mono">tradecompanion-next</span> on this machine — the legacy app, TcIsolatedWorker and tc-admin aren't here, so I'm working from the session notes for those.</li>
+      <li><strong>What is Justin's GitHub username?</strong> Needed to invite him to the web repo. His <span class="mono">equitydynamics</span> account owns the C# repos, but that may or may not be the account he'd want to use here.</li>
       <li><strong>Does Justin want merge rights, or just PR rights?</strong> Tier 1 assumes he can merge his own. If he'd rather you merge everything, the tiers still work — they just become review priorities instead of permissions.</li>
       <li><strong>Your cousin</strong> — same tiers, or a different posture? Worth deciding before adding him rather than after.</li>
     </ol>
