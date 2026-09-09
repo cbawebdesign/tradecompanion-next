@@ -309,7 +309,7 @@
           <tr><td>Continuous integration</td><td><span class="pill ok">Shipped</span></td><td>PR check runs the type-checking build on every pull request. Merged in <span class="mono">#9</span>, fixed in <span class="mono">#10</span>.</td></tr>
           <tr><td>Test suite</td><td><span class="pill none">None</span></td><td>No runner, no test files. <span class="mono">npm run lint</span> turned out to be a stub — no ESLint config, no dependency; it drops into an interactive prompt and fails. CI caught that on its first run.</td></tr>
           <tr><td>Type check</td><td><span class="pill ok">Enforced</span></td><td><code>next build</code> type-checks every file and now runs as the <span class="mono">build</span> check on every PR. Runs in about 50 seconds.</td></tr>
-          <tr><td>Branch protection</td><td><span class="pill none">Not enabled</span></td><td>Confirmed with an admin token: the API returns <span class="mono">Branch not protected</span> and the ruleset list is empty. <strong>Master currently accepts a direct force-push.</strong> This is the one gap left.</td></tr>
+          <tr><td>Branch protection</td><td><span class="pill ok">Shipped</span></td><td>Requires the <span class="mono">build</span> check and code-owner review; force-push and deletion blocked. Admins exempt, so you keep an emergency path and Justin does not.</td></tr>
           <tr><td>Repo visibility</td><td><span class="pill some">Public</span></td><td>Anyone can read the source. Not a blocker here, but worth knowing before adding people.</td></tr>
           <tr><td>Production deploy</td><td><span class="pill some">Auto on merge</span></td><td>Vercel builds and ships every merge to <span class="mono">master</span>.</td></tr>
           <tr><td>Code-owner review</td><td><span class="pill ok">Shipped</span></td><td><span class="mono">.github/CODEOWNERS</span> pulls in a required reviewer automatically on the Tier 3 paths. Takes effect once protection is on.</td></tr>
@@ -321,8 +321,8 @@
   </section>
 
   <section>
-    <h2>Build the floor <span class="pill some">2 of 3</span></h2>
-    <p class="prose">Three things before Justin gets write access. Two are done.</p>
+    <h2>Build the floor <span class="pill ok">Done</span></h2>
+    <p class="prose">Three things before Justin gets write access. All three are in place as of 9 September.</p>
 
     <div class="glass-panel panel">
       <div class="panel-title">1 — CI on every pull request <span class="pill ok">Shipped</span></div>
@@ -330,23 +330,17 @@
       <p>It earned its keep immediately: the first run failed because <code>npm run lint</code> is a stub — there's no ESLint config and no <span class="mono">eslint</span> dependency, so <code>next lint</code> drops into an interactive setup prompt and exits 1. That script had never worked. The lint step came back out; adding ESLint properly is its own job, since switching it on cold would flag a lot of existing code and block every PR until someone dealt with it.</p>
     </div>
 
-    <div class="glass-panel panel alarm">
-      <div class="panel-title">2 — Branch protection on master <span class="pill none">Outstanding</span></div>
-      <p>The last real gap, and now confirmed rather than assumed: the API returns <span class="mono">Branch not protected</span> and there are no rulesets. Master takes a direct force-push today, and CI is advisory until this lands.</p>
-      <p>Settings to apply — Settings → Branches → Add rule for <span class="mono">master</span>:</p>
-      <ul>
-        <li><strong>Require a pull request before merging</strong> — approvals required: <span class="mono">0</span></li>
-        <li><strong>Require review from Code Owners</strong> — this is what makes Tier 3 automatic</li>
-        <li><strong>Require status checks to pass</strong> → <span class="mono">build</span>, with “require branches to be up to date” on</li>
-        <li><strong>Do not</strong> tick “include administrators” — you keep an emergency path; Justin, on write, does not</li>
-        <li>Allow force pushes: <strong>off</strong>. Allow deletions: <strong>off</strong></li>
-      </ul>
-      <p>Zero required approvals plus code-owner review is the combination that matches the tiers: Tier 1 merges on a green build with nobody's permission, and anything touching a Tier 3 path pulls in a reviewer without a human having to classify it correctly.</p>
+    <div class="glass-panel panel">
+      <div class="panel-title">2 — Branch protection on master <span class="pill ok">Shipped</span></div>
+      <p>Master now requires a pull request with a passing <span class="mono">build</span> check, and pulls in a code-owner review automatically on the Tier 3 paths. Force-pushes and branch deletion are blocked.</p>
+      <p><strong>Zero blanket approvals, plus code-owner review</strong> — the combination that matches the tiers. Tier 1 merges on green with nobody's permission; anything touching sync, dedup, ingestion or the previous-close logic requests you without a human having to classify it. Administrators are deliberately exempt, so you keep a way through in an emergency and Justin, on write access, does not.</p>
     </div>
 
     <div class="glass-panel panel">
-      <div class="panel-title">3 — Confirm Vercel preview deploys are on for PRs <span class="pill unk">Unverified</span></div>
-      <p>This is the piece that makes Justin genuinely productive rather than merely permitted. Every PR gets its own URL running that branch's code. He logs in with his own account, sees his change against live market data, and decides — all before anything touches master. On the default Vercel + GitHub integration it's on, but confirm rather than assume.</p>
+      <div class="panel-title">3 — Preview deploys <span class="pill ok">Shipped</span></div>
+      <p>The Vercel project is connected to the GitHub repo. Every pull request now builds its own preview URL automatically, and merging to master deploys itself — no CLI command from anyone, and no more deploys that fail silently.</p>
+      <p>Deployment Protection has been turned off for previews, so Justin can actually open them. He lands on TC's own login gate, which is exactly what production has served to the open internet all along.</p>
+      <p><strong>The rule moved with it:</strong> merging is now the deploy, so the market-hours freeze applies to the merge button rather than to a terminal command.</p>
     </div>
   </section>
 
