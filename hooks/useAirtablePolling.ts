@@ -10,6 +10,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
+import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import type { Alert } from '@/types'
 
 const AIRTABLE_BASE_ID = 'appeLF4Ky4hRGHUpH'
@@ -33,36 +34,6 @@ let hasInitiallyFetched = false
 // Airtable token — baked in at build time via NEXT_PUBLIC_AIRTABLE_TOKEN env var
 const AIRTABLE_TOKEN = process.env.NEXT_PUBLIC_AIRTABLE_TOKEN || ''
 
-// 4 PM ET on the previous trading day, expressed as a UTC ISO string.
-// Used as the cutoff for Airtable RSS / YT / Substack pulls so backfills
-// don't drag in items from previous days.
-// Exported for characterization tests — see tests/marketCalendar.test.ts.
-// This is a SECOND implementation of the same idea as lib/marketCalendar.ts
-// prevMarketCloseISO(); the tests document where they disagree.
-export function previousMarketCloseISO(): string {
-  const nowUtc = new Date()
-  // Convert to ET to find "today's" calendar day in ET.
-  const etNow = new Date(nowUtc.toLocaleString('en-US', { timeZone: 'America/New_York' }))
-  const utcEtOffsetMs = nowUtc.getTime() - etNow.getTime()
-
-  // Start with 4:00 PM ET today (in ET wall-clock).
-  const cutoffEt = new Date(etNow)
-  cutoffEt.setHours(16, 0, 0, 0)
-
-  // If 4 PM ET today is still in the future, the most recent close was yesterday.
-  if (cutoffEt > etNow) {
-    cutoffEt.setDate(cutoffEt.getDate() - 1)
-  }
-  // Walk back over weekends — Saturday=6, Sunday=0.
-  while (cutoffEt.getDay() === 0 || cutoffEt.getDay() === 6) {
-    cutoffEt.setDate(cutoffEt.getDate() - 1)
-  }
-
-  // Convert the ET wall-clock back to a real UTC Date by reapplying the offset
-  // we measured (handles DST automatically — the offset captures it).
-  const cutoffUtc = new Date(cutoffEt.getTime() + utcEtOffsetMs)
-  return cutoffUtc.toISOString()
-}
 
 export function useAirtablePolling() {
   const { addAlert, addAlerts } = useStore()
@@ -83,7 +54,7 @@ export function useAirtablePolling() {
         // age, so on light-volume sources (Substack/YT over a weekend) the
         // backfill spanned multiple days. Justin: "RSS backfilled for multiple
         // days instead of just pulling stuff since the previous close."
-        const cutoffISO = previousMarketCloseISO()
+        const cutoffISO = prevMarketCloseISO()
 
         const params = new URLSearchParams({
           view: view.viewId,
