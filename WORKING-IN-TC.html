@@ -94,7 +94,7 @@
   <section>
     <h2>What's set up</h2>
     <p class="prose">Cursor now knows this codebase. I've committed a set of rules into the repo that load automatically the moment you open it — no settings for you to configure, nothing to install. They tell the AI how the app is put together, which conventions matter, and which files it isn't allowed to change on its own.</p>
-    <p class="prose">There's also a check that runs on every change you propose. It compiles the whole app and catches a big class of mistakes before they get anywhere near your terminal.</p>
+    <p class="prose">There's also a check that runs on every change you propose. It builds the whole app and runs a set of automated tests over the alert logic — the duplicate handling, the cut-off dates, the keyword filters — so a change that quietly breaks one of them fails on the pull request instead of on your screen.</p>
     <p class="prose">The short version: you can poke at this safely now. The setup is designed so the easy stuff is genuinely easy, and the dangerous stuff asks for me automatically instead of relying on either of us to remember.</p>
   </section>
 
@@ -163,11 +163,12 @@
         </div></div>
         <div class="step"><div class="step-n">03</div><div class="step-body">
           <h4>Wait for the check, then open the preview link</h4>
-          <p>Two things appear on the pull request within a minute or two: a green tick if the app still compiles, and <strong>a link to your own private copy of TC running your change</strong>. Log into it exactly as you normally would.</p>
+          <p>Two things appear on the pull request within a minute or two: a green tick, and <strong>a link to your own private copy of TC running your change</strong>. Log into it exactly as you normally would.</p>
+          <p>The tick means the app still builds <em>and</em> that a set of automated checks on the alert logic — duplicate handling, the cut-off dates, the filters — still behave the way they did before your change. If it goes red, something moved that probably shouldn't have.</p>
         </div></div>
         <div class="step"><div class="step-n">04</div><div class="step-body">
           <h4>Use it for real</h4>
-          <p>This is the part that actually matters. Not the green tick — the green tick only proves it compiles. Sit on the preview with live data and make sure it does what you wanted.</p>
+          <p>This is the part that actually matters. The tick proves the code still holds together; it can't tell you whether an alert quietly stopped arriving. Sit on the preview with live data and make sure it does what you wanted.</p>
         </div></div>
         <div class="step"><div class="step-n">05</div><div class="step-body">
           <h4>Merge it, or send it to me</h4>
