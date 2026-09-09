@@ -1,0 +1,159 @@
+<title>Scanner Leaderboard Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap">
+<style>
+/* tokens lifted verbatim from app/globals.css [data-theme="dark"] */
+:root{
+  --bg-base:#0a0e17;--bg-primary:#111827;--bg-secondary:#1f2937;
+  --bg-glass:rgba(17,24,39,.7);--bg-glass-light:rgba(31,41,55,.5);
+  --border-primary:rgba(75,85,99,.5);--border-glass:rgba(255,255,255,.08);
+  --text-primary:#f3f4f6;--text-secondary:#9ca3af;--text-muted:#6b7280;
+  --accent-primary:#3b82f6;--accent-glow:rgba(59,130,246,.3);--shadow:rgba(0,0,0,.5);
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg-base);color:var(--text-primary);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased}
+.page{max-width:1240px;margin:0 auto;padding:26px 20px 90px}
+
+.banner{border:1px solid rgba(234,179,8,.32);background:linear-gradient(90deg,rgba(234,179,8,.11),rgba(17,24,39,.7) 60%);border-left:3px solid #eab308;border-radius:10px;padding:13px 17px;margin-bottom:20px;font-size:13.5px;line-height:1.55;color:var(--text-secondary)}
+.banner b{color:#fff}
+
+.glass-panel{background:var(--bg-glass);backdrop-filter:blur(12px);border:1px solid var(--border-glass);border-radius:8px;box-shadow:0 8px 32px var(--shadow),inset 0 1px 0 rgba(255,255,255,.05)}
+.glass-card{background:var(--bg-glass-light);backdrop-filter:blur(8px);border:1px solid var(--border-glass);box-shadow:0 4px 16px var(--shadow)}
+.glass-header{background:linear-gradient(180deg,rgba(255,255,255,.05) 0%,rgba(255,255,255,0) 100%);border-bottom:1px solid var(--border-glass)}
+.glow-accent{box-shadow:0 0 20px var(--accent-glow)}
+
+/* page header — matches ScannerPage */
+.hdr{padding:10px 16px;display:flex;align-items:center;gap:12px;border-radius:8px 8px 0 0}
+.hdr .t{font-weight:700;font-size:18px}
+.hdr .c{color:var(--text-muted)}
+.hdr .sp{margin-left:auto;display:flex;gap:8px}
+.btn{padding:4px 12px;background:#374151;border:0;border-radius:6px;color:var(--text-primary);font-size:13px;font-family:inherit;cursor:default}
+
+.body{padding:10px}
+/* session block */
+.sess{margin-bottom:12px;border-radius:8px;overflow:hidden}
+.sess.cur{border:2px solid var(--accent-primary);box-shadow:0 0 20px var(--accent-glow)}
+.sess.other{border:1px solid var(--border-glass)}
+.sess-h{padding:10px 16px;display:flex;align-items:center;gap:12px;user-select:none}
+.sess.cur .sess-h{background:rgba(30,58,138,.2)}
+.caret{font-size:17px;color:var(--text-secondary)}
+.sess-t{font-weight:700;flex:1}
+.badge{margin-left:12px;padding:2px 8px;background:#2563eb;border-radius:4px;font-size:11.5px;font-weight:600;vertical-align:middle}
+.sess-n{color:var(--text-muted);font-size:13px}
+
+/* bucket row */
+.buckets{padding:10px;display:flex;overflow-x:auto;background:var(--bg-glass-light);gap:0}
+.bucket{flex:1;min-width:180px;margin:0 4px;border-radius:8px;overflow:hidden}
+.b-h{padding:6px 8px;text-align:center;font-weight:700;font-size:13.5px}
+.empty{padding:16px;text-align:center;color:#4b5563;font-size:12px}
+.grp{padding:4px 8px;font-size:11.5px;font-weight:700}
+.grp.g{background:rgba(20,83,45,.2);color:#22c55e}
+.grp.l{background:rgba(127,29,29,.2);color:#ef4444;margin-top:8px}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td{padding:2px 6px}
+tr:hover{background:rgba(55,65,81,.5)}
+tr.sel{background:rgba(30,58,138,.5)}
+.flag{color:#4b5563}
+.flag.on{color:#facc15}
+.sym{font-family:var(--mono);font-weight:700;font-size:13px}
+.pct{font-family:var(--mono);font-weight:700;font-size:13px;text-align:right}
+.up{color:#22c55e}.dn{color:#ef4444}
+.prc{font-family:var(--mono);color:#9ca3af;font-size:13px;text-align:right}
+.note{margin-top:22px;color:var(--text-muted);font-size:12.5px;line-height:1.6;max-width:76ch}
+.note code{font-family:var(--mono);background:rgba(0,0,0,.3);border:1px solid var(--border-glass);padding:1px 5px;border-radius:4px;color:#60a5fa;font-size:.9em}
+</style>
+
+<div class="page">
+
+  <div class="banner">
+    <b>Mockup — not live data.</b> Rendered from <code style="font-family:var(--mono)">components/ScannerPage.tsx</code> using the app's own CSS variables and class structure, so the layout, colours and spacing match what ships. The tickers and percentages are invented. I can't log into TC, and the scanner exposes no endpoint to query, so real hits can only be seen in the running app.
+  </div>
+
+  <div class="glass-panel">
+    <div class="hdr glass-header">
+      <span class="t">Scanner Leaderboard</span>
+      <span class="c">(14 total alerts)</span>
+      <span class="sp"><button class="btn">Expand All</button><button class="btn">Collapse All</button><button class="btn">Clear</button></span>
+    </div>
+
+    <div class="body">
+
+      <!-- CURRENT SESSION -->
+      <div class="sess cur glass-card">
+        <div class="sess-h glass-header">
+          <span class="caret">▼</span>
+          <span class="sess-t">Pre-Market (4:00am - 9:30am)<span class="badge">CURRENT</span></span>
+          <span class="sess-n">9 alerts</span>
+        </div>
+        <div class="buckets">
+
+          <div class="bucket glass-card">
+            <div class="b-h glass-header">Nano</div>
+            <div class="grp g">▲ TOP GAINERS</div>
+            <table><tbody>
+              <tr><td class="flag">⚐</td><td class="sym">SNGX</td><td class="pct up">+212.4%</td><td class="prc">$1.84</td></tr>
+              <tr class="sel"><td class="flag on">⚑</td><td class="sym">ATNF</td><td class="pct up">+88.1%</td><td class="prc">$0.94</td></tr>
+              <tr><td class="flag">⚐</td><td class="sym">BIVI</td><td class="pct up">+47.6%</td><td class="prc">$2.31</td></tr>
+            </tbody></table>
+            <div class="grp l">▼ TOP LOSERS</div>
+            <table><tbody>
+              <tr><td class="flag">⚐</td><td class="sym">CYCC</td><td class="pct dn">-52.3%</td><td class="prc">$0.61</td></tr>
+            </tbody></table>
+          </div>
+
+          <div class="bucket glass-card">
+            <div class="b-h glass-header">Micro</div>
+            <div class="grp g">▲ TOP GAINERS</div>
+            <table><tbody>
+              <tr><td class="flag">⚐</td><td class="sym">VERB</td><td class="pct up">+94.2%</td><td class="prc">$3.07</td></tr>
+              <tr><td class="flag on">⚑</td><td class="sym">GNPX</td><td class="pct up">+61.9%</td><td class="prc">$4.55</td></tr>
+            </tbody></table>
+          </div>
+
+          <div class="bucket glass-card">
+            <div class="b-h glass-header">Small</div>
+            <div class="grp g">▲ TOP GAINERS</div>
+            <table><tbody>
+              <tr><td class="flag">⚐</td><td class="sym">RGTI</td><td class="pct up">+55.8%</td><td class="prc">$12.40</td></tr>
+              <tr><td class="flag">⚐</td><td class="sym">SOUN</td><td class="pct up">+41.2%</td><td class="prc">$9.87</td></tr>
+            </tbody></table>
+          </div>
+
+          <div class="bucket glass-card">
+            <div class="b-h glass-header">Mid</div>
+            <div class="grp g">▲ TOP GAINERS</div>
+            <table><tbody>
+              <tr><td class="flag">⚐</td><td class="sym">IONQ</td><td class="pct up">+43.7%</td><td class="prc">$28.15</td></tr>
+            </tbody></table>
+          </div>
+
+          <div class="bucket glass-card"><div class="b-h glass-header">Large</div><div class="empty">No alerts</div></div>
+          <div class="bucket glass-card"><div class="b-h glass-header">Mega</div><div class="empty">No alerts</div></div>
+
+        </div>
+      </div>
+
+      <!-- COLLAPSED SESSIONS -->
+      <div class="sess other glass-card">
+        <div class="sess-h glass-header"><span class="caret">▶</span><span class="sess-t">Market (9:30am - 4:00pm)</span><span class="sess-n">0 alerts</span></div>
+      </div>
+      <div class="sess other glass-card">
+        <div class="sess-h glass-header"><span class="caret">▶</span><span class="sess-t">Afterhours (4:00pm - 8:00pm)</span><span class="sess-n">0 alerts</span></div>
+      </div>
+      <div class="sess other glass-card">
+        <div class="sess-h glass-header"><span class="caret">▶</span><span class="sess-t">Overnight (8:00pm - 4:00am)</span><span class="sess-n">5 alerts</span></div>
+      </div>
+
+    </div>
+  </div>
+
+  <p class="note">
+    <b style="color:#fff">How it behaves.</b> Four sessions — PRE / MKT / AH / ON — with the current one auto-expanded, ringed in the accent blue and glowing; the rest collapse to a header. Inside each, six market-cap columns from Nano to Mega, each split into gainers then losers. A row is flag, ticker, % change, price; clicking it sets the selected symbol so the data ribbon follows, and the flag toggles without selecting. Empty buckets say “No alerts” rather than disappearing, so the grid stays stable as hits arrive.
+    <br><br>
+    <b style="color:#fff">Worth knowing.</b> Hits arrive over SignalR as <code>ScannerAlert</code> and are held in the store, capped at 500 and persisted — so a refresh keeps what's already there, but anything that fired while TC was closed is lost, since the scanner is broadcast-only with no endpoint to catch up from.
+  </p>
+
+</div>
