@@ -76,7 +76,7 @@ describe('removeAlert — timeline delete', () => {
     expect(keys.size).toBe(1)
     // Normalised — the form-code prefix is stripped so it matches the key the
     // auditor builds from the un-prefixed REST feed.
-    expect([...keys][0]).toBe('TSLA|filing|material agreement')
+    expect(Array.from(keys)[0]).toBe('TSLA|filing|material agreement')
   })
 
   it('is a no-op for an unknown id', () => {
