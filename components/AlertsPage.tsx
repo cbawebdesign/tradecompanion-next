@@ -46,7 +46,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     config,
     updateConfig,
     watchlists,
-    updateSymbolInWatchlist,
+    setPriceAlertEverywhere,
     triggeredPriceAlerts,
   } = useStore()
 
@@ -100,9 +100,9 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     return null
   }
   const updateAlertForFlagged = (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => {
-    const hit = findEntry(symbol)
-    if (!hit) return
-    updateSymbolInWatchlist(hit.wl.id, { ...hit.entry, [field]: value })
+    // Writes to every watchlist holding this symbol, not just the first one
+    // found — see setPriceAlertEverywhere in the store.
+    setPriceAlertEverywhere(symbol, field, value)
   }
 
   // Right-click context menu on Flagged List rows.

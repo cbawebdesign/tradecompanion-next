@@ -98,6 +98,7 @@ interface AppState {
   addSymbolToWatchlist: (watchlistId: string, symbol: WatchlistSymbol) => void
   removeSymbolFromWatchlist: (watchlistId: string, symbol: string) => void
   updateSymbolInWatchlist: (watchlistId: string, symbol: WatchlistSymbol) => void
+  setPriceAlertEverywhere: (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => void
   reorderWatchlists: (orderedIds: string[]) => void
 
   // Flagged symbols
@@ -506,6 +507,27 @@ export const useStore = create<AppState>()(
         watchlists: state.watchlists.map(w =>
           w.id === watchlistId
             ? { ...w, symbols: w.symbols.map(s => s.symbol === symbol.symbol ? symbol : s) }
+            : w
+        )
+      })),
+
+      // Write a price alert to EVERY watchlist the symbol appears on.
+      //
+      // The flagged list and the timeline both used to resolve a symbol to the
+      // FIRST watchlist containing it and write only there. So an alert keyed in
+      // from the flagged list landed on one list, and looking at any other list —
+      // or unflagging, which takes the flagged view away — made it look lost.
+      // Justin: "if the user later unflags that symbol, the price alerts are lost
+      // even if the symbol is on a watch list. Please carry over the keyed in
+      // price alerts to that symbol on every watch list it appears on."
+      //
+      // One atomic update rather than a loop of updateSymbolInWatchlist, so this
+      // is a single render and a single sync push. Lists without the symbol are
+      // returned untouched so their object identity is preserved.
+      setPriceAlertEverywhere: (symbol, field, value) => set((state) => ({
+        watchlists: state.watchlists.map(w =>
+          w.symbols.some(s => s.symbol === symbol)
+            ? { ...w, symbols: w.symbols.map(s => s.symbol === symbol ? { ...s, [field]: value } : s) }
             : w
         )
       })),
