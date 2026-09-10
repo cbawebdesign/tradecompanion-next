@@ -7,6 +7,7 @@ import { AlertsPage } from '@/components/AlertsPage'
 import { ScannerPage } from '@/components/ScannerPage'
 import { ThemesPage } from '@/components/ThemesPage'
 import { SettingsPage } from '@/components/SettingsPage'
+import { AdminPage } from '@/components/AdminPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
 import { AlertMascot } from '@/components/AlertMascot'
@@ -18,6 +19,11 @@ const TABS = [
   { id: 3, label: 'Scanner', icon: '📊' },
   { id: 4, label: 'Themes', icon: '🚀' },
   { id: 5, label: 'Settings', icon: '⚙️' },
+  // Diagnostics. AdminPage was fully built — per-service health, last message
+  // times, rollback — and imported by nothing, so it was unreachable. Wiring it
+  // up lets a user answer "is the feed down or is it just quiet?" themselves
+  // rather than asking. That question sits under a lot of the reports we get.
+  { id: 6, label: 'Status', icon: '🩺' },
 ]
 
 export default function Home() {
@@ -66,6 +72,7 @@ export default function Home() {
         {activeTab === 3 && <ScannerPage />}
         {activeTab === 4 && <ThemesPage />}
         {activeTab === 5 && <SettingsPage />}
+        {activeTab === 6 && <AdminPage showRollback={false} />}
       </main>
 
       {/* Alert Bar - at bottom */}
