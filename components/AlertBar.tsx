@@ -54,7 +54,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     setActiveTab,
     activePane,
     setActivePane,
-    updateSymbolInWatchlist,
+    setPriceAlertEverywhere,
     triggeredPriceAlerts,
     isBootstrapping,
   } = useStore()
@@ -295,9 +295,9 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     return null
   }
   const updateAlertOnTimeline = (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => {
-    const hit = findEntry(symbol)
-    if (!hit) return
-    updateSymbolInWatchlist(hit.wl.id, { ...hit.entry, [field]: value })
+    // Writes to every watchlist holding this symbol, not just the first one
+    // found — see setPriceAlertEverywhere in the store.
+    setPriceAlertEverywhere(symbol, field, value)
   }
 
   // During the first ~8 sec after app start, suppress the timeline render
