@@ -17,7 +17,17 @@ interface StockDataItem {
   LastUpdated: string | null
 }
 
-export function AdminPage() {
+interface AdminPageProps {
+  /**
+   * Show the deployment rollback control. Defaults to true so existing callers
+   * are unaffected. The Status tab passes false — rollback triggers a real
+   * production deploy revert, and that should not sit one click away in a tab
+   * bar someone uses during the trading session.
+   */
+  showRollback?: boolean
+}
+
+export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
   const hubUrl = useStore((s) => s.config.hubUrl)
 
   // Rollback state
@@ -245,76 +255,80 @@ export function AdminPage() {
               )}
             </div>
 
-            {/* Divider */}
-            <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }} />
+            {showRollback && (
+              <>
+                {/* Divider */}
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)' }} />
 
-            {/* Rollback Button */}
-            <div>
-              <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-                Roll back the Azure Function to the previous deployment. Takes ~2 minutes, zero downtime.
-              </p>
-              {rollbackStatus === 'idle' && (
-                <button
-                  onClick={() => setRollbackStatus('confirming')}
-                  style={{
-                    width: '100%', padding: '12px', backgroundColor: '#d32f2f', color: '#fff',
-                    border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700,
-                    cursor: 'pointer', letterSpacing: '0.5px',
-                  }}
-                >
-                  ROLLBACK TO PREVIOUS VERSION
-                </button>
-              )}
-              {rollbackStatus === 'confirming' && (
-                <div className="space-y-2">
-                  <p className="text-sm text-yellow-400 font-semibold">
-                    Are you sure? This will redeploy the previous version.
+                {/* Rollback Button */}
+                <div>
+                  <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                    Roll back the Azure Function to the previous deployment. Takes ~2 minutes, zero downtime.
                   </p>
-                  <div className="flex gap-2">
+                  {rollbackStatus === 'idle' && (
                     <button
-                      onClick={handleRollback}
+                      onClick={() => setRollbackStatus('confirming')}
                       style={{
-                        flex: 1, padding: '10px', backgroundColor: '#d32f2f', color: '#fff',
-                        border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                        width: '100%', padding: '12px', backgroundColor: '#d32f2f', color: '#fff',
+                        border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700,
+                        cursor: 'pointer', letterSpacing: '0.5px',
                       }}
                     >
-                      YES, ROLL BACK NOW
+                      ROLLBACK TO PREVIOUS VERSION
                     </button>
-                    <button
-                      onClick={() => setRollbackStatus('idle')}
-                      style={{
-                        flex: 1, padding: '10px', backgroundColor: '#333', color: '#ccc',
-                        border: '1px solid #555', borderRadius: '6px', fontSize: '14px', cursor: 'pointer',
-                      }}
-                    >
-                      Cancel
-                    </button>
-                  </div>
+                  )}
+                  {rollbackStatus === 'confirming' && (
+                    <div className="space-y-2">
+                      <p className="text-sm text-yellow-400 font-semibold">
+                        Are you sure? This will redeploy the previous version.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={handleRollback}
+                          style={{
+                            flex: 1, padding: '10px', backgroundColor: '#d32f2f', color: '#fff',
+                            border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: 700, cursor: 'pointer',
+                          }}
+                        >
+                          YES, ROLL BACK NOW
+                        </button>
+                        <button
+                          onClick={() => setRollbackStatus('idle')}
+                          style={{
+                            flex: 1, padding: '10px', backgroundColor: '#333', color: '#ccc',
+                            border: '1px solid #555', borderRadius: '6px', fontSize: '14px', cursor: 'pointer',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  {rollbackStatus === 'loading' && (
+                    <div className="text-center py-3">
+                      <p className="text-sm text-yellow-400">Triggering rollback...</p>
+                    </div>
+                  )}
+                  {rollbackStatus === 'success' && (
+                    <div style={{ backgroundColor: 'rgba(76,175,80,0.15)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', padding: '12px' }}>
+                      <p className="text-sm text-green-400 font-semibold">{rollbackMessage}</p>
+                    </div>
+                  )}
+                  {rollbackStatus === 'error' && (
+                    <div style={{ backgroundColor: 'rgba(244,67,54,0.15)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '12px' }}>
+                      <p className="text-sm text-red-400">Error: {rollbackMessage}</p>
+                      <button
+                        onClick={() => setRollbackStatus('idle')}
+                        className="text-xs underline mt-1"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        Try again
+                      </button>
+                    </div>
+                  )}
                 </div>
-              )}
-              {rollbackStatus === 'loading' && (
-                <div className="text-center py-3">
-                  <p className="text-sm text-yellow-400">Triggering rollback...</p>
-                </div>
-              )}
-              {rollbackStatus === 'success' && (
-                <div style={{ backgroundColor: 'rgba(76,175,80,0.15)', border: '1px solid rgba(76,175,80,0.3)', borderRadius: '8px', padding: '12px' }}>
-                  <p className="text-sm text-green-400 font-semibold">{rollbackMessage}</p>
-                </div>
-              )}
-              {rollbackStatus === 'error' && (
-                <div style={{ backgroundColor: 'rgba(244,67,54,0.15)', border: '1px solid rgba(244,67,54,0.3)', borderRadius: '8px', padding: '12px' }}>
-                  <p className="text-sm text-red-400">Error: {rollbackMessage}</p>
-                  <button
-                    onClick={() => setRollbackStatus('idle')}
-                    className="text-xs underline mt-1"
-                    style={{ color: 'var(--text-muted)' }}
-                  >
-                    Try again
-                  </button>
-                </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </section>
       </div>
