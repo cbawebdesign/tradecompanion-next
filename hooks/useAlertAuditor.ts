@@ -11,6 +11,7 @@ import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { alertMatchKey } from '@/lib/alertDedup'
 import type { Alert } from '@/types'
+import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 // Module-level state to survive React remounts
 let lastAuditTime: Date | null = null
@@ -174,10 +175,10 @@ export function useAlertAuditor() {
           const data = await response.json()
 
           const typeMap: Record<string, { items: any[]; alertType: Alert['type']; color: string }> = {
-            filings: { items: data.filings || [], alertType: 'filing', color: '#00bcd4' },
-            tweets: { items: data.tweets || [], alertType: 'tweet', color: '#1da1f2' },
-            tradeExchange: { items: data.tradeExchange || [], alertType: 'trade_exchange', color: '#eab308' },
-            tradingView: { items: data.tradingView || [], alertType: 'tradingview', color: '#4caf50' },
+            filings: { items: data.filings || [], alertType: 'filing', color: alertTypeColorHex('filing') },
+            tweets: { items: data.tweets || [], alertType: 'tweet', color: alertTypeColorHex('tweet') },
+            tradeExchange: { items: data.tradeExchange || [], alertType: 'trade_exchange', color: alertTypeColorHex('trade_exchange') },
+            tradingView: { items: data.tradingView || [], alertType: 'tradingview', color: alertTypeColorHex('tradingview') },
             // Catalysts intentionally excluded from auditor backfill. The
             // auditor produces alerts that bypass the confirmation gate (no
             // historical bars to evaluate dolVol+price), which surfaces the
@@ -271,10 +272,10 @@ export function useAlertAuditor() {
 
         const data = await response.json()
         const typeMap: Record<string, { items: any[]; alertType: Alert['type']; color: string }> = {
-          filings: { items: data.filings || [], alertType: 'filing', color: '#00bcd4' },
-          tweets: { items: data.tweets || [], alertType: 'tweet', color: '#1da1f2' },
-          tradeExchange: { items: data.tradeExchange || [], alertType: 'trade_exchange', color: '#eab308' },
-          tradingView: { items: data.tradingView || [], alertType: 'tradingview', color: '#4caf50' },
+          filings: { items: data.filings || [], alertType: 'filing', color: alertTypeColorHex('filing') },
+          tweets: { items: data.tweets || [], alertType: 'tweet', color: alertTypeColorHex('tweet') },
+          tradeExchange: { items: data.tradeExchange || [], alertType: 'trade_exchange', color: alertTypeColorHex('trade_exchange') },
+          tradingView: { items: data.tradingView || [], alertType: 'tradingview', color: alertTypeColorHex('tradingview') },
           // Catalysts intentionally excluded — same reason as the periodic
           // audit. New-symbol backfill fires once per fresh watchlist symbol
           // on boot; including catalysts here was the source of Justin's
