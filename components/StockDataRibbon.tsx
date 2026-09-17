@@ -7,6 +7,7 @@ import { WatchlistChips } from './WatchlistChips'
 
 interface StockDataItem {
   Ticker: string
+  CompanyName: string | null
   MarketCap: number | null
   SharesOutstanding: number | null
   SharesFloat: number | null
@@ -156,6 +157,7 @@ function normalizeStockData(raw: any, user?: string | null): any {
 function emptyData(ticker: string): StockDataItem {
   return {
     Ticker: ticker.toUpperCase(),
+    CompanyName: null,
     MarketCap: null, SharesOutstanding: null, SharesFloat: null,
     InsiderOwnership: null, InstOwnership: null, ShortFloat: null,
     AvgVolume: null, Price: null, LastUpdated: null,
@@ -459,6 +461,17 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         className="flex items-center gap-1 px-1.5 py-1 text-xs rounded-t flex-wrap"
         style={{ background: 'var(--bg-glass)' }}
       >
+        {/* Ribbon header \u2014 Justin (9/12): the header needs the company name,
+            which had no backend field to hold it until now. Falls back to the
+            ticker alone while a newly-listed symbol is still being filled in,
+            so nothing shifts once the name arrives. */}
+        <span className="inline-flex gap-1 items-baseline min-w-0 max-w-[28ch]" title={data.CompanyName || undefined}>
+          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{t}</span>
+          {data.CompanyName && (
+            <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{data.CompanyName}</span>
+          )}
+        </span>
+        {renderSep()}
         {renderField('Float', 'SharesFloat', formatMillions(data.SharesFloat), data.SharesFloat)}
         {renderSep()}
         <span className="inline-flex gap-0.5 items-center">
