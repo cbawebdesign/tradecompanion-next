@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
+import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 // Filing from Azure API (matches lx_filing_rss)
 interface Filing {
@@ -127,7 +128,7 @@ export function useFilingsPolling() {
             symbol: matchedSymbol,
             message: `${filing.form}${filing.title ? ': ' + filing.title : ''}`,
             type: 'filing',
-            color: '#00bcd4',
+            color: alertTypeColorHex('filing'),
             timestamp: new Date(filing.time_et || filing.date || new Date()),
             read: false,
             url: filing.url,

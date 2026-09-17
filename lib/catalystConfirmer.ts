@@ -20,6 +20,7 @@
 //   - All pending state is module-level so it survives hook remounts.
 
 import type { Alert } from '@/types'
+import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 export interface PendingCatalyst {
   symbol: string
@@ -181,7 +182,7 @@ export function buildConfirmedAlert(cat: PendingCatalyst, bar: BarLike): Alert {
     symbol: cat.symbol,
     message: `${cat.title}${priceSuffix}`,
     type: 'catalyst',
-    color: '#00e676',
+    color: alertTypeColorHex('catalyst'),
     timestamp: bar.t ? (typeof bar.t === 'string' ? new Date(bar.t) : bar.t) : new Date(),
     read: false,
     url: cat.resourceId ? `/api/pr?id=${cat.resourceId}` : undefined,

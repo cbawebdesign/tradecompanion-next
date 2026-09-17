@@ -10,6 +10,7 @@ import { buildExcludePrRegex, isBlacklistedPr } from '@/lib/excludePrPatterns'
 import { catalystConfirmer, buildConfirmedAlert } from '@/lib/catalystConfirmer'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import type { Alert, Quote } from '@/types'
+import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 interface NegotiateResult {
   url: string
@@ -82,7 +83,7 @@ function buildTvAlert(data: any): Alert {
     symbol,
     message: rawText || JSON.stringify(data),
     type: 'tradingview',
-    color: '#4caf50',
+    color: alertTypeColorHex('tradingview'),
     timestamp: data.received_utc ? new Date(data.received_utc) : new Date(),
     read: false,
   }
@@ -457,7 +458,7 @@ export function useSignalR() {
             symbol: matchedSymbol,
             message,
             type: 'filing',
-            color: '#00bcd4',
+            color: alertTypeColorHex('filing'),
             timestamp: isNaN(filingTimestamp.getTime()) ? new Date() : filingTimestamp,
             read: false,
             url,
@@ -506,7 +507,7 @@ export function useSignalR() {
             symbol: alertSymbol,
             message: src ? `[${src}] ${content}` : content,
             type: 'trade_exchange',
-            color: '#eab308',
+            color: alertTypeColorHex('trade_exchange'),
             timestamp: data.save_time_utc ? new Date(data.save_time_utc) : new Date(),
             read: false,
           }
@@ -562,7 +563,7 @@ export function useSignalR() {
             symbol,
             message: headline || `Press Release ${symbol}`,
             type: 'news',
-            color: '#7c4dff',
+            color: alertTypeColorHex('news'),
             timestamp: ts,
             read: false,
             url,
@@ -616,7 +617,7 @@ export function useSignalR() {
             symbol,
             message: `▲ ${pct.toFixed(0)}% intraday — $${price.toFixed(2)}`,
             type: 'scanner',
-            color: '#22c55e',
+            color: alertTypeColorHex('scanner'),
             timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
             read: false,
           }

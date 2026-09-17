@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
+import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 // Matches cosmos_tweet from Azure backend.
 // id_long is serialized as a string (not number) because Twitter IDs are
@@ -120,7 +121,7 @@ export function useTweetsPolling() {
                 symbol: sym,
                 message: tweetText,
                 type: 'tweet',
-                color: '#1da1f2',
+                color: alertTypeColorHex('tweet'),
                 timestamp: tweetTime,
                 read: false,
                 url: tweetUrl,
@@ -135,7 +136,7 @@ export function useTweetsPolling() {
               symbol: symbols[0] || '',
               message: tweetText,
               type: 'tweet',
-              color: '#1da1f2',
+              color: alertTypeColorHex('tweet'),
               timestamp: tweetTime,
               read: false,
               url: tweetUrl,

@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
+import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 interface TradeExchangePost {
   id: string
@@ -122,7 +123,7 @@ export function useTradeExchangePolling() {
             symbol: alertSymbol.toUpperCase(),
             message: `[${post.source}] ${post.content}`,
             type: 'trade_exchange',
-            color: '#eab308',
+            color: alertTypeColorHex('trade_exchange'),
             timestamp: new Date(post.save_time_utc),
             read: false,
           }

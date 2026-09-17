@@ -7,6 +7,7 @@ import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { buildExcludePrRegex, isBlacklistedPr } from '@/lib/excludePrPatterns'
 import type { Alert } from '@/types'
+import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 const NEWS_HUB_URL = 'https://stage.news.scanzzers.com/newshub'
 const MACHINE_LOGIN_URL = 'https://stage.scanzzers.com/auth/machine-login'
@@ -92,7 +93,7 @@ export function useNewsHub() {
           symbol,
           message: headline || `Press Release ${symbol}`,
           type: 'news',
-          color: '#7c4dff',
+          color: alertTypeColorHex('news'),
           timestamp: data.savetime_et
             ? new Date(data.savetime_et)
             : data.time_et
