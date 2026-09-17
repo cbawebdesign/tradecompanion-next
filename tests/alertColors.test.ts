@@ -75,7 +75,9 @@ describe('no ingestion path may contradict the spec', () => {
       for (const file of readdirSync(root)) {
         if (!file.endsWith('.ts')) continue
         const src = readFileSync(join(root, file), 'utf8')
-        for (const m of src.matchAll(/color:\s*'(#[0-9a-fA-F]{3,8})'/g)) {
+        // Array.from: tsconfig targets es5 without downlevelIteration, so the
+        // iterator matchAll returns cannot be for-of'd directly (TS2802).
+        for (const m of Array.from(src.matchAll(/color:\s*'(#[0-9a-fA-F]{3,8})'/g))) {
           const hex = m[1]
           const isSpec = Object.values(SPEC).some(v => v.toLowerCase() === hex.toLowerCase())
           const isSemantic = Array.from(SEMANTIC).some(v => v.toLowerCase() === hex.toLowerCase())
