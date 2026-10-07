@@ -4,6 +4,7 @@ import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionSta
 import { logAlert } from '@/lib/alertLogger'
 import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
+import { isSymbolBlocked } from '@/lib/symbolBlocklist'
 import { normalizeAlertMessage, alertMatchKey } from '@/lib/alertDedup'
 
 // Keep the alert timeline in strict chronological order (newest first).
@@ -232,6 +233,15 @@ export const useStore = create<AppState>()(
           if (tvDiag) console.warn('[TVDIAG] DROPPED: pr-blacklist', { symbol: alert.symbol, msg: alert.message })
           return state
         }
+        // Opt-in per-symbol blocklist (admin-curated, pulled by
+        // useRemoteSymbolBlocklist). Applied HERE rather than per-hook for the same
+        // reason as the PR blacklist above: filtering in individual hooks is exactly
+        // how blacklisted PRs kept reaching the timeline. One check covers all ten
+        // alert types. Inert unless the user has turned it on, and fails open.
+        if (isSymbolBlocked(alert.symbol, state.config.hideBlockedSymbols)) {
+          if (tvDiag) console.warn('[TVDIAG] DROPPED: symbol-blocklist', { symbol: alert.symbol })
+          return state
+        }
         // Cleared-timeline floor — once the user clicks "Clear All Alerts",
         // anything older than that moment must NOT come back via the
         // auditor / polling backfills / Airtable replays. Real-time alerts
@@ -305,6 +315,8 @@ export const useStore = create<AppState>()(
         gated = gated.filter(a =>
           !shouldBlacklistAlert(a.type, a.message, state.config.excludePrPatterns)
         )
+        // Symbol blocklist, batch path (mirrors addAlert).
+        gated = gated.filter(a => !isSymbolBlocked(a.symbol, state.config.hideBlockedSymbols))
         // Cleared-timeline floor — applied here too so backfill batches
         // (auditor / new-symbol-backfill / Airtable initial / TX initial)
         // can't drop pre-clear items into the timeline. Items with

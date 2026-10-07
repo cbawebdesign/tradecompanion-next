@@ -129,6 +129,11 @@ export interface AppConfig {
   showAllTradeExchange: boolean  // show unfiltered trade exchange posts
   xShowAllTweets: string  // pipe-separated Twitter usernames whose tweets always pass (e.g. "nolimitgains|citrini7|theshortbear")
   bannedScannerSymbols: string  // pipe/comma/space-separated tickers to hide from the 40%+ gainer scanner (e.g. "BABA|NIO" China names)
+  // Opt-in: hide every alert for any symbol on the admin-curated blocklist
+  // (GET /api/tcadmin/symbol-blocklist). Unlike bannedScannerSymbols, which is
+  // per-user free text and scanner-only, this is one shared list applied across
+  // all alert types. Defaults off; see lib/symbolBlocklist.ts.
+  hideBlockedSymbols?: boolean
   ahkEnabled: boolean
   ahkUrl: string  // local companion server URL (e.g. http://localhost:9876)
   // Per-type audio settings
