@@ -6,7 +6,7 @@ import { clsx } from 'clsx'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { SymbolContextMenu } from './SymbolContextMenu'
-import { StockDataRibbon } from './StockDataRibbon'
+import { StockDataRibbon, useCompanyName } from './StockDataRibbon'
 
 // Sectors & Themes board. Reads distinct sectors/themes (+ counts) from the
 // backend (GET /api/SectorThemes) and component symbols on demand (GET
@@ -93,6 +93,7 @@ export function ThemesPage() {
   }, [base])
 
   const selSymbol = popup ? popSymbols[selIndex] : undefined
+  const popupCompanyName = useCompanyName(selSymbol)
 
   // Keep the app's selected symbol in sync with the popup selection so the
   // ribbon (and anything else keyed off selectedSymbol) follows as the user cycles.
@@ -220,6 +221,17 @@ export function ThemesPage() {
             {/* Data ribbon for the selected symbol (news / stock data / notes) */}
             {selSymbol && (
               <div className="px-3 pt-2 flex-shrink-0 border-b" style={{ borderColor: 'var(--border-glass)' }}>
+                {/* The ribbon no longer repeats the ticker — it moved to the pane
+                    header everywhere else, and this popup had no header at all, so
+                    the symbol would otherwise go unlabelled here. */}
+                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                  {selSymbol}
+                  {popupCompanyName && (
+                    <span className="ml-2 font-normal truncate" style={{ color: 'var(--text-muted)' }} title={popupCompanyName}>
+                      {popupCompanyName}
+                    </span>
+                  )}
+                </h3>
                 <StockDataRibbon symbol={selSymbol} />
               </div>
             )}

@@ -21,12 +21,12 @@ import { alertTypeColorHex, alertDisplayColor } from '@/lib/alertTypeColor'
 
 const SPEC: Record<string, string> = {
   trade_exchange: '#fdba74',
-  catalyst: '#f97316',
+  catalyst: '#00e676',
   filing: '#60a5fa',
   news: '#2563eb',
   tweet: '#38bdf8',
   tradingview: '#34d399',
-  scanner: '#22d3ee',
+  scanner: '#22c55e',
   price: '#4ade80',
   rss: '#fb7185',
   mail: '#5eead4',
