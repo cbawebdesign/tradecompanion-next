@@ -5,7 +5,7 @@ import { useStore } from '@/store/useStore'
 import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
-import { StockDataRibbon } from './StockDataRibbon'
+import { StockDataRibbon, useCompanyName } from './StockDataRibbon'
 import { SymbolContextMenu } from './SymbolContextMenu'
 import { ResizableTh } from './ResizableTh'
 import { PriceAlertInput } from './PriceAlertInput'
@@ -49,6 +49,8 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     setPriceAlertEverywhere,
     triggeredPriceAlerts,
   } = useStore()
+  // Company name for the pane header — see useCompanyName in StockDataRibbon.
+  const companyName = useCompanyName(selectedSymbol)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const isActive = activePane === 'alerts'
@@ -588,6 +590,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
           <div className="px-3 py-2 glass-header flex-shrink-0">
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
               {selectedSymbol || '—'}
+              {companyName && (
+                <span className="ml-2 font-normal truncate" style={{ color: 'var(--text-muted)' }} title={companyName}>
+                  {companyName}
+                </span>
+              )}
               {selectedSymbol && dbAlertsLoading && <span className="text-xs text-gray-500 ml-2">loading...</span>}
             </h3>
           </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useReducer } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { WatchlistChips } from './WatchlistChips'
@@ -42,6 +42,33 @@ const STOCK_DATA_LS_KEY = 'tc-stockdata-cache-v1'
 const STOCK_DATA_LS_TTL_MS = 24 * 60 * 60 * 1000  // 24h
 const sharedCache: Record<string, StockDataItem> = {}
 
+// The company name is rendered in the pane header ABOVE this component (Justin,
+// 9/23: "can you move the company name to the row above?"), but it only exists
+// inside the StockData payload this component fetches. The cache is a plain
+// object with no change notification, so a header reading it directly would show
+// the ticker alone and never update when the name landed a moment later.
+//
+// Hence a minimal subscription: writers call notifyStockCache(), useCompanyName
+// re-renders its host. Cheaper than lifting the whole fetch into every caller,
+// and the three panes that show a ribbon all get it for free.
+const cacheListeners = new Set<() => void>()
+function notifyStockCache() { cacheListeners.forEach((f) => { try { f() } catch { /* ignore */ } }) }
+
+export function getCachedCompanyName(symbol: string | null | undefined): string | null {
+  if (!symbol) return null
+  return sharedCache[symbol.toUpperCase()]?.CompanyName || null
+}
+
+/** Company name for a symbol, re-rendering once the fetch populates the cache. */
+export function useCompanyName(symbol: string | null | undefined): string | null {
+  const [, bump] = useReducer((x: number) => x + 1, 0)
+  useEffect(() => {
+    cacheListeners.add(bump)
+    return () => { cacheListeners.delete(bump) }
+  }, [])
+  return getCachedCompanyName(symbol)
+}
+
 interface PersistedCacheEntry { data: StockDataItem; ts: number }
 
 // Hydrate cache from localStorage on first import. Drops entries older than TTL.
@@ -54,6 +81,7 @@ if (typeof window !== 'undefined') {
       for (const [sym, entry] of Object.entries(parsed)) {
         if (entry?.data && entry?.ts && now - entry.ts < STOCK_DATA_LS_TTL_MS) {
           sharedCache[sym] = entry.data
+          notifyStockCache()
         }
       }
     }
@@ -116,7 +144,7 @@ export function preloadStockData(symbols: string[], hubUrl: string) {
       batch.map(sym =>
         fetch(proxyUrl(`${baseApi}/StockData?symbol=${encodeURIComponent(sym.toUpperCase())}`))
           .then(r => r.ok ? r.json() : null)
-          .then(data => { if (data) { sharedCache[sym.toUpperCase()] = normalizeStockData(data); persistCache() } })
+          .then(data => { if (data) { sharedCache[sym.toUpperCase()] = normalizeStockData(data); persistCache(); notifyStockCache() } })
           .catch(() => {})
       )
     ).then(() => {
@@ -217,7 +245,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         // would still run this .then and clobber the newly-selected symbol.
         if (controller.signal.aborted || symbolRef.current?.toUpperCase() !== upper) return
         const item = json ? normalizeStockData(json, noteUser) : emptyData(upper)
-        if (json) { sharedCache[upper] = item; persistCache() }
+        if (json) { sharedCache[upper] = item; persistCache(); notifyStockCache() }
         setData(item)
         setLoading(false)
       })
@@ -256,6 +284,7 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
 
     // Optimistic: apply locally + close editor immediately so UI feels instant
     sharedCache[data.Ticker.toUpperCase()] = updated
+    notifyStockCache()
     persistCache()
     setData(updated)
     setEditingField(null)
@@ -465,13 +494,6 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
             which had no backend field to hold it until now. Falls back to the
             ticker alone while a newly-listed symbol is still being filled in,
             so nothing shifts once the name arrives. */}
-        <span className="inline-flex gap-1 items-baseline min-w-0 max-w-[28ch]" title={data.CompanyName || undefined}>
-          <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{t}</span>
-          {data.CompanyName && (
-            <span className="truncate" style={{ color: 'var(--text-secondary)' }}>{data.CompanyName}</span>
-          )}
-        </span>
-        {renderSep()}
         {renderField('Float', 'SharesFloat', formatMillions(data.SharesFloat), data.SharesFloat)}
         {renderSep()}
         <span className="inline-flex gap-0.5 items-center">
