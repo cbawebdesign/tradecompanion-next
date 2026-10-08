@@ -4,6 +4,7 @@ import { useStore } from '@/store/useStore'
 import { useState, useEffect, useCallback } from 'react'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
+import { remoteSymbolBlocklistCount, remoteSymbolBlocklistLabel } from '@/lib/symbolBlocklist'
 import { copyToClipboard } from '@/lib/clipboard'
 import { getSession, clearSession } from '@/components/LoginGate'
 import type { AppTheme, MascotSize, MascotCharacter, AlertType } from '@/types'
@@ -23,6 +24,10 @@ const APP_VERSION = '2.8.25'
 
 export function SettingsPage() {
   const { config, updateConfig, connectionState, watchlists, setWatchlists, flaggedSymbols, alertSubscriptions, reorderWatchlists } = useStore()
+  // Read once per render rather than subscribing: the list is fetched on a 5-minute
+  // timer, so a stale count for a few minutes is fine and not worth extra state.
+  const blocklistCount = remoteSymbolBlocklistCount()
+  const blocklistLabel = remoteSymbolBlocklistLabel()
   const [saved, setSaved] = useState(false)
 
   // User sync state
@@ -662,6 +667,26 @@ export function SettingsPage() {
               />
               <p className="text-xs text-gray-500 mt-1">
                 Pipe/comma separated tickers to hide from the 40% gainer scanner (e.g. China names). Applies only to you.
+              </p>
+            </div>
+
+            <div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer" style={{ color: 'var(--text-muted)' }}>
+                <input
+                  type="checkbox"
+                  checked={!!config.hideBlockedSymbols}
+                  onChange={(e) => { updateConfig({ hideBlockedSymbols: e.target.checked }); forceCosmosSyncNow() }}
+                />
+                Hide symbols on the shared blocklist
+                {blocklistCount > 0 && (
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    ({blocklistCount} ticker{blocklistCount === 1 ? '' : 's'}{blocklistLabel ? ` — ${blocklistLabel}` : ''})
+                  </span>
+                )}
+              </label>
+              <p className="text-xs text-gray-500 mt-1">
+                Hides <em>every</em> alert type for tickers on the centrally-maintained list, not just the scanner.
+                {blocklistCount === 0 && ' The list is currently empty, so this does nothing.'}
               </p>
             </div>
           </div>

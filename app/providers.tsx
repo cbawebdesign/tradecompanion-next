@@ -18,6 +18,7 @@ import { useAirtablePolling } from '@/hooks/useAirtablePolling'
 import { useCosmosSync } from '@/hooks/useCosmosSync'
 import { useAzureKeepAlive } from '@/hooks/useAzureKeepAlive'
 import { useRemotePrBlacklist } from '@/hooks/useRemotePrBlacklist'
+import { useRemoteSymbolBlocklist } from '@/hooks/useRemoteSymbolBlocklist'
 import { useStore } from '@/store/useStore'
 import { LoginGate } from '@/components/LoginGate'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
@@ -100,6 +101,7 @@ function DataSync() {
   useCrossWindowSync()
   useCosmosSync()
   useRemotePrBlacklist()
+  useRemoteSymbolBlocklist()
   useAzureKeepAlive()
   return null
 }
