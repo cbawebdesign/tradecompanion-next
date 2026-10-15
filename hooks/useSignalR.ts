@@ -678,6 +678,32 @@ export function useSignalR() {
             const alert = buildConfirmedAlert(cat, bar)
             addAlert(alert)
             handleAlertAudio('catalyst', alert.message, configRef.current)
+
+            // Mirror the CONFIRMED catalyst into Justin's "Catalyst PR's" Airtable
+            // base so his automations can trigger off it. Reported from here, not
+            // from the server, because the price/volume gate that keeps roughly one
+            // headline in twenty runs in this file's confirmer — the server only ever
+            // sees raw candidates, so writing there would be ~20x what he sees.
+            //
+            // Fire-and-forget, and never allowed to affect the alert: the timeline is
+            // the job. The server dedupes on resource id, so the other open tabs all
+            // reporting the same confirmation is expected and harmless.
+            try {
+              const base = configRef.current.hubUrl?.replace(/\/api\/?$/, '').replace(/\/$/, '')
+              if (base) {
+                void fetch(proxyUrl(`${base}/api/catalyst/confirmed`), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    symbol: cat.symbol,
+                    title: cat.title,
+                    url: cat.resourceId ? `https://stage.news.scanzzers.com/tc/ampspr?id=${cat.resourceId}` : '',
+                    resourceId: cat.resourceId || '',
+                    notes: cat.startPrice ? `Confirmed at $${cat.startPrice.toFixed(2)}` : '',
+                  }),
+                }).catch(() => { /* never let the mirror break the alert */ })
+              }
+            } catch { /* same */ }
           },
         })
 
