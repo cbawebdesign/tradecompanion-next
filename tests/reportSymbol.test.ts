@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseReportSymbol, resolveReportSymbol } from '@/lib/reportSymbol'
+import { parseReportSymbol, resolveReportSymbol, isTradeableSymbol } from '@/lib/reportSymbol'
 
 /**
  * Justin's bots title Airtable reports "SYMBOL: rest of the title". Before this
@@ -70,5 +70,36 @@ describe('resolveReportSymbol — falls back rather than guessing', () => {
     // and it must survive: those genuinely have no symbol.
     expect(resolveReportSymbol('Why I am bullish on small caps', 'SUB')).toBe('SUB')
     expect(resolveReportSymbol('Breaking: Fed holds rates', 'NEWS')).toBe('NEWS')
+  })
+})
+
+describe('isTradeableSymbol — who gets the price-alert boxes', () => {
+  it('accepts ordinary tickers', () => {
+    expect(isTradeableSymbol('AAPL')).toBe(true)
+    expect(isTradeableSymbol('F')).toBe(true)
+    expect(isTradeableSymbol('BRK-A')).toBe(true)
+  })
+
+  it('accepts the futures and crypto shapes the TV parser allows', () => {
+    expect(isTradeableSymbol('ES1!')).toBe(true)
+    expect(isTradeableSymbol('BTCUSD')).toBe(true)
+  })
+
+  it('rejects the Airtable placeholders — Justin: "ignore Substack and YouTube"', () => {
+    expect(isTradeableSymbol('SUB')).toBe(false)
+    expect(isTradeableSymbol('YT')).toBe(false)
+    expect(isTradeableSymbol('NEWS')).toBe(false)
+  })
+
+  it('a Substack row that resolved to a real ticker DOES qualify', () => {
+    // "MSS: China" has already become MSS by the time this is called, so the
+    // report gets price-alert boxes even though its source view is Substack.
+    expect(isTradeableSymbol(parseReportSymbol('MSS: China'))).toBe(true)
+  })
+
+  it('rejects empty and missing', () => {
+    expect(isTradeableSymbol('')).toBe(false)
+    expect(isTradeableSymbol(null)).toBe(false)
+    expect(isTradeableSymbol(undefined)).toBe(false)
   })
 })

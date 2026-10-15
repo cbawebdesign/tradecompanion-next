@@ -100,6 +100,10 @@ interface AppState {
   removeSymbolFromWatchlist: (watchlistId: string, symbol: string) => void
   updateSymbolInWatchlist: (watchlistId: string, symbol: WatchlistSymbol) => void
   setPriceAlertEverywhere: (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => void
+  // Set a price alert from the timeline, where the symbol may not be tracked yet.
+  // Returns the watchlist name it had to add the symbol to, or null if it was
+  // already tracked — the caller surfaces that so the write is never silent.
+  setPriceAlertFromTimeline: (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => string | null
   reorderWatchlists: (orderedIds: string[]) => void
 
   // Flagged symbols
@@ -543,6 +547,49 @@ export const useStore = create<AppState>()(
             : w
         )
       })),
+      // Justin (9/23) wants the upper/lower boxes on EVERY timeline alert with a
+      // symbol, not just price alerts — "increase the usage of TC based price
+      // alerts and increase efficiency when things are moving fast".
+      //
+      // The catch: usePriceAlerts only evaluates alerts that live on a watchlist
+      // ENTRY, and setPriceAlertEverywhere above only touches watchlists already
+      // holding the symbol. So on a scanner hit for an untracked symbol — exactly
+      // the case this feature is for — the boxes would accept a number and then
+      // silently never fire.
+      //
+      // So if the symbol is not tracked anywhere, add it to the selected
+      // watchlist (falling back to the first) along with the alert. Setting a
+      // price alert on a symbol IS starting to track it; doing less would be a
+      // control that quietly does nothing.
+      //
+      // Returns the watchlist name when it had to add the symbol, so the caller
+      // can say so. Silent growth is how a list ends up with 50 rows nobody
+      // remembers adding.
+      setPriceAlertFromTimeline: (symbol, field, value) => {
+        const state = get()
+        const already = state.watchlists.some(w => w.symbols.some(s => s.symbol === symbol))
+        if (already) {
+          state.setPriceAlertEverywhere(symbol, field, value)
+          return null
+        }
+        const target =
+          state.watchlists.find(w => w.id === state.selectedWatchlistId) ?? state.watchlists[0]
+        if (!target) return null
+        set({
+          watchlists: state.watchlists.map(w =>
+            w.id === target.id
+              ? {
+                  ...w,
+                  symbols: [
+                    ...w.symbols,
+                    { symbol, upperAlert: null, lowerAlert: null, notes: '', [field]: value } as any,
+                  ],
+                }
+              : w
+          ),
+        })
+        return target.name
+      },
       reorderWatchlists: (orderedIds) => set((state) => ({
         config: { ...state.config, watchlistOrder: orderedIds }
       })),
