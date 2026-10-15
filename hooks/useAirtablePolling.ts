@@ -11,6 +11,7 @@
 import { useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
+import { resolveReportSymbol } from '@/lib/reportSymbol'
 import type { Alert } from '@/types'
 
 const AIRTABLE_BASE_ID = 'appeLF4Ky4hRGHUpH'
@@ -96,11 +97,16 @@ export function useAirtablePolling() {
           const link = f.link || ''
           const pubDate = f.pubDate ? new Date(f.pubDate) : new Date()
 
+          // "MSS: China" -> MSS, so the row is clickable and AHK can fire on it.
+          // Falls back to the view's placeholder (SUB / YT / NEWS) when the title
+          // carries no ticker — a wrong symbol is worse than a placeholder.
+          const parsedSymbol = resolveReportSymbol(title, view.alertSymbol)
+
           batch.push({
             id: crypto.randomUUID(),
             dedupKey: `at:${guid}`,
             source: 'useAirtablePolling',
-            symbol: view.alertSymbol,
+            symbol: parsedSymbol,
             message: creator ? `${creator}: ${title}` : title,
             type: view.type,
             color: view.color,

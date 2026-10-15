@@ -1,0 +1,61 @@
+// Symbol extraction for report-style alert titles.
+//
+// Justin (9/23): "Please parse out the 1, 2, 3, 4 or 5 characters immediately
+// preceding ':' and use those characters as the symbol so in these examples
+// above MSS, MBRX, and ZEO would be listed as the symbol (allowing AHK to work
+// when clicking on the time line to update charts)."
+//
+// His bots write reports into Airtable titled "MSS: China" or "ZEO: Retires
+// $1.67M White Lion convertible debt". Before this, every row from a given
+// Airtable view carried one hardcoded placeholder symbol — SUB, YT, NEWS — so
+// the timeline showed "SUB" against a report about MSS. Clicking it could not
+// load a chart, flagging it flagged nothing useful, and AHK had no ticker to
+// fire on.
+//
+// Applies to the existing RSS/Substack/YouTube views and to every Airtable
+// source added later, which is why it lives here rather than inside one hook.
+
+/**
+ * Pull a leading ticker off a "SYMBOL: rest of the title" string.
+ *
+ * Returns null when the prefix is not ticker-shaped, so the caller can fall
+ * back to whatever it used before rather than putting a wrong symbol on an
+ * alert. A wrong ticker is worse than a placeholder: it makes the alert look
+ * like it is about a company it has nothing to do with.
+ */
+export function parseReportSymbol(title: string | null | undefined): string | null {
+  if (!title) return null
+
+  const colon = title.indexOf(':')
+  if (colon < 1) return null
+
+  // A URL scheme is ticker-shaped and would otherwise win: "https://..." has a
+  // five-letter prefix and would tag the alert HTTPS. Same for http, ftp, mailto.
+  if (title.slice(colon + 1, colon + 3) === '//') return null
+
+  const candidate = title.slice(0, colon).trim().toUpperCase()
+
+  // 1-5 characters, letters and digits only. Deliberately strict:
+  //   "MSS: China"                         -> MSS
+  //   "ZEO: Retires $1.67M convertible"    -> ZEO
+  //   "Breaking: Fed holds rates"          -> null  (7 chars, not a ticker)
+  //   "https://x.com/..."                  -> null  (the colon is in the scheme)
+  //
+  // Digits are allowed because some tickers carry them, but a purely numeric
+  // prefix is a time or a list marker, not a symbol.
+  if (!/^[A-Z0-9]{1,5}$/.test(candidate)) return null
+  if (!/[A-Z]/.test(candidate)) return null
+
+  return candidate
+}
+
+/**
+ * The symbol an Airtable-sourced alert should carry: the parsed ticker when the
+ * title provides one, otherwise the view's placeholder (SUB / YT / NEWS).
+ */
+export function resolveReportSymbol(
+  title: string | null | undefined,
+  fallback: string
+): string {
+  return parseReportSymbol(title) ?? fallback
+}
