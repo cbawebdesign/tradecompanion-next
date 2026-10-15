@@ -218,6 +218,59 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
 
   const baseApi = hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/api'
 
+  // --- Float refresh (AskEdgar) ---
+  const [floatBusy, setFloatBusy] = useState(false)
+  const [floatMsg, setFloatMsg] = useState<{ text: string; tone: 'ok' | 'warn' | 'err' } | null>(null)
+
+  const refreshFloat = useCallback(async (force: boolean) => {
+    const t = symbolRef.current
+    if (!t || floatBusy) return
+    setFloatBusy(true)
+    setFloatMsg(null)
+    try {
+      const url = `${baseApi}/RefreshFloat?symbol=${encodeURIComponent(t.toUpperCase())}${force ? '&force=true' : ''}`
+      const resp = await fetch(proxyUrl(url), { method: 'POST' })
+      const json = await resp.json().catch(() => null)
+      if (!resp.ok || !json?.ok) {
+        setFloatMsg({ text: json?.reason || `Failed (${resp.status})`, tone: 'err' })
+        return
+      }
+      if (json.skipped) {
+        // Not a failure — the guard did its job. Say why, and the right-click
+        // hint in the tooltip covers the case where he wants it anyway.
+        setFloatMsg({ text: `Fresh (${Math.round(json.ageDays)}d old)`, tone: 'warn' })
+        return
+      }
+      if (json.floatM == null && json.sharesOutM == null) {
+        // AskEdgar's audited coverage stops around $1B market cap, so a large
+        // cap legitimately returns nothing. Not an error worth a red message.
+        setFloatMsg({ text: 'No AskEdgar data', tone: 'warn' })
+        return
+      }
+      // Fold the new figures into the row and the shared cache so the ribbon
+      // updates without a refetch, and other panes see it too.
+      const upper = t.toUpperCase()
+      setData((prev) => {
+        if (!prev) return prev
+        const next = {
+          ...prev,
+          SharesFloat: json.floatM ?? prev.SharesFloat,
+          SharesOutstanding: json.sharesOutM ?? prev.SharesOutstanding,
+          MarketCap: json.marketCapM ?? prev.MarketCap,
+        }
+        sharedCache[upper] = next
+        notifyStockCache()
+        return next
+      })
+      setFloatMsg({ text: json.changed ? 'Updated' : 'No change', tone: 'ok' })
+    } catch (err: any) {
+      setFloatMsg({ text: err?.message || 'Failed', tone: 'err' })
+    } finally {
+      setFloatBusy(false)
+      window.setTimeout(() => setFloatMsg(null), 4000)
+    }
+  }, [baseApi, floatBusy])
+
   useEffect(() => {
     if (!symbol) { setData(null); return }
     const upper = symbol.toUpperCase()
@@ -548,6 +601,34 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
             <span className="text-[10px]" style={{ color: saveStatus === 'Saved' ? '#00e676' : '#f85149' }}>{saveStatus}</span>
           </>
         )}
+
+        {/* Float refresh — Justin (9/23) asked for a button on the symbol row,
+            right-hand side, that pulls fresh float / O/S from AskEdgar.
+            ml-auto pushes it right; it sits beside the Float and O/S figures it
+            updates rather than in the pane header, so it is one button rather
+            than three copies across Watchlist / Alerts / Themes.
+
+            The 30-day guard lives server-side and applies only to this button —
+            scanner hits refresh unconditionally. AskEdgar bills per lookup and
+            a float changes a few times a year, so leaning on the button should
+            not cost credits. */}
+        <span className="ml-auto inline-flex items-center gap-1 pl-2">
+          {floatMsg && (
+            <span className="text-[10px]" style={{ color: floatMsg.tone === 'ok' ? '#00e676' : floatMsg.tone === 'warn' ? '#eab308' : '#f85149' }}>
+              {floatMsg.text}
+            </span>
+          )}
+          <button
+            onClick={(e) => { e.stopPropagation(); void refreshFloat(false) }}
+            onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); void refreshFloat(true) }}
+            disabled={floatBusy}
+            className="px-1.5 py-0.5 rounded text-[10px] font-medium transition-opacity disabled:opacity-50"
+            style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}
+            title="Refresh float / shares outstanding from AskEdgar. Skipped if updated in the last 30 days — right-click to force."
+          >
+            {floatBusy ? '…' : '⟳ Float'}
+          </button>
+        </span>
       </div>
 
       {/* Watchlist row — quick add/remove from inside the ribbon */}

@@ -4,6 +4,7 @@ import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react
 import { createPortal } from 'react-dom'
 import { useStore } from '@/store/useStore'
 import { PriceAlertInput } from './PriceAlertInput'
+import { isTradeableSymbol } from '@/lib/reportSymbol'
 import { clsx } from 'clsx'
 import type { Alert } from '@/types'
 import { GrokButton } from './GrokButton'
@@ -54,7 +55,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     setActiveTab,
     activePane,
     setActivePane,
-    setPriceAlertEverywhere,
+    setPriceAlertFromTimeline,
     triggeredPriceAlerts,
     isBootstrapping,
   } = useStore()
@@ -66,6 +67,8 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
   // one row on every incoming alert (Justin: the highlighted row moves, and DEL
   // hits the row above if an alert lands at the same moment). Tracking by id
   // keeps the selection glued to the same alert regardless of list shifts.
+  // Transient 'added SYM to <list>' confirmation for the price-alert boxes.
+  const [addedNotice, setAddedNotice] = useState<{ symbol: string; watchlist: string } | null>(null)
   const [selectedAlertId, setSelectedAlertId] = useState<string | null>(null)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState>({
@@ -296,8 +299,17 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
   }
   const updateAlertOnTimeline = (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => {
     // Writes to every watchlist holding this symbol, not just the first one
-    // found — see setPriceAlertEverywhere in the store.
-    setPriceAlertEverywhere(symbol, field, value)
+    // found. If the symbol is tracked nowhere — the common case now that these
+    // boxes appear on scanner hits and PRs — the store adds it to the selected
+    // watchlist, because a price alert that lives on no watchlist entry is
+    // never evaluated by usePriceAlerts and would silently never fire.
+    const addedTo = setPriceAlertFromTimeline(symbol, field, value)
+    if (addedTo && value != null) {
+      // Never add a symbol to someone's watchlist without telling them. Justin
+      // has had a list quietly grow to 50 duplicate rows before.
+      setAddedNotice({ symbol, watchlist: addedTo })
+      window.setTimeout(() => setAddedNotice(null), 4000)
+    }
   }
 
   // During the first ~8 sec after app start, suppress the timeline render
@@ -348,6 +360,14 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         <span className="text-xs text-gray-400">
           {visibleAlerts.length} alert{visibleAlerts.length !== 1 ? 's' : ''}
           {hiddenAlertIds.size > 0 && ` (${hiddenAlertIds.size} hidden)`}
+          {/* Setting a price alert on an untracked symbol has to put it on a
+              watchlist for usePriceAlerts to ever evaluate it. Say so rather
+              than growing someone's list behind their back. */}
+          {addedNotice && (
+            <span className="ml-3" style={{ color: 'var(--accent-primary)' }}>
+              Added {addedNotice.symbol} to {addedNotice.watchlist}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-2">
           <button
@@ -449,11 +469,18 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                     >
                       {formatAlertText(alert.message)}
                     </span>
-                    {alert.type === 'price' && (() => {
+                    {/* Justin (9/23): these boxes should appear on EVERY timeline row
+                        with a symbol, not only on price alerts — a scanner hit or a
+                        PR is exactly when you want to set a level fast. Substack and
+                        YouTube rows are excluded because their placeholder symbols
+                        (SUB / YT / NEWS) are not companies; a Substack row titled
+                        "MSS: China" has already resolved to MSS and does qualify. */}
+                    {isTradeableSymbol(alert.symbol) && (() => {
+                      // May be untracked — setPriceAlertFromTimeline handles that and
+                      // reports which watchlist it had to add the symbol to.
                       const hit = findEntry(alert.symbol)
-                      if (!hit) return null
-                      const upper = hit.entry.upperAlert
-                      const lower = hit.entry.lowerAlert
+                      const upper = hit?.entry.upperAlert ?? null
+                      const lower = hit?.entry.lowerAlert ?? null
                       return (
                         <span className="inline-flex items-center gap-1 ml-2 align-middle" onClick={(e) => e.stopPropagation()}>
                           <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Upper</span>

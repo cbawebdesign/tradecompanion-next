@@ -59,3 +59,23 @@ export function resolveReportSymbol(
 ): string {
   return parseReportSymbol(title) ?? fallback
 }
+// Placeholder symbols the Airtable views stamp on rows whose title carries no
+// ticker — a Substack essay or a YouTube video is about a theme, not a company.
+export const PLACEHOLDER_SYMBOLS = new Set(['SUB', 'YT', 'NEWS'])
+
+/**
+ * Does this alert's symbol refer to an actual company?
+ *
+ * Used to decide whether to offer the price-alert boxes on a timeline row.
+ * Justin asked for them on "EVERY time line message that has a symbol tagged
+ * (so ignore Substack and YouTube)" — the placeholders above are exactly those.
+ *
+ * Note this reads the resolved symbol, so a Substack row titled "MSS: China"
+ * has already become MSS by the time it gets here and correctly qualifies.
+ */
+export function isTradeableSymbol(symbol: string | null | undefined): boolean {
+  if (!symbol) return false
+  const s = symbol.trim().toUpperCase()
+  if (!s || PLACEHOLDER_SYMBOLS.has(s)) return false
+  return /^[A-Z0-9.!-]{1,10}$/.test(s)
+}
