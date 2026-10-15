@@ -24,6 +24,10 @@ Tests are labelled one of two ways:
 | `marketCalendar.test.ts` | The "since previous close" helpers — **including where two of them disagree** |
 | `excludePrPatterns.test.ts` | Ambulance-chaser blacklist, HTML-entity decoding, precedence, which alert types are exempt |
 | `filteredPr.test.ts` | Justin's keyword syntax: `,`/`\|` = OR, `&` = AND, `!` = NOT, `*` = wildcard |
+| `storeDedup.test.ts` | `addAlert`/`addAlerts`: dedupKey vs normalised-message matching, the TradingView exemption, the cleared floor, ordering and the 500 cap |
+| `storeDelete.test.ts` | Timeline delete hides without erasing the ribbon's copy, and is remembered so the auditor cannot re-inject it |
+| `reportSymbol.test.ts` | `SYMBOL: Title` parsing, and which symbols get price-alert boxes |
+| `alertColors.test.ts` | The colour table is the single source of truth for alert colours |
 
 ## The finding worth reading
 
@@ -54,6 +58,5 @@ Runs in CI on every pull request.
 
 ## Not covered yet
 
-React components, the Zustand store's `addAlert`/`addAlerts` dedup, and
-`removeAlert`/`removedAlertKeys`. The store ones are the natural next step —
-they sit behind both of Justin's contradictory complaints about deleted alerts.
+React components. The store is now covered: `removeAlert`/`removedAlertKeys` in
+`storeDelete.test.ts`, and the admission gate in `storeDedup.test.ts`.
