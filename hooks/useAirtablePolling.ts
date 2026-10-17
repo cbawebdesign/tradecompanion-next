@@ -97,17 +97,26 @@ export function useAirtablePolling() {
           const link = f.link || ''
           const pubDate = f.pubDate ? new Date(f.pubDate) : new Date()
 
-          // "MSS: China" -> MSS, so the row is clickable and AHK can fire on it.
-          // Falls back to the view's placeholder (SUB / YT / NEWS) when the title
-          // carries no ticker — a wrong symbol is worse than a placeholder.
-          const parsedSymbol = resolveReportSymbol(title, view.alertSymbol)
+          // The ticker lives in `creator`, not `title`. Justin's bots write a row
+          // as creator="MSS", title="China", and TC composes "MSS: China" — which
+          // is the string he showed in the spec and the one that has to be parsed.
+          //
+          // Reading `title` alone (the first attempt at this) only ever saw
+          // "China", found no colon, and fell back to SUB on every row — which is
+          // exactly what he reported still happening.
+          //
+          // Parsing the composed message keeps the negative cases right too:
+          // creator="Rise and Shine" or "Investor's Business Daily" is not
+          // ticker-shaped, so those correctly stay on the view placeholder.
+          const message = creator ? `${creator}: ${title}` : title
+          const parsedSymbol = resolveReportSymbol(message, view.alertSymbol)
 
           batch.push({
             id: crypto.randomUUID(),
             dedupKey: `at:${guid}`,
             source: 'useAirtablePolling',
             symbol: parsedSymbol,
-            message: creator ? `${creator}: ${title}` : title,
+            message,
             type: view.type,
             color: view.color,
             timestamp: pubDate,
