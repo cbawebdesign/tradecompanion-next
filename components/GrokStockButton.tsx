@@ -1,14 +1,12 @@
 "use client"
 
 import { useState } from 'react'
-import { useStore } from '@/store/useStore'
 
 interface GrokStockButtonProps {
   symbol: string
 }
 
 export function GrokStockButton({ symbol }: GrokStockButtonProps) {
-  const { config } = useStore()
   const [isLoading, setIsLoading] = useState(false)
   const [response, setResponse] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -17,62 +15,27 @@ export function GrokStockButton({ symbol }: GrokStockButtonProps) {
   const handleClick = async (e: React.MouseEvent) => {
     e.stopPropagation()
 
-    if (!config.grokApiKey) {
-      setError('Grok API key not set. Go to Settings to add it.')
-      setShowModal(true)
-      return
-    }
-
     setIsLoading(true)
     setError(null)
     setResponse(null)
     setShowModal(true)
 
     try {
-      const prompt = `Give me a quick trader-focused analysis of ${symbol}:
-
-1. **ADR Status**: Is this an ADR? If yes, what's the underlying country?
-2. **Country/HQ**: Where is the company headquartered? (Flag China/Hong Kong stocks)
-3. **Sector**: What sector/industry?
-4. **Market Cap**: Approximate size (nano/micro/small/mid/large/mega cap)?
-5. **Red Flags**: Any concerns (dilution risk, delisting risk, low float, etc)?
-6. **What They Do**: One sentence on the business.
-
-Be concise. Use bullet points.`
-
-      const res = await fetch('https://api.x.ai/v1/chat/completions', {
+      // Goes through /api/grok so the xAI key stays server-side. Calling
+      // api.x.ai from here would expose it in devtools to anyone with the
+      // app open.
+      const res = await fetch('/api/grok', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.grokApiKey}`,
-        },
-        body: JSON.stringify({
-          model: 'grok-3-mini',
-          messages: [
-            {
-              role: 'system',
-              content: 'You are a stock research assistant for day traders. Be concise and factual. Always clearly flag if a stock is an ADR or China-based.'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.5,
-          max_tokens: 800,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol }),
       })
 
-      if (!res.ok) {
-        const errText = await res.text()
-        console.error('Grok API error:', res.status, errText)
-        throw new Error(`Grok API error ${res.status}: ${errText.substring(0, 100)}`)
-      }
-
       const data = await res.json()
-      const content = data.choices?.[0]?.message?.content
-      if (content) {
-        setResponse(content)
+      if (!res.ok) {
+        throw new Error(data?.error || `Grok error ${res.status}`)
+      }
+      if (data.content) {
+        setResponse(data.content)
       } else {
         throw new Error('No response from Grok')
       }

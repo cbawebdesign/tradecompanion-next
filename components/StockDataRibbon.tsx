@@ -538,11 +538,21 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
 
   return (
     <div>
-      {/* Data ribbon */}
+      {/* Data ribbon.
+
+          Two children, not one wrapping row: the fields wrap freely on the left,
+          and the float button is pinned to the right of the whole block.
+
+          The first attempt put the button inside the wrapping row with ml-auto,
+          which right-aligns it on whatever line it happens to land on. The ribbon
+          wraps to three lines, so it ended up at the end of the LAST line rather
+          than on the right — Justin: "the float refresh button isn't on the
+          right". ml-auto cannot pin across a wrap; an outer flex can. */}
       <div
-        className="flex items-center gap-1 px-1.5 py-1 text-xs rounded-t flex-wrap"
+        className="flex items-start gap-1 px-1.5 py-1 text-xs rounded-t"
         style={{ background: 'var(--bg-glass)' }}
       >
+      <div className="flex items-center gap-1 flex-wrap flex-1 min-w-0">
         {/* Ribbon header \u2014 Justin (9/12): the header needs the company name,
             which had no backend field to hold it until now. Falls back to the
             ticker alone while a newly-listed symbol is still being filled in,
@@ -602,17 +612,17 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
           </>
         )}
 
-        {/* Float refresh — Justin (9/23) asked for a button on the symbol row,
-            right-hand side, that pulls fresh float / O/S from AskEdgar.
-            ml-auto pushes it right; it sits beside the Float and O/S figures it
-            updates rather than in the pane header, so it is one button rather
-            than three copies across Watchlist / Alerts / Themes.
+      </div>
+
+        {/* Float refresh. Outside the wrapping div so it stays pinned right no
+            matter how many lines the fields take. One button here rather than
+            three copies across Watchlist / Alerts / Themes.
 
             The 30-day guard lives server-side and applies only to this button —
-            scanner hits refresh unconditionally. AskEdgar bills per lookup and
-            a float changes a few times a year, so leaning on the button should
-            not cost credits. */}
-        <span className="ml-auto inline-flex items-center gap-1 pl-2">
+            scanner hits refresh unconditionally. AskEdgar bills per lookup and a
+            float changes a few times a year, so leaning on the button should not
+            cost credits. */}
+        <span className="inline-flex items-center gap-1 pl-2 flex-shrink-0">
           {floatMsg && (
             <span className="text-[10px]" style={{ color: floatMsg.tone === 'ok' ? '#00e676' : floatMsg.tone === 'warn' ? '#eab308' : '#f85149' }}>
               {floatMsg.text}

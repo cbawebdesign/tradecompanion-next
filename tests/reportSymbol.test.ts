@@ -103,3 +103,36 @@ describe('isTradeableSymbol — who gets the price-alert boxes', () => {
     expect(isTradeableSymbol(undefined)).toBe(false)
   })
 })
+
+describe('the real Airtable row shape — creator holds the ticker', () => {
+  // The bug Justin reported after the first attempt shipped: symbols still came
+  // through as SUB. The parser was fine; it was fed the wrong field.
+  //
+  // His rows are creator="MSS", title="China", and TC composes "MSS: China".
+  // Parsing `title` alone only ever sees "China" — no colon, so every row fell
+  // back to the placeholder. These pin the composed string as the input.
+  const compose = (creator: string, title: string) => (creator ? `${creator}: ${title}` : title)
+
+  it('pulls the ticker out of the composed message', () => {
+    expect(resolveReportSymbol(compose('MSS', 'China'), 'SUB')).toBe('MSS')
+    expect(resolveReportSymbol(compose('NWGL', 'Bagholder Levels'), 'SUB')).toBe('NWGL')
+  })
+
+  it('parsing the title alone would NOT have worked — this is the regression', () => {
+    expect(resolveReportSymbol('China', 'SUB')).toBe('SUB')
+    expect(resolveReportSymbol('Bagholder Levels', 'SUB')).toBe('SUB')
+  })
+
+  it('real non-ticker creators still fall back, as they should', () => {
+    // Straight from the live base — these are newsletters and publications, and
+    // tagging them with a ticker would be worse than the placeholder.
+    expect(resolveReportSymbol(compose('Rise and Shine', 'Saturday, October 17, 2026'), 'SUB')).toBe('SUB')
+    expect(resolveReportSymbol(compose("Investor's Business Daily", 'TJX Eyes Key Level'), 'NEWS')).toBe('NEWS')
+    expect(resolveReportSymbol(compose('Summary', 'Clayton Morris - chlorine dioxide'), 'SUB')).toBe('SUB')
+    expect(resolveReportSymbol(compose('After Close Momentum', 'Friday, October 16, 2026'), 'SUB')).toBe('SUB')
+  })
+
+  it('a row with no creator falls back rather than mis-parsing the title', () => {
+    expect(resolveReportSymbol(compose('', 'One-Of-A-Kind LNG Stock Eyes Buy Point'), 'NEWS')).toBe('NEWS')
+  })
+})

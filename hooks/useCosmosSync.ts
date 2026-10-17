@@ -343,6 +343,9 @@ export function useCosmosSync() {
     const WEBCONFIG_DENYLIST = new Set([
       'userKey', 'hubUrl', 'watchlistOrder', 'flaggedAlertSubscriptions',
       'alertBarHeight', 'alertBarHeightPercent', 'watchlistSplitPercent', 'flaggedListSplitPercent',
+      // Secrets never ride the webConfig blob. These were being written to
+      // Cosmos in plaintext and pulled down by every device that logged in.
+      'grokApiKey', 'newsApiKey',
     ])
     const webConfig: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(state.config)) {
