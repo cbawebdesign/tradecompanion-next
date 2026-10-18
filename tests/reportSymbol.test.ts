@@ -24,8 +24,17 @@ describe('parseReportSymbol — the cases from the spec', () => {
     expect(parseReportSymbol('GOOGL: Alphabet something')).toBe('GOOGL')
   })
 
-  it('upper-cases and trims', () => {
-    expect(parseReportSymbol('  mss : China')).toBe('MSS')
+  it('trims surrounding whitespace', () => {
+    expect(parseReportSymbol('  MSS : China')).toBe('MSS')
+  })
+
+  it('requires the ticker to already be upper-case in the source', () => {
+    // Seen live on 10/18: a newsletter called "Za" was being tagged as the real
+    // ticker ZA on a weekly market report. His bots write tickers in caps, humans
+    // write mixed case, and a misattributed alert is worse than a placeholder.
+    expect(parseReportSymbol('Za: Weekly Market Report 10/18/26')).toBeNull()
+    expect(parseReportSymbol('mss: China')).toBeNull()
+    expect(parseReportSymbol('CTSO: Why It Is Moving')).toBe('CTSO')
   })
 })
 

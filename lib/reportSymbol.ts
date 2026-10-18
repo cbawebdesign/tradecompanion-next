@@ -33,7 +33,19 @@ export function parseReportSymbol(title: string | null | undefined): string | nu
   // five-letter prefix and would tag the alert HTTPS. Same for http, ftp, mailto.
   if (title.slice(colon + 1, colon + 3) === '//') return null
 
-  const candidate = title.slice(0, colon).trim().toUpperCase()
+  const raw = title.slice(0, colon).trim()
+
+  // Must already be upper-case in the source. His bots write tickers in caps
+  // (CTSO, BSP); humans write mixed case, and a newsletter called "Za" would
+  // otherwise be tagged as ZA — a real ticker, on a weekly market report that
+  // has nothing to do with that company. Seen live on 10/18.
+  //
+  // A wrong ticker is worse than a placeholder: it makes an alert look like
+  // news about a company it is unrelated to, and sends AHK to the wrong chart.
+  // Losing a lowercase ticker costs a placeholder; this costs a misattribution.
+  if (/[a-z]/.test(raw)) return null
+
+  const candidate = raw.toUpperCase()
 
   // 1-5 characters, letters and digits only. Deliberately strict:
   //   "MSS: China"                         -> MSS
