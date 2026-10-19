@@ -16,6 +16,7 @@ import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
+import { openInViewer } from '@/lib/linkViewer'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
@@ -896,7 +897,15 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         </td>
                         <td className="px-2 py-1 break-words" style={{ color: alertDisplayColor(alert), fontWeight: 600 }}>
                           {alert.url ? (
-                            <a href={alert.url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80" style={{ color: 'inherit' }}>{formatAlertText(alert.message)}</a>
+                            <a
+                              href={alert.url}
+                              className="underline hover:opacity-80 cursor-pointer"
+                              style={{ color: 'inherit' }}
+                              /* Opens in TC's popup rather than a browser tab.
+                                 href is kept so middle-click and "copy link
+                                 address" still behave like a real link. */
+                              onClick={(e) => { e.preventDefault(); openInViewer(alert.url!, `${alert.symbol} — ${alert.type}`) }}
+                            >{formatAlertText(alert.message)}</a>
                           ) : formatAlertText(alert.message)}
                         </td>
                         <td className="px-2 py-1 text-center whitespace-nowrap">

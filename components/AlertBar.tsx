@@ -13,6 +13,7 @@ import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
+import { openInViewer } from '@/lib/linkViewer'
 
 // Check if alert should show Grok button (any alert with a URL worth summarizing)
 const shouldShowGrok = (alert: Alert): boolean => {
@@ -177,9 +178,12 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
       }
     }
 
-    // Open URL if present (filings, PRs)
+    // Open URL if present (filings, PRs, Substack, YouTube, Airtable reports).
+    // In the popup rather than a new browser window, per Justin's touch-up
+    // note — the clipboard copy above is the behaviour he asked us to keep
+    // while making this change.
     if (alert.url) {
-      window.open(alert.url, '_blank')
+      openInViewer(alert.url, `${alert.symbol} — ${alert.type}`)
     }
   }, [config.ahkEnabled, config.ahkUrl, setSelectedSymbol])
 
@@ -554,7 +558,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
               <button
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
                 onClick={() => {
-                  window.open(ca.url, '_blank')
+                  openInViewer(ca.url!, `${ca.symbol} — ${ca.type}`)
                   setContextMenu(prev => ({ ...prev, visible: false }))
                 }}
               >

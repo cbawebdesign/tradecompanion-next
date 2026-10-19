@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback, useReducer } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { WatchlistChips } from './WatchlistChips'
-import { ReportPopup } from './ReportPopup'
+import { openInViewer } from '@/lib/linkViewer'
 
 interface StockDataItem {
   Ticker: string
@@ -283,7 +283,6 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
   // and go — present=false renders the white, inactive state.
   type ReportLink = { label: string; source: string; present: boolean; url: string; title: string }
   const [reportLinks, setReportLinks] = useState<ReportLink[] | null>(null)
-  const [popup, setPopup] = useState<{ url: string; title: string } | null>(null)
 
   useEffect(() => {
     if (!symbol) { setReportLinks(null); return }
@@ -434,77 +433,6 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
     )
   }
 
-  function renderLink(label: string, url: string, title?: string) {
-    return (
-      <a
-        href={url}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="font-medium hover:underline"
-        style={{ color: '#64b5f6', padding: '0 1px', textDecoration: 'none' }}
-        title={title || label}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {label}
-      </a>
-    )
-  }
-
-  function renderUrlField(label: string, field: string, value: string | null) {
-    if (editingField === field) {
-      return (
-        <input
-          type="text"
-          value={fieldDraft}
-          onChange={(e) => setFieldDraft(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') saveField(); if (e.key === 'Escape') cancelEdit() }}
-          onBlur={() => { if (!saving) saveField() }}
-          autoFocus
-          disabled={saving}
-          placeholder="Paste URL..."
-          className="bg-black/50 border border-gray-600 rounded-sm text-xs px-1 outline-none"
-          style={{ color: '#eee', width: '140px' }}
-        />
-      )
-    }
-    if (value) {
-      return (
-        <span className="inline-flex items-center gap-0.5">
-          <a
-            href={value}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium hover:underline"
-            style={{ color: '#64b5f6', padding: '0 1px', textDecoration: 'none' }}
-            title={value}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {label}
-          </a>
-          <button
-            type="button"
-            onClick={(e) => { e.preventDefault(); e.stopPropagation(); startEdit(field, value) }}
-            className="opacity-60 hover:opacity-100"
-            style={{ color: '#888', fontSize: '10px', padding: '0 2px' }}
-            title={`Edit ${label.toLowerCase()}`}
-          >
-            ✎
-          </button>
-        </span>
-      )
-    }
-    return (
-      <span
-        className="cursor-pointer font-medium hover:underline"
-        style={{ color: '#ccc', padding: '0 1px' }}
-        onDoubleClick={() => startEdit(field, null)}
-        title={`Double-click to add ${label.toLowerCase()}`}
-      >
-        {label}
-      </span>
-    )
-  }
-
   function renderNotesRow(label: string, field: string, value: string | null, isLast: boolean) {
     const isEditing = editingField === field
     return (
@@ -563,7 +491,6 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
   if (!data) return null
 
   const isChina = data.Country?.toLowerCase() === 'china'
-  const t = data.Ticker
 
   return (
     <div>
@@ -616,24 +543,14 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
             the Admin Dashboard. The field stays in StockDataItem + on the
             server \u2014 we just don't render it here. */}
         {renderField('Exchange', 'Exchange', data.Exchange || '\u2014', data.Exchange)}
-        {renderSep()}
-        {renderLink('Dilution', `https://dilutiontracker.com/app/search/${encodeURIComponent(t)}?a=6lpa88`)}
-        {renderSep()}
-        {renderLink('Finviz', `https://finviz.com/quote.ashx?t=${encodeURIComponent(t)}`)}
-        {renderSep()}
-        {renderLink('X', `https://x.com/search?q=%24${encodeURIComponent(t)}&src=typd&f=live&pf=on`, 'X / Twitter')}
-        {renderSep()}
-        {renderLink('Options', `https://finance.yahoo.com/quote/${encodeURIComponent(t)}/options?p=${encodeURIComponent(t)}`, 'Options Chain')}
-        {renderSep()}
-        {renderLink('Dividends', `https://www.nasdaq.com/market-activity/stocks/${encodeURIComponent(t.toLowerCase())}/dividend-history`)}
-        {renderSep()}
-        {renderLink('Filings', `https://www.sec.gov/cgi-bin/browse-edgar?CIK=${encodeURIComponent(t)}&owner=include&action=getcompany&Find=Search`, 'SEC Filings')}
-        {renderSep()}
-        {renderUrlField('Website', 'Website', data.Website)}
-        {renderSep()}
-        {renderUrlField('Notes URL', 'NotesUrl', data.NotesUrl)}
-        {renderSep()}
-        {renderUrlField('Bookmarks', 'Bookmarks', data.Bookmarks)}
+        {/* The legacy link row that used to sit here \u2014 Dilution, Finviz, X,
+            Options, Dividends, Filings, Website, Notes URL, Bookmarks \u2014 is gone
+            as of the Data Ribbon Step 2 note: "I'm ready to remove the legacy
+            buttons on the data ribbon."
+
+            Website / Notes URL / Bookmarks are still stored on the symbol and
+            still editable from the Admin Dashboard; only the ribbon rendering
+            was removed, so nothing is lost if he wants any of them back. */}
         {saveStatus && (
           <>
             {renderSep()}
@@ -688,14 +605,20 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
             disabled={!l.present}
             onClick={(e) => {
               e.stopPropagation()
-              if (l.present && l.url) setPopup({ url: l.url, title: `${data.Ticker} — ${l.label}` })
+              if (l.present && l.url) openInViewer(l.url, `${data.Ticker} — ${l.label}`)
             }}
             className="px-1 font-medium"
             style={{
-              // Present: the ribbon's link blue, clickable. Absent: white and
-              // inert — deliberately not greyed out, because he asked for white
-              // specifically and grey reads as "loading" next to the other fields.
-              color: l.present ? 'var(--accent-primary)' : '#ffffff',
+              // Present: #64b5f6 — the same blue the old Finviz / X / Dividends
+              // / Filings links used. Justin: "see the color on the Resistance
+              // button? It's a darker blue. Anyway you can convert this entire
+              // static row to the blue color that Finviz, X, Dividends, Filings,
+              // etc. has?" That was var(--accent-primary), which is darker and
+              // also theme-dependent, so it drifted per theme; this is fixed.
+              // Absent: white and inert — deliberately not greyed out, because
+              // he asked for white specifically and grey reads as "loading"
+              // next to the other fields.
+              color: l.present ? '#64b5f6' : '#ffffff',
               cursor: l.present ? 'pointer' : 'default',
               background: 'transparent',
               border: 0,
@@ -706,10 +629,6 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
           </button>
         ))}
       </div>
-
-      {popup && (
-        <ReportPopup url={popup.url} title={popup.title} onClose={() => setPopup(null)} />
-      )}
 
       {/* Watchlist row — quick add/remove from inside the ribbon */}
       <WatchlistChips symbol={data.Ticker} />

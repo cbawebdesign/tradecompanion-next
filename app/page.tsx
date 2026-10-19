@@ -11,6 +11,7 @@ import { AdminPage } from '@/components/AdminPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
 import { AlertMascot } from '@/components/AlertMascot'
+import { LinkViewer } from '@/components/ReportPopup'
 import { clsx } from 'clsx'
 
 const TABS = [
@@ -80,6 +81,10 @@ export default function Home() {
 
       {/* Floating Chart Panel */}
       <ChartPanel />
+
+      {/* In-app link viewer. One per window; every URL click in TC routes
+          here instead of opening a browser tab. */}
+      <LinkViewer />
 
       {/* Floating Alert Mascot */}
       <AlertMascot />

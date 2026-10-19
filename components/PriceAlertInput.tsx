@@ -79,7 +79,10 @@ export function PriceAlertInput({
       onClick={onClick}
       placeholder="-"
       className={clsx(
-        'w-16 text-right text-xs py-0.5 transition-colors',
+        // price-alert-input carries the real sizing — see globals.css. The
+        // Tailwind sizing utilities that used to live here lost to the generic
+        // input[type="text"] rule and never applied.
+        'w-16 text-right transition-colors price-alert-input',
         triggered && 'price-alert-flash',
         className,
       )}
