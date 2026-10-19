@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { planEmbed } from '../lib/embeddableUrl'
+import { injectBase } from '../lib/injectBase'
 
 /**
  * Pins the framing decisions behind the in-app popup. The blocklist here is
@@ -10,13 +11,12 @@ import { planEmbed } from '../lib/embeddableUrl'
  */
 describe('planEmbed', () => {
   describe('frames normally', () => {
-    it('frames the Airtable report domain', () => {
-      const url = 'https://research.tradecompanion.com/ctso-china-sxg1xb81/'
-      expect(planEmbed(url).src).toBe(url)
-    })
+    // The Airtable report domain frames fine on its own, but is deliberately
+    // routed through /api/embed so links inside it can be forced to open in a
+    // new browser window — see the "proxied hosts" block below.
 
-    it('frames SEC filing archives', () => {
-      const url = 'https://www.sec.gov/Archives/edgar/data/913760/000166221026000018/x.htm'
+    it('frames the Airtable report domain directly', () => {
+      const url = 'https://research.tradecompanion.com/ctso-china-sxg1xb81/'
       expect(planEmbed(url).src).toBe(url)
     })
 
@@ -98,5 +98,68 @@ describe('planEmbed', () => {
       expect(planEmbed(null).src).toBeNull()
       expect(planEmbed(undefined).src).toBeNull()
     })
+  })
+})
+
+describe('proxied hosts', () => {
+  // Measured: SEC pages carry many anchors and none set a target, so every
+  // click would otherwise replace the popup.
+  it('routes SEC filings through /api/embed', () => {
+    const url = 'https://www.sec.gov/Archives/edgar/data/1/x.htm'
+    const plan = planEmbed(url)
+    expect(plan.proxied).toBe(true)
+    expect(plan.src).toBe('/api/embed?url=' + encodeURIComponent(url))
+  })
+
+  it('proxies SEC subdomains too', () => {
+    expect(planEmbed('https://efts.sec.gov/LATEST/search-index?q=x').proxied).toBe(true)
+  })
+
+  // Measured: all 151 anchors across 17 live reports already carry
+  // target="_blank", so a proxy hop would buy nothing and only add latency to
+  // the feature Justin uses most.
+  it('does NOT proxy the report domain, which already targets _blank', () => {
+    const url = 'https://research.tradecompanion.com/ctso-china-sxg1xb81/'
+    const plan = planEmbed(url)
+    expect(plan.proxied).toBeFalsy()
+    expect(plan.src).toBe(url)
+  })
+
+  it('does not proxy a host that merely ends with the same letters', () => {
+    expect(planEmbed('https://notsec.gov/x').proxied).toBeFalsy()
+  })
+})
+
+describe('injectBase', () => {
+  it('puts the base tag immediately after <head>', () => {
+    const out = injectBase('<!DOCTYPE html><html><head><title>x</title></head><body>b</body></html>', 'https://e.test/a/b')
+    expect(out).toContain('<head><base href="https://e.test/a/b" target="_blank"><title>')
+  })
+
+  it('removes a base tag the document already had', () => {
+    const out = injectBase('<html><head><base href="https://other.test/"><title>x</title></head></html>', 'https://e.test/p')
+    expect(out).not.toContain('other.test')
+    expect((out.match(/<base /g) || []).length).toBe(1)
+  })
+
+  it('creates a head when the document has none', () => {
+    const out = injectBase('<html><body>hi</body></html>', 'https://e.test/p')
+    expect(out).toContain('<head><base href="https://e.test/p" target="_blank"></head>')
+  })
+
+  it('still injects into a bare fragment', () => {
+    const out = injectBase('<p>hi</p>', 'https://e.test/p')
+    expect(out.startsWith('<base href="https://e.test/p" target="_blank">')).toBe(true)
+  })
+
+  it('escapes quotes and ampersands in the href', () => {
+    const out = injectBase('<html><head></head></html>', 'https://e.test/p?a=1&b=2')
+    expect(out).toContain('href="https://e.test/p?a=1&amp;b=2"')
+  })
+
+  it('matches HEAD in any case', () => {
+    const out = injectBase('<HTML><HEAD></HEAD></HTML>', 'https://e.test/p')
+    expect(out).toContain('<base href="https://e.test/p" target="_blank">')
+    expect(out.indexOf('<base')).toBeGreaterThan(out.indexOf('<HEAD>'))
   })
 })

@@ -37,11 +37,51 @@ const NEVER_FRAMES = [
   'instagram.com',
 ]
 
+/**
+ * Hosts we serve through /api/embed instead of framing directly.
+ *
+ * Being the origin that serves the document is the ONLY way to control what
+ * links inside the popup do — Justin: "once a pop up is up, if a user clicks a
+ * URL in the pop up, please open that URL in a new browser window." A
+ * cross-origin frame cannot be reached from the parent page at all: no click
+ * handler, no link rewriting. /api/embed injects <base target="_blank">, which
+ * applies to every anchor that does not set its own target.
+ *
+ * Which hosts need it was measured, not guessed (2026-10-19):
+ *
+ *   research.tradecompanion.com   151 anchors across 17 live reports,
+ *                                 ALL of them already target="_blank"
+ *                                 -> proxying would change nothing, so it is
+ *                                    left to frame directly and stays fast
+ *   sec.gov                       131 anchors on one filing, 19 on an index,
+ *                                 NONE with a target
+ *                                 -> every click there would otherwise replace
+ *                                    the popup, so it is proxied
+ *
+ * Filings are the other thing Justin opens in the popup constantly (every SEC
+ * alert), which is why this is worth a server hop. Widening the list means
+ * fetching more third-party URLs server-side, so each addition is a deliberate
+ * call — and the route degrades to a redirect on any failure, so a bad entry
+ * can only cost a round trip, never a broken popup.
+ */
+const PROXY_HOSTS = ['sec.gov']
+
+export function isProxyableHost(hostname: string): boolean {
+  const host = hostname.replace(/^www\./, '').toLowerCase()
+  return PROXY_HOSTS.some((h) => hostMatches(host, h))
+}
+
 export interface EmbedPlan {
   /** What to put in the iframe src, or null when it must open in a tab. */
   src: string | null
   /** Shown in the fallback panel when src is null. */
   reason?: string
+  /**
+   * True when src points at /api/embed rather than the site itself. The popup
+   * sandboxes those differently: proxied HTML runs under OUR origin, so it must
+   * NOT get allow-same-origin, or a report could read TC's localStorage.
+   */
+  proxied?: boolean
 }
 
 function hostMatches(host: string, base: string): boolean {
@@ -106,6 +146,12 @@ export function planEmbed(raw: string | null | undefined): EmbedPlan {
   const blocked = NEVER_FRAMES.find((b) => hostMatches(host, b))
   if (blocked) {
     return { src: null, reason: `${blocked} does not allow its pages to be displayed inside another app.` }
+  }
+
+  // Served through our own origin so <base target="_blank"> can be injected
+  // and links inside the report pop out to a real browser window.
+  if (isProxyableHost(host)) {
+    return { src: `/api/embed?url=${encodeURIComponent(u.toString())}`, proxied: true }
   }
 
   return { src: u.toString() }

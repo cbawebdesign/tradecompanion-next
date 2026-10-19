@@ -148,9 +148,23 @@ export function ReportPopup({
               onLoad={() => setLoaded(true)}
               className="w-full h-full"
               style={{ border: 0 }}
-              // Permits links and text selection while keeping the page from
-              // reaching back into TC.
-              sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-presentation"
+              /* Two different sandboxes on purpose.
+
+                 Proxied pages are served from /api/embed, which means they run
+                 under TC's OWN origin. Granting allow-same-origin there would
+                 let a report read TC's localStorage and issue same-origin
+                 requests, so it is withheld and the frame gets an opaque
+                 origin instead. allow-popups-to-escape-sandbox is then
+                 required, or the window a link opens would inherit the
+                 sandbox and the target site would load crippled.
+
+                 Direct cross-origin frames are already isolated by the browser
+                 and need allow-same-origin to behave normally. */
+              sandbox={
+                plan.proxied
+                  ? 'allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms'
+                  : 'allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-presentation'
+              }
               allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
             />
           )}
