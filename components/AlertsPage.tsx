@@ -46,7 +46,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     config,
     updateConfig,
     watchlists,
-    setPriceAlertEverywhere,
+    setPriceAlertFromTimeline,
     triggeredPriceAlerts,
   } = useStore()
   // Company name for the pane header — see useCompanyName in StockDataRibbon.
@@ -102,12 +102,25 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     return null
   }
   const updateAlertForFlagged = (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => {
-    // Writes to every watchlist holding this symbol, not just the first one
-    // found — see setPriceAlertEverywhere in the store.
-    setPriceAlertEverywhere(symbol, field, value)
+    // Justin (10/18): "add the upper and lower even if on flagged list". They were
+    // already rendered here — they just did nothing.
+    //
+    // setPriceAlertEverywhere only touches watchlists that ALREADY hold the symbol,
+    // and a flagged symbol usually is not on one; flagging is how you mark something
+    // you care about without adding it. So on this list the boxes accepted a number
+    // and silently never fired. Same defect that was fixed in the alert bar.
+    const addedTo = setPriceAlertFromTimeline(symbol, field, value)
+    if (addedTo && value != null) setFlaggedAddedNotice({ symbol, watchlist: addedTo })
   }
 
   // Right-click context menu on Flagged List rows.
+  // Never grow a watchlist silently — see setPriceAlertFromTimeline.
+  const [flaggedAddedNotice, setFlaggedAddedNotice] = useState<{ symbol: string; watchlist: string } | null>(null)
+  useEffect(() => {
+    if (!flaggedAddedNotice) return
+    const t = window.setTimeout(() => setFlaggedAddedNotice(null), 4000)
+    return () => window.clearTimeout(t)
+  }, [flaggedAddedNotice])
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
   const handleContextMenu = useCallback((e: React.MouseEvent, symbol: string) => {
     e.preventDefault()

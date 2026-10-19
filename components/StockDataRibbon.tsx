@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useReducer } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { WatchlistChips } from './WatchlistChips'
+import { ReportPopup } from './ReportPopup'
 
 interface StockDataItem {
   Ticker: string
@@ -270,6 +271,34 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
       window.setTimeout(() => setFloatMsg(null), 4000)
     }
   }, [baseApi, floatBusy])
+
+  // --- Report link buttons (Data Ribbon 2.0) ---
+  //
+  // Justin: a static row above the watchlists with Dilution / Resistance / China
+  // / Catalysts. "If a symbol has a record in each DB, then activate the URL from
+  // the airtable DB when a TC user clicks the button… if there is no symbol in
+  // the db display it white show there is no record."
+  //
+  // The server always returns all four so the row never reflows as records come
+  // and go — present=false renders the white, inactive state.
+  type ReportLink = { label: string; source: string; present: boolean; url: string; title: string }
+  const [reportLinks, setReportLinks] = useState<ReportLink[] | null>(null)
+  const [popup, setPopup] = useState<{ url: string; title: string } | null>(null)
+
+  useEffect(() => {
+    if (!symbol) { setReportLinks(null); return }
+    let cancelled = false
+    const upper = symbol.toUpperCase()
+    fetch(proxyUrl(`${baseApi}/reports/links?symbol=${encodeURIComponent(upper)}`))
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        // Guard against a response for a symbol the user has already moved off.
+        if (cancelled || symbolRef.current?.toUpperCase() !== upper) return
+        setReportLinks(Array.isArray(j?.links) ? j.links : null)
+      })
+      .catch(() => { if (!cancelled) setReportLinks(null) })
+    return () => { cancelled = true }
+  }, [symbol, baseApi])
 
   useEffect(() => {
     if (!symbol) { setData(null); return }
@@ -640,6 +669,47 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
           </button>
         </span>
       </div>
+
+      {/* Report links — static row directly above the watchlists, per Justin's
+          Data Ribbon 2.0 note. Always four buttons in the same order so the row
+          does not reflow between symbols; a base with no record for this symbol
+          renders white and inert rather than disappearing, which is how he asked
+          to see "there is no record". */}
+      <div className="flex items-center gap-2 px-1.5 py-1 text-xs flex-wrap"
+           style={{ background: 'var(--bg-glass)' }}>
+        {(reportLinks ?? [
+          { label: 'Dilution', source: '', present: false, url: '', title: '' },
+          { label: 'Resistance', source: '', present: false, url: '', title: '' },
+          { label: 'China', source: '', present: false, url: '', title: '' },
+          { label: 'Catalysts', source: '', present: false, url: '', title: '' },
+        ]).map((l) => (
+          <button
+            key={l.label}
+            disabled={!l.present}
+            onClick={(e) => {
+              e.stopPropagation()
+              if (l.present && l.url) setPopup({ url: l.url, title: `${data.Ticker} — ${l.label}` })
+            }}
+            className="px-1 font-medium"
+            style={{
+              // Present: the ribbon's link blue, clickable. Absent: white and
+              // inert — deliberately not greyed out, because he asked for white
+              // specifically and grey reads as "loading" next to the other fields.
+              color: l.present ? 'var(--accent-primary)' : '#ffffff',
+              cursor: l.present ? 'pointer' : 'default',
+              background: 'transparent',
+              border: 0,
+            }}
+            title={l.present ? (l.title || `Open ${l.label} report`) : `No ${l.label} record for ${data.Ticker}`}
+          >
+            {l.label}
+          </button>
+        ))}
+      </div>
+
+      {popup && (
+        <ReportPopup url={popup.url} title={popup.title} onClose={() => setPopup(null)} />
+      )}
 
       {/* Watchlist row — quick add/remove from inside the ribbon */}
       <WatchlistChips symbol={data.Ticker} />
