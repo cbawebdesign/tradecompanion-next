@@ -598,6 +598,45 @@ export function useSignalR() {
         // 40%+ intraday gainer scanner: one line per symbol per day. Filtered against
         // the user's per-user banned list (Settings) client-side so the ban list is
         // instantly personal with no server round-trip.
+        // Airtable reports — Grok / China / Dilution / IPO, mirrored server-side by
+        // AirtableReportService and pushed here. The other three bases (Bagholder,
+        // Why it is Moving, Press Release Summaries) are mirrored for the data ribbon
+        // only and never broadcast, per Justin: "Ignore pushing any 40% Scan and
+        // Catalyst PR new records to the timeline, but please push anything new in
+        // Grok Reports, China Reports, Dilution Reports, and IPO Reports."
+        //
+        // These replace the browser-side polling for these bases: the server now owns
+        // ingestion, which is what lets the same reports reach the data ribbon through
+        // AlertsBySymbol.
+        connection.on('newAirtableReport', (data: any) => {
+          const symbol = (data.symbol || '').toUpperCase()
+          if (!symbol) return
+
+          // "SYMBOL: Title" is the shape Justin's bots already write and the shape he
+          // asked the timeline to show, so the ticker is clickable and AHK fires.
+          const message: string = data.message || `${symbol}: ${data.title || data.source || 'Report'}`
+
+          const alert: Alert = {
+            id: crypto.randomUUID(),
+            // One row per Airtable record. His bots EDIT rows rather than adding them,
+            // and an edit is a legitimately new alert — so the modified time is part of
+            // the key, otherwise an updated report would be swallowed as a duplicate.
+            dedupKey: `atr:${data.recordId || symbol}:${data.timestamp || ''}`,
+            source: `useSignalR:newAirtableReport:${data.source || ''}`,
+            symbol,
+            message,
+            // Typed 'rss' so it rides the existing ungated path — these are reports he
+            // always wants, not watchlist-gated news.
+            type: 'rss',
+            color: data.color || alertTypeColorHex('rss'),
+            timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
+            read: false,
+            url: data.url || undefined,
+          }
+          addAlert(alert)
+          handleAlertAudio('rss', alert.message, configRef.current)
+        })
+
         connection.on('gainScanner', (data: any) => {
           const symbol = (data.symbol || '').toUpperCase()
           if (!symbol) return
@@ -678,6 +717,32 @@ export function useSignalR() {
             const alert = buildConfirmedAlert(cat, bar)
             addAlert(alert)
             handleAlertAudio('catalyst', alert.message, configRef.current)
+
+            // Mirror the CONFIRMED catalyst into Justin's "Catalyst PR's" Airtable
+            // base so his automations can trigger off it. Reported from here, not
+            // from the server, because the price/volume gate that keeps roughly one
+            // headline in twenty runs in this file's confirmer — the server only ever
+            // sees raw candidates, so writing there would be ~20x what he sees.
+            //
+            // Fire-and-forget, and never allowed to affect the alert: the timeline is
+            // the job. The server dedupes on resource id, so the other open tabs all
+            // reporting the same confirmation is expected and harmless.
+            try {
+              const base = configRef.current.hubUrl?.replace(/\/api\/?$/, '').replace(/\/$/, '')
+              if (base) {
+                void fetch(proxyUrl(`${base}/api/catalyst/confirmed`), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    symbol: cat.symbol,
+                    title: cat.title,
+                    url: cat.resourceId ? `https://stage.news.scanzzers.com/tc/ampspr?id=${cat.resourceId}` : '',
+                    resourceId: cat.resourceId || '',
+                    notes: cat.startPrice ? `Confirmed at $${cat.startPrice.toFixed(2)}` : '',
+                  }),
+                }).catch(() => { /* never let the mirror break the alert */ })
+              }
+            } catch { /* same */ }
           },
         })
 
