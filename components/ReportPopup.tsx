@@ -58,6 +58,29 @@ export function ReportPopup({
     return () => document.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
+  // Links clicked INSIDE a proxied page open a real browser window.
+  //
+  // Justin: "from here if I click any of these URL's in the pop up window, I
+  // get an error … from the popup, any other URL's open in a new browser
+  // window?"
+  //
+  // /api/embed injects a click handler that forwards the URL here rather than
+  // relying on target="_blank", which Electron denies from inside a frame. TC's
+  // own window.open does work in his build — the pop-out buttons use it.
+  useEffect(() => {
+    const onMessage = (e: MessageEvent) => {
+      const data = e.data as { type?: string; url?: string } | null
+      if (!data || data.type !== 'tc-open-url' || typeof data.url !== 'string') return
+      // The frame is sandboxed to an opaque origin, so the sender cannot be
+      // checked by origin. Validate the payload instead: only ever a web URL,
+      // and opening a new tab is the only effect.
+      if (!/^https?:\/\//i.test(data.url)) return
+      window.open(data.url, '_blank', 'noopener,noreferrer')
+    }
+    window.addEventListener('message', onMessage)
+    return () => window.removeEventListener('message', onMessage)
+  }, [])
+
   // A framed page that never fires onLoad is almost always one refusing to be
   // embedded. 3s rather than the original 6 — a page that has not started in
   // three seconds is not going to feel usable anyway, and the fallback is one

@@ -51,7 +51,7 @@ describe('catalyst backfill dedup', () => {
     ...over,
   }) as Parameters<typeof buildConfirmedAlert>[0]
 
-  const bar = { t: new Date('2026-10-20T12:34:09.000Z') }
+  const bar = { s: 'MYGN', t: new Date('2026-10-20T12:34:09.000Z') }
 
   it('keys a live confirmed catalyst on the story id', () => {
     // Airtable stores the story id but NOT saveTime, so this is the only
