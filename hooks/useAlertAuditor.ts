@@ -15,6 +15,9 @@ import { alertTypeColorHex } from '@/lib/alertTypeColor'
 
 // Module-level state to survive React remounts
 let lastAuditTime: Date | null = null
+// Survives a Strict Mode double-mount but not a reload, which is exactly the
+// boundary "startup / refresh" means here.
+let hasAudited = false
 const seenAlertKeys = new Set<string>()
 // Symbols that have had their "first-seen" full-day backfill run this session.
 // Prevents re-backfilling the same symbol every time the watchlist reference
@@ -157,6 +160,9 @@ export function useAlertAuditor() {
       const since = new Date(Math.max(...sinceCandidates))
       const sinceStr = since.toISOString()
 
+      const isFirstAudit = !hasAudited
+      hasAudited = true
+
       const recoveredBatch: Alert[] = []
 
       // Audit each symbol (sequentially to avoid hammering the API)
@@ -188,7 +194,21 @@ export function useAlertAuditor() {
             // Historical PR record is still visible in the data ribbon.
           }
 
+          // Justin ("Backfill Testing"): on a startup or refresh the timeline
+          // gets webhooks, 40% Scan and Catalyst PRs — nothing else. The
+          // polling hooks were changed to honour that, but THIS runs after
+          // them, sees filings / tweets / trade-exchange missing, concludes
+          // they were dropped and puts the whole lot back. From the auditor's
+          // point of view absent used to mean lost; for these three it now
+          // means deliberate.
+          //
+          // Only on the FIRST audit after a load. Later passes still recover
+          // them, because mid-session those really can go missing on a SignalR
+          // drop, and that is the whole reason this hook exists.
+          const suppressedOnStartup = new Set(['filings', 'tweets', 'tradeExchange'])
+
           for (const [_typeName, { items, alertType, color }] of Object.entries(typeMap)) {
+            if (isFirstAudit && suppressedOnStartup.has(_typeName)) continue
             for (const item of items) {
               const msg = item.title || item.headline || item.text || item.content || item.raw_text || item.message || ''
               const key = alertKey(symbol, alertType, msg)
