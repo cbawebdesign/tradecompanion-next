@@ -6,6 +6,7 @@ import { useSignalR } from '@/hooks/useSignalR'
 import { useTweetsPolling } from '@/hooks/useTweetsPolling'
 import { useFilingsPolling } from '@/hooks/useFilingsPolling'
 import { usePrevCloses } from '@/hooks/usePrevCloses'
+import { useQuoteSnapshot } from '@/hooks/useQuoteSnapshot'
 import { usePriceAlerts } from '@/hooks/usePriceAlerts'
 import { useCrossWindowSync } from '@/hooks/useCrossWindowSync'
 import { useQuoteBroadcaster } from '@/hooks/useQuoteBroadcast'
@@ -97,6 +98,10 @@ function AlertPolling() {
 function DataSync() {
   // Background data sync — infrequent updates
   usePrevCloses()
+  // Current prices for watchlist / flagged rows, so a thin name is not blank
+  // until it happens to print. Main window only — pop-outs get quotes relayed
+  // from here via useQuoteReceiver.
+  useQuoteSnapshot()
   useStockDataPreload()
   useCrossWindowSync()
   useCosmosSync()
