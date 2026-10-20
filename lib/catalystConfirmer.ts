@@ -177,7 +177,13 @@ export function buildConfirmedAlert(cat: PendingCatalyst, bar: BarLike): Alert {
   const priceSuffix = cat.startPrice ? ` ($${cat.startPrice.toFixed(2)})` : ''
   return {
     id: crypto.randomUUID(),
-    dedupKey: `cat:${cat.symbol}-${cat.saveTime.toISOString()}`,
+    // Keyed on the story id, not saveTime: the login backfill reads these same
+    // catalysts back out of Airtable, which stores the id but not saveTime. Same
+    // key on both paths is what stops a mid-session refresh showing each one
+    // twice. saveTime stays as the fallback for a catalyst with no resourceId.
+    dedupKey: cat.resourceId
+      ? `cat:rid:${cat.resourceId}`
+      : `cat:${cat.symbol}-${cat.saveTime.toISOString()}`,
     source: `catalystConfirmer:${cat.source}`,
     symbol: cat.symbol,
     message: `${cat.title}${priceSuffix}`,
