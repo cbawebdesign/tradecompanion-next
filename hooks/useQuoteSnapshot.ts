@@ -79,6 +79,19 @@ export function useQuoteSnapshot() {
         if (cancelled) return
 
         const quotes = responses.flatMap((j) => (Array.isArray(j?.quotes) ? j.quotes : []))
+
+        // Deliberate instrumentation, in the same style as the other polling
+        // hooks. Justin still sees blank % on thin names after this shipped,
+        // and the server demonstrably has the data — /api/Quotes returns a
+        // correct figure for every symbol he reported as blank. Ruled out so
+        // far: URL length, CORS, bundle inclusion, comma encoding, and the
+        // store's merge logic. This line says in one refresh whether the
+        // request is even reaching the client, rather than guessing again.
+        console.log(
+          `QuoteSnapshot: asked ${symbols.length} in ${batches.length} batch(es), got ${quotes.length}`,
+          quotes.length > 0 ? quotes.slice(0, 3) : responses,
+        )
+
         if (quotes.length === 0) return
 
         const now = new Date()
@@ -98,7 +111,15 @@ export function useQuoteSnapshot() {
             timestamp: now,
           }))
 
-        if (mapped.length > 0) updateQuotes(mapped)
+        if (mapped.length > 0) {
+          updateQuotes(mapped)
+          // Read back one symbol so a mismatch between what we applied and
+          // what the table reads is visible without a debugger.
+          const probe = mapped[0].symbol
+          const after = useStore.getState().quotes[probe]
+          console.log(`QuoteSnapshot: applied ${mapped.length}; ${probe} ->`,
+            after ? { last: after.last, chg: after.changePercent, seeded: after.seeded } : 'NOT IN STORE')
+        }
       } catch {
         // A failed snapshot just means the websocket remains the only source,
         // which is the behaviour this hook was added to improve on — never worse.
