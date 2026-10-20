@@ -355,6 +355,36 @@ textarea:focus {
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
 
+/* Upper / Lower price boxes in the alert tables.
+
+   These have to be declared here, after the generic input rule, and with the
+   [type="text"] qualifier repeated. The generic rule above is specificity
+   (0,1,1); both `td input { @apply py-0 }` (0,0,2) and the component's own
+   Tailwind `text-xs py-0.5` (0,1,0) are LOWER, so they were silently losing and
+   every box rendered at 14px font with 8px of vertical padding — about 35px
+   tall, which dragged each table row from 26px to roughly 37px.
+
+   Justin: "the latest update made the height on each alert row bigger so now
+   fewer timeline alerts are viewable in the same amount of screen real estate
+   … Also should probably update the size of the font of the upper and alert
+   boxes too so that when a user types in values in those areas it is still
+   viewable and not cut off."
+
+   Repeating the attribute selector makes this (0,2,1), so it wins outright.
+   18px tall fits inside the 26px row with room to spare; 11px/16px keeps a
+   6-character price like 148.44 or 0.0255 fully legible while typing. */
+input[type="text"].price-alert-input {
+  height: 18px;
+  padding: 0 3px;
+  font-size: 11px;
+  line-height: 16px;
+  border-radius: 3px;
+}
+input[type="text"].price-alert-input:focus {
+  /* The 3px glow ring would otherwise push the row open again. */
+  box-shadow: 0 0 0 1px var(--accent-glow);
+}
+
 /* ============================================
    BUTTON STYLES - Glassmorphism
    ============================================ */

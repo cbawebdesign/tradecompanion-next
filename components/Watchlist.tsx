@@ -9,13 +9,14 @@ import { copyToClipboard } from '@/lib/clipboard'
 import { GrokButton } from './GrokButton'
 import { SymbolContextMenu } from './SymbolContextMenu'
 import { PopOutButton } from './PopOutButton'
-import { StockDataRibbon, useCompanyName } from './StockDataRibbon'
+import { StockDataRibbon, useCompanyName, ChinaScoreBadge } from './StockDataRibbon'
 import { ResizableTh } from './ResizableTh'
 import { PriceAlertInput } from './PriceAlertInput'
 import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
+import { openInViewer } from '@/lib/linkViewer'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
@@ -864,14 +865,18 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
         {/* RIGHT PANE - Alerts for Selected Symbol */}
         <div className="flex flex-col overflow-hidden" style={{ width: `${100 - splitPercent}%`, background: 'var(--bg-glass-light)' }}>
           <div className="px-3 py-2 glass-header flex-shrink-0">
-            <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+            {/* flex + items-baseline so the China score can sit hard right on
+                this row while staying on the ticker's baseline. min-w-0 lets the
+                company name give up space to it rather than pushing it off. */}
+            <h3 className="text-sm font-semibold flex items-baseline" style={{ color: 'var(--text-secondary)' }}>
               {selectedSymbol || '—'}
               {companyName && (
-                <span className="ml-2 font-normal truncate" style={{ color: 'var(--text-muted)' }} title={companyName}>
+                <span className="ml-2 font-normal truncate min-w-0" style={{ color: 'var(--text-muted)' }} title={companyName}>
                   {companyName}
                 </span>
               )}
               {selectedSymbol && dbAlertsLoading && <span className="text-xs text-gray-500 ml-2">loading...</span>}
+              <ChinaScoreBadge symbol={selectedSymbol} />
             </h3>
           </div>
           <div className="px-2 pt-1 flex-shrink-0">
@@ -896,7 +901,15 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         </td>
                         <td className="px-2 py-1 break-words" style={{ color: alertDisplayColor(alert), fontWeight: 600 }}>
                           {alert.url ? (
-                            <a href={alert.url} target="_blank" rel="noopener noreferrer" className="underline hover:opacity-80" style={{ color: 'inherit' }}>{formatAlertText(alert.message)}</a>
+                            <a
+                              href={alert.url}
+                              className="underline hover:opacity-80 cursor-pointer"
+                              style={{ color: 'inherit' }}
+                              /* Opens in TC's popup rather than a browser tab.
+                                 href is kept so middle-click and "copy link
+                                 address" still behave like a real link. */
+                              onClick={(e) => { e.preventDefault(); openInViewer(alert.url!, `${alert.symbol} — ${alert.type}`) }}
+                            >{formatAlertText(alert.message)}</a>
                           ) : formatAlertText(alert.message)}
                         </td>
                         <td className="px-2 py-1 text-center whitespace-nowrap">

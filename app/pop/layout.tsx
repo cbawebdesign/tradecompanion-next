@@ -1,6 +1,7 @@
 "use client"
 
 import { PopoutProviders } from './providers'
+import { LinkViewer } from '@/components/ReportPopup'
 import '../globals.css'
 
 // Detect Electron for transparent background
@@ -21,6 +22,10 @@ export default function PopLayout({ children }: { children: React.ReactNode }) {
       >
         <PopoutProviders>
           {children}
+          {/* Pop-out windows are separate documents, so they need their own
+              viewer — a link clicked in a popped-out timeline should open in
+              that window, not back on the main one. */}
+          <LinkViewer />
         </PopoutProviders>
       </body>
     </html>
