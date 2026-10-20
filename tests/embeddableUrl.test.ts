@@ -131,9 +131,21 @@ describe('proxied hosts', () => {
 })
 
 describe('injectBase', () => {
-  it('puts the base tag immediately after <head>', () => {
+  it('puts the base tag immediately after <head>, before any content', () => {
     const out = injectBase('<!DOCTYPE html><html><head><title>x</title></head><body>b</body></html>', 'https://e.test/a/b')
-    expect(out).toContain('<head><base href="https://e.test/a/b" target="_blank"><title>')
+    expect(out).toContain('<head><base href="https://e.test/a/b" target="_blank">')
+    // Must precede the first element that could resolve a relative URL.
+    expect(out.indexOf('<base')).toBeLessThan(out.indexOf('<title>'))
+  })
+
+  it('injects the click interceptor that hands URLs to TC', () => {
+    // target="_blank" is denied inside a frame under Electron, so the popup
+    // relies on this postMessage path to open links in a real browser window.
+    const out = injectBase('<html><head></head></html>', 'https://e.test/p')
+    expect(out).toContain("type:'tc-open-url'")
+    expect(out).toContain('preventDefault')
+    // Only real web links are forwarded.
+    expect(out).toContain('/^https?:/i')
   })
 
   it('removes a base tag the document already had', () => {
@@ -144,7 +156,8 @@ describe('injectBase', () => {
 
   it('creates a head when the document has none', () => {
     const out = injectBase('<html><body>hi</body></html>', 'https://e.test/p')
-    expect(out).toContain('<head><base href="https://e.test/p" target="_blank"></head>')
+    expect(out).toContain('<head><base href="https://e.test/p" target="_blank">')
+    expect(out.indexOf('<base')).toBeLessThan(out.indexOf('<body>'))
   })
 
   it('still injects into a bare fragment', () => {

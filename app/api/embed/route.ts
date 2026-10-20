@@ -53,10 +53,12 @@ export async function GET(request: NextRequest) {
   try {
     const upstream = await fetch(target.toString(), {
       headers: {
-        // Declared rather than spoofed. SEC's fair-access policy asks
-        // automated traffic to identify itself, and a filing fetches fine
-        // with this — checked against both a filing and an index page.
-        'User-Agent': 'TradeCompanion/2.8.31 (+https://tradecompanion.com)',
+        // SEC's fair-access policy requires a declared company name AND a
+        // contact address; a UA without the email is refused from a datacenter
+        // IP, which is why every proxied filing was falling through to the
+        // redirect. This is the same identity FilingRssService has been using
+        // to pull the SEC feed successfully all day.
+        'User-Agent': 'Equity Dynamics, LLC. equitydynamics@protonmail.com',
         Accept: 'text/html,application/xhtml+xml',
       },
       // Nothing of ours should ride along with the request.
