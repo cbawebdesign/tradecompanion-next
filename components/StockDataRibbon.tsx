@@ -70,6 +70,119 @@ export function useCompanyName(symbol: string | null | undefined): string | null
   return getCachedCompanyName(symbol)
 }
 
+/**
+ * Airtable report links for a symbol, shared between the ribbon's button row
+ * and the pane header that shows the China score.
+ *
+ * Same shape of problem useCompanyName solves: the score has to render in the
+ * header ABOVE this component (Justin: "display it on the far right in the data
+ * ribbon", with the mock showing it on the ticker/company-name line), but the
+ * data arrives from the ribbon's own fetch. Rather than have three panes each
+ * fetch the same endpoint, the response is cached here and both readers
+ * subscribe.
+ *
+ * Cache then revalidate: a cached entry renders immediately when you click back
+ * to a symbol, and the refetch corrects it a moment later. Not persisted to
+ * localStorage — reports change far more often than company names, and the call
+ * is cheap.
+ */
+export type ReportLink = {
+  label: string
+  source: string
+  present: boolean
+  url: string
+  title: string
+  score?: number | null
+}
+type ReportLinksEntry = { links: ReportLink[]; chinaScore: number | null }
+
+const reportLinksCache: Record<string, ReportLinksEntry> = {}
+const reportLinkListeners = new Set<() => void>()
+const reportLinksInflight = new Set<string>()
+
+function notifyReportLinks() {
+  reportLinkListeners.forEach((f) => { try { f() } catch { /* ignore */ } })
+}
+
+function loadReportLinks(symbol: string, baseApi: string) {
+  const upper = symbol.toUpperCase()
+  // Two subscribers mount together for the same symbol; only one should fetch.
+  if (reportLinksInflight.has(upper)) return
+  reportLinksInflight.add(upper)
+
+  fetch(proxyUrl(`${baseApi}/reports/links?symbol=${encodeURIComponent(upper)}`))
+    .then((r) => (r.ok ? r.json() : null))
+    .then((j) => {
+      if (!Array.isArray(j?.links)) return
+      reportLinksCache[upper] = {
+        links: j.links as ReportLink[],
+        // Explicitly null, never 0, when there is no China record — the base
+        // holds genuine 0.0 scores and they must stay distinguishable.
+        chinaScore: typeof j.chinaScore === 'number' ? j.chinaScore : null,
+      }
+      notifyReportLinks()
+    })
+    .catch(() => { /* ribbon falls back to the all-white row */ })
+    .finally(() => { reportLinksInflight.delete(upper) })
+}
+
+function useReportLinksEntry(symbol: string | null | undefined): ReportLinksEntry | null {
+  const hubUrl = useStore((s) => s.config.hubUrl)
+  const [, bump] = useReducer((x: number) => x + 1, 0)
+
+  useEffect(() => {
+    reportLinkListeners.add(bump)
+    return () => { reportLinkListeners.delete(bump) }
+  }, [])
+
+  useEffect(() => {
+    if (!symbol) return
+    const baseApi = hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/api'
+    loadReportLinks(symbol, baseApi)
+  }, [symbol, hubUrl])
+
+  return symbol ? reportLinksCache[symbol.toUpperCase()] ?? null : null
+}
+
+/**
+ * The China Reports "Score" for a symbol, or null when that base holds no
+ * record for it — Justin: "If there is not a record in the China Reports
+ * airtable DB then do nothing."
+ */
+export function useChinaScore(symbol: string | null | undefined): number | null {
+  return useReportLinksEntry(symbol)?.chinaScore ?? null
+}
+
+/** `8.5/10`, and `8/10` rather than `8.0/10` for whole numbers. */
+export function formatChinaScore(score: number): string {
+  return `${Number.isInteger(score) ? score : Number(score.toFixed(1))}/10`
+}
+
+/**
+ * China score for a pane header, pushed to the far right.
+ *
+ * Renders nothing at all when the symbol has no China Report record, per
+ * Justin: "If there is not a record in the China Reports airtable DB then do
+ * nothing." Note that is NOT the same as a score of zero — the base contains
+ * real 0.0 scores, and those do render.
+ *
+ * Coloured to match the ticker beside it ("maybe match up the color to a gray
+ * similar to the color of the symbol in the same row").
+ */
+export function ChinaScoreBadge({ symbol }: { symbol: string | null | undefined }) {
+  const score = useChinaScore(symbol)
+  if (score == null) return null
+  return (
+    <span
+      className="ml-auto flex-shrink-0 text-sm font-semibold tabular-nums"
+      style={{ color: 'var(--text-secondary)' }}
+      title={`China report score — click the China button for the reasoning behind ${formatChinaScore(score)}`}
+    >
+      {formatChinaScore(score)}
+    </span>
+  )
+}
+
 interface PersistedCacheEntry { data: StockDataItem; ts: number }
 
 // Hydrate cache from localStorage on first import. Drops entries older than TTL.
@@ -281,23 +394,10 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
   //
   // The server always returns all four so the row never reflows as records come
   // and go — present=false renders the white, inactive state.
-  type ReportLink = { label: string; source: string; present: boolean; url: string; title: string }
-  const [reportLinks, setReportLinks] = useState<ReportLink[] | null>(null)
-
-  useEffect(() => {
-    if (!symbol) { setReportLinks(null); return }
-    let cancelled = false
-    const upper = symbol.toUpperCase()
-    fetch(proxyUrl(`${baseApi}/reports/links?symbol=${encodeURIComponent(upper)}`))
-      .then((r) => (r.ok ? r.json() : null))
-      .then((j) => {
-        // Guard against a response for a symbol the user has already moved off.
-        if (cancelled || symbolRef.current?.toUpperCase() !== upper) return
-        setReportLinks(Array.isArray(j?.links) ? j.links : null)
-      })
-      .catch(() => { if (!cancelled) setReportLinks(null) })
-    return () => { cancelled = true }
-  }, [symbol, baseApi])
+  // Shared with the pane header, which renders the China score off the same
+  // response — see useReportLinksEntry above. Keyed by symbol, so there is no
+  // stale-response race to guard against here any more.
+  const reportLinks = useReportLinksEntry(symbol)?.links ?? null
 
   useEffect(() => {
     if (!symbol) { setData(null); return }

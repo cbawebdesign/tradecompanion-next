@@ -6,7 +6,7 @@ import { clsx } from 'clsx'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { SymbolContextMenu } from './SymbolContextMenu'
-import { StockDataRibbon, useCompanyName } from './StockDataRibbon'
+import { StockDataRibbon, useCompanyName, ChinaScoreBadge } from './StockDataRibbon'
 
 // Sectors & Themes board. Reads distinct sectors/themes (+ counts) from the
 // backend (GET /api/SectorThemes) and component symbols on demand (GET
@@ -224,13 +224,14 @@ export function ThemesPage() {
                 {/* The ribbon no longer repeats the ticker — it moved to the pane
                     header everywhere else, and this popup had no header at all, so
                     the symbol would otherwise go unlabelled here. */}
-                <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>
+                <h3 className="text-sm font-semibold flex items-baseline" style={{ color: 'var(--text-secondary)' }}>
                   {selSymbol}
                   {popupCompanyName && (
-                    <span className="ml-2 font-normal truncate" style={{ color: 'var(--text-muted)' }} title={popupCompanyName}>
+                    <span className="ml-2 font-normal truncate min-w-0" style={{ color: 'var(--text-muted)' }} title={popupCompanyName}>
                       {popupCompanyName}
                     </span>
                   )}
+                  <ChinaScoreBadge symbol={selSymbol} />
                 </h3>
                 <StockDataRibbon symbol={selSymbol} />
               </div>
