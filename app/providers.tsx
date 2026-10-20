@@ -16,6 +16,7 @@ import { useNewsHub } from '@/hooks/useNewsHub'
 import { useStockDataPreload } from '@/hooks/useStockDataPreload'
 import { useAlertAuditor } from '@/hooks/useAlertAuditor'
 import { useAirtablePolling } from '@/hooks/useAirtablePolling'
+import { useLoginBackfill } from '@/hooks/useLoginBackfill'
 import { useCosmosSync } from '@/hooks/useCosmosSync'
 import { useAzureKeepAlive } from '@/hooks/useAzureKeepAlive'
 import { useRemotePrBlacklist } from '@/hooks/useRemotePrBlacklist'
@@ -92,6 +93,7 @@ function AlertPolling() {
   useCatalystPolling()
   useAlertAuditor()
   useAirtablePolling()
+  useLoginBackfill()
   return null
 }
 
