@@ -425,7 +425,10 @@ export const useStore = create<AppState>()(
               && prev.last === q.last
               && prev.change === q.change
               && prev.changePercent === q.changePercent
-              && prev.volume === q.volume) {
+              && prev.volume === q.volume
+              // A seeded row replaced by a real quote with identical numbers is
+              // still a change: it is the difference between "-" and "0.00%".
+              && !!prev.seeded === !!q.seeded) {
             return // bid/ask-only drift — skip
           }
           updated[q.symbol] = q

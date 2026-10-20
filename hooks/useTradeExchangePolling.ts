@@ -82,8 +82,17 @@ export function useTradeExchangePolling() {
           new Date(a.save_time_utc).getTime() - new Date(b.save_time_utc).getTime()
         )
 
-        // On initial load, only show the most recent 20 (not 700+)
-        const toProcess = isInitialFetch ? sorted.slice(-20) : sorted
+
+/**
+ * Justin ("Backfill Testing"): "please remove any trade exchange messages on the time line from a
+ * refresh / startup."
+ *
+ * The first sweep after a reload still runs and still marks everything it sees
+ * as seen — that is what stops the NEXT poll treating the whole history as new.
+ * It just emits nothing. Live items arriving later in the session are
+ * unaffected; only the replay on startup is suppressed.
+ */
+        const toProcess = isInitialFetch ? [] : sorted
 
         // Still mark ALL as seen so they don't re-appear on subsequent polls
         if (isInitialFetch) {

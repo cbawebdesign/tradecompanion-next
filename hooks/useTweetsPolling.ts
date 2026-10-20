@@ -72,11 +72,24 @@ export function useTweetsPolling() {
           return ai < bi ? -1 : ai > bi ? 1 : 0
         })
 
-        // On initial load (sinceId was "0"), only process the most recent 100 tweets
-        // to avoid overwhelming the alerts list
-        const tweetsToProcess = sinceId === '0'
-          ? sortedTweets.slice(-100)
-          : sortedTweets
+
+/**
+ * Justin ("Backfill Testing"): "please remove any tweets on the time line from a
+ * refresh / startup."
+ *
+ * The first sweep after a reload still runs and still marks everything it sees
+ * as seen — that is what stops the NEXT poll treating the whole history as new.
+ * It just emits nothing. Live items arriving later in the session are
+ * unaffected; only the replay on startup is suppressed.
+ */
+        const isInitialFetch = sinceId === '0'
+        const tweetsToProcess = isInitialFetch ? [] : sortedTweets
+
+        // Mark the whole initial page as seen even though none of it is emitted,
+        // so the next poll does not treat months of history as new.
+        if (isInitialFetch) {
+          for (const t of sortedTweets) seenTweetIdsRef.current.add(t.id_long)
+        }
 
         // Build batch of new alerts
         const batch: Alert[] = []
@@ -145,10 +158,9 @@ export function useTweetsPolling() {
           // otherwise drop — tweet with no watchlist match and user not on XshowAllTweets list
         }
 
-        // Single store update for all new tweets
-        if (batch.length > 0) {
-          if (sinceId === '0') addAlerts(batch)  // Initial load: batch
-          else batch.forEach(a => addAlert(a))   // Subsequent: one-by-one for live feel
+        // Nothing to emit on the initial sweep — see above.
+        if (batch.length > 0 && !isInitialFetch) {
+          batch.forEach(a => addAlert(a))
         }
 
         // Update last tweet ID for next fetch (use id_long)

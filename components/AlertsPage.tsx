@@ -532,7 +532,9 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                           {quote?.last != null ? (quote.last < 1 ? quote.last.toFixed(4) : quote.last.toFixed(2)) : '-'}
                         </td>
                         <td className={clsx('text-right font-mono', changeClass)}>
-                          {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}
+                          {quote && !quote.seeded && quote.last > 0
+                          ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%`
+                          : '-'}
                         </td>
                         {(() => {
                           const hit = findEntry(symbol)
