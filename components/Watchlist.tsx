@@ -759,7 +759,9 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                         {formatPrice(quote?.last)}
                       </td>
                       <td className={clsx('text-right font-mono', changeClass)}>
-                        {quote?.changePercent ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%` : '-'}
+                        {quote && !quote.seeded && quote.last > 0
+                          ? `${quote.changePercent > 0 ? '+' : ''}${quote.changePercent.toFixed(2)}%`
+                          : '-'}
                       </td>
                       <td className="text-right">
                         <PriceAlertInput

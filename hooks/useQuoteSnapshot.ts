@@ -56,18 +56,33 @@ export function useQuoteSnapshot() {
     let cancelled = false
 
     const pull = async () => {
-      // The server caps at 500 and holds a 45s cache, so overlapping calls would
-      // only duplicate work.
+      // The server holds a 45s cache, so overlapping calls only duplicate work.
       if (inFlight.current) return
       inFlight.current = true
       try {
-        const resp = await fetch(proxyUrl(`${baseApi}/Quotes?symbols=${encodeURIComponent(key)}`))
-        if (!resp.ok) return
-        const json = await resp.json()
-        if (cancelled || !Array.isArray(json?.quotes)) return
+        // Chunked, because the whole list does not fit in a URL. Justin's
+        // watchlists plus the flagged list run to several hundred symbols, and
+        // a single GET carrying all of them exceeds the request-line limit and
+        // is rejected outright — which is why the first version of this only
+        // appeared to work for names that happened to print on the websocket.
+        const CHUNK = 100
+        const batches: string[][] = []
+        for (let i = 0; i < symbols.length; i += CHUNK) batches.push(symbols.slice(i, i + CHUNK))
+
+        const responses = await Promise.all(
+          batches.map((b) =>
+            fetch(proxyUrl(`${baseApi}/Quotes?symbols=${encodeURIComponent(b.join(','))}`))
+              .then((r) => (r.ok ? r.json() : null))
+              .catch(() => null),
+          ),
+        )
+        if (cancelled) return
+
+        const quotes = responses.flatMap((j) => (Array.isArray(j?.quotes) ? j.quotes : []))
+        if (quotes.length === 0) return
 
         const now = new Date()
-        const mapped = json.quotes
+        const mapped = quotes
           .filter((q: { last?: number }) => (q.last ?? 0) > 0)
           .map((q: { symbol: string; last: number; changePercent: number; volume: number; prevClose: number }) => ({
             symbol: q.symbol,

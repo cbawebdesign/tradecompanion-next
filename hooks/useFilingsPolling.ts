@@ -135,10 +135,18 @@ export function useFilingsPolling() {
           })
         }
 
-        // Single store update for initial load, one-by-one for live updates
-        if (batch.length > 0) {
-          if (isInitialFetch) addAlerts(batch)
-          else batch.forEach(a => addAlert(a))
+
+/**
+ * Justin ("Backfill Testing"): "please remove any SEC filings on the time line from a
+ * refresh / startup."
+ *
+ * The first sweep after a reload still runs and still marks everything it sees
+ * as seen — that is what stops the NEXT poll treating the whole history as new.
+ * It just emits nothing. Live items arriving later in the session are
+ * unaffected; only the replay on startup is suppressed.
+ */
+        if (batch.length > 0 && !isInitialFetch) {
+          batch.forEach(a => addAlert(a))
         }
 
         // Update last filing time for next fetch (use original filings, not filtered)

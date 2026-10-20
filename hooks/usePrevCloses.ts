@@ -93,7 +93,9 @@ export function usePrevCloses() {
             last: prevCloses[sym],
             volume: 0,
             change: 0,
+            // Not a flat stock — an unknown one. See Quote.seeded.
             changePercent: 0,
+            seeded: true,
             timestamp: new Date(),
           }))
         if (seedQuotes.length > 0) {
@@ -130,6 +132,7 @@ export function usePrevCloses() {
         volume: 0,
         change: 0,
         changePercent: 0,
+        seeded: true,
         timestamp: new Date(),
       }))
     if (seedQuotes.length > 0) {

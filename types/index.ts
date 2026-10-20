@@ -8,6 +8,13 @@ export interface Quote {
   change: number
   changePercent: number
   timestamp: Date
+  /**
+   * True when `last` is only the previous close standing in for a real quote
+   * (usePrevCloses seeds these so a row is not blank on load). Such a row has
+   * changePercent 0 because the change is UNKNOWN, not because the stock is
+   * flat — the table shows "-" for these and a real 0.00% for everything else.
+   */
+  seeded?: boolean
 }
 
 // Alert types
