@@ -72,7 +72,15 @@ export function parseTvPayload(raw: unknown): TvPayload {
   // raw_text/text/message/alert first to preserve the previous ordering, then
   // title/headline, which are the keys his bot actually sends.
   const text = pick('raw_text', 'text', 'message', 'alert', 'title', 'headline')
-  const url = pick('url', 'link')
+
+  // http(s) ONLY. This value ends up in Alert.url, which the popup's fallback
+  // panel renders as a bare <a href={url} target="_blank"> with no
+  // preventDefault (components/ReportPopup.tsx) — so an unvalidated value from
+  // a webhook body would be a live link with whatever scheme the sender chose.
+  // The body is attacker-controlled in the sense that anyone holding the
+  // webhook key can post anything, and the route is anonymous.
+  const urlRaw = pick('url', 'link')
+  const url = /^https?:\/\//i.test(urlRaw) ? urlRaw : ''
 
   const symRaw = pick('symbol', 'ticker').replace(/^\$/, '').toUpperCase()
   const symbol = isTvSymbol(symRaw) ? symRaw : undefined

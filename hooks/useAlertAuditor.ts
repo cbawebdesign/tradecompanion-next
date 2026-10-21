@@ -210,11 +210,12 @@ export function useAlertAuditor() {
           for (const [_typeName, { items, alertType, color }] of Object.entries(typeMap)) {
             if (isFirstAudit && suppressedOnStartup.has(_typeName)) continue
             for (const item of items) {
-              // raw_text may be a JSON webhook body; unwrap it so the auditor
-              // cannot re-inject the literal JSON the timeline just fixed.
-              const msg = parseTvPayload(
-                item.title || item.headline || item.text || item.content || item.raw_text || item.message || ''
-              ).text
+              const rawMsg = item.title || item.headline || item.text || item.content || item.raw_text || item.message || ''
+              // Unwrap ONLY TradingView rows. The loop covers filings, tweets
+              // and trade-exchange too, and running their text through a
+              // webhook parser would rewrite any PR headline that happens to
+              // start with "{".
+              const msg = alertType === 'tradingview' ? parseTvPayload(rawMsg).text : rawMsg
               const key = alertKey(symbol, alertType, msg)
 
               if (existingKeys.has(key)) continue
