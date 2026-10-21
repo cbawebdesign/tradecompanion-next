@@ -12,6 +12,7 @@ import { proxyUrl } from '@/lib/proxyUrl'
 import { alertMatchKey } from '@/lib/alertDedup'
 import type { Alert } from '@/types'
 import { alertTypeColorHex } from '@/lib/alertTypeColor'
+import { parseTvPayload } from '@/lib/tvPayload'
 
 // Module-level state to survive React remounts
 let lastAuditTime: Date | null = null
@@ -209,7 +210,11 @@ export function useAlertAuditor() {
           for (const [_typeName, { items, alertType, color }] of Object.entries(typeMap)) {
             if (isFirstAudit && suppressedOnStartup.has(_typeName)) continue
             for (const item of items) {
-              const msg = item.title || item.headline || item.text || item.content || item.raw_text || item.message || ''
+              // raw_text may be a JSON webhook body; unwrap it so the auditor
+              // cannot re-inject the literal JSON the timeline just fixed.
+              const msg = parseTvPayload(
+                item.title || item.headline || item.text || item.content || item.raw_text || item.message || ''
+              ).text
               const key = alertKey(symbol, alertType, msg)
 
               if (existingKeys.has(key)) continue

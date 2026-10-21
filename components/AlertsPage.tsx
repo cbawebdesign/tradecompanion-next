@@ -15,6 +15,7 @@ import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
+import { parseTvPayload } from '@/lib/tvPayload'
 import { openInViewer } from '@/lib/linkViewer'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
@@ -278,7 +279,9 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
           mapped.push({ id: `db-tx-${tx.time}-${tx.source}`, symbol: fetchedFor, message: tx.text, type: 'trade_exchange', color: '', timestamp: new Date(tx.time), read: false })
         })
         data.tradingView?.forEach((tv: any) => {
-          mapped.push({ id: `db-tv-${tv.time}`, symbol: fetchedFor, message: tv.text, type: 'tradingview', color: '', timestamp: new Date(tv.time), read: false })
+          // Same unwrap as the timeline — see lib/tvPayload.
+          const tvp = parseTvPayload(tv.text)
+          mapped.push({ id: `db-tv-${tv.time}`, symbol: fetchedFor, message: tvp.text, type: 'tradingview', color: '', timestamp: new Date(tv.time), read: false, ...(tvp.url ? { url: tvp.url } : {}) })
         })
         data.catalysts?.forEach((c: any) => {
           const catUrl = c.resource_id ? `/api/pr?id=${encodeURIComponent(c.resource_id)}` : undefined
