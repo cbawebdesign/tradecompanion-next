@@ -29,9 +29,24 @@ import { alertTypeColorHex } from '@/lib/alertTypeColor'
  *                                   moved onto the same key for this
  */
 
-// Survives a React Strict Mode double-mount; a full reload should re-run it,
-// which is exactly the case this hook exists for.
-let hasBackfilled = false
+// Two flags, not one, and this distinction is the whole bug that made the
+// backfill silently deliver nothing.
+//
+// `done` is set only AFTER alerts have actually been applied. The first
+// version set a single flag up front, before the fetch resolved — and because
+// the effect also cancelled itself on cleanup, this happened on every load:
+//
+//   1. mount with the persisted hubUrl -> flag set -> fetch starts
+//   2. CosmosSync loads the user's config -> hubUrl changes -> cleanup runs
+//      -> cancelled = true
+//   3. effect re-runs, sees the flag already set, returns without fetching
+//   4. the original fetch resolves, sees cancelled, discards its alerts
+//
+// Net: zero alerts, no error, every single time. useQuoteSnapshot was never
+// affected because it has no once-guard and simply refetches when hubUrl
+// settles.
+let done = false
+let inFlight = false
 
 interface ScanRow {
   symbol: string
@@ -64,18 +79,17 @@ export function useLoginBackfill() {
   const addAlerts = useStore((s) => s.addAlerts)
 
   useEffect(() => {
-    if (!hubUrl || hasBackfilled) return
-    hasBackfilled = true
+    if (!hubUrl || done || inFlight) return
+    inFlight = true
 
     const baseApi = hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '') + '/api'
-    let cancelled = false
 
     ;(async () => {
       try {
         const resp = await fetch(proxyUrl(`${baseApi}/Backfill/airtable`))
         if (!resp.ok) return
         const json = await resp.json()
-        if (cancelled || !json?.ok) return
+        if (!json?.ok) return
 
         const alerts: Alert[] = []
 
@@ -141,12 +155,20 @@ export function useLoginBackfill() {
           console.log(`LoginBackfill: timeline ${before} -> ${after}`,
             after === before ? '(ALL DROPPED by the store gate)' : '')
         }
+        // Only now is it genuinely done. A failed or empty attempt leaves the
+        // flag clear so a later hubUrl change gets another go.
+        done = true
       } catch {
         // A failed backfill just leaves the timeline as it was — never worse than
         // the empty screen this is trying to fix.
+      } finally {
+        inFlight = false
       }
     })()
 
-    return () => { cancelled = true }
+    // Deliberately NO cleanup cancellation. The effect re-runs as soon as the
+    // user's config lands, and discarding the in-flight result there is what
+    // emptied the timeline. Letting it apply late is safe: addAlerts dedups on
+    // dedupKey, so a duplicate run collapses into the existing rows.
   }, [hubUrl, addAlerts])
 }
