@@ -11,6 +11,7 @@ import { catalystConfirmer, buildConfirmedAlert } from '@/lib/catalystConfirmer'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import type { Alert, Quote } from '@/types'
 import { alertTypeColorHex } from '@/lib/alertTypeColor'
+import { parseTvPayload, isTvSymbol } from '@/lib/tvPayload'
 
 interface NegotiateResult {
   url: string
@@ -53,15 +54,11 @@ async function negotiate(baseUrl: string, userId: string): Promise<NegotiateResu
 function buildTvAlert(data: any): Alert {
   const alertId = data.id || data.Id || ''
 
-  let rawText = data.raw_text || data.rawText || ''
-  // Azure Function sets raw_text = entire POST body.
-  // If the body was JSON (e.g. curl test), extract the actual text from it.
-  if (rawText && rawText.trim().startsWith('{')) {
-    try {
-      const parsed = JSON.parse(rawText)
-      rawText = parsed.raw_text || parsed.text || parsed.message || parsed.alert || rawText
-    } catch { /* not JSON, use as-is */ }
-  }
+  // The worker stores the POST body verbatim, so this may be plain text or a
+  // JSON object. parseTvPayload handles both and is shared with the per-symbol
+  // panes, which were rendering the raw JSON string for the same reason.
+  const payload = parseTvPayload(data.raw_text || data.rawText || '')
+  const rawText = payload.text
 
   // Extract symbol from first word, strip $ cashtag prefix (same as legacy TradingView.cs).
   // Accept, besides standard 1-5 letter tickers:
@@ -70,11 +67,10 @@ function buildTvAlert(data: any): Alert {
   // Justin tracks these in TradingView and clicks the alert to load the chart;
   // the old /^[A-Z]{1,5}$/ rejected them, so the symbol came through empty/unclickable.
   const firstWord = (rawText.split(' ')[0] || '').replace(/^\$/, '').toUpperCase()
-  const isTvSymbol =
-    /^[A-Z]{1,5}$/.test(firstWord) ||                       // AAPL, TSLA
-    /^[A-Z]{2,10}(USD|USDT|USDC|PERP)$/.test(firstWord) ||  // BTCUSD, ETHUSD, SOLUSDT
-    /^[A-Z]{1,4}\d*!$/.test(firstWord)                      // ES1!, NQ1!, CL1!
-  const symbol = isTvSymbol ? firstWord : ''
+  // A symbol named outright in the body wins — the bot knows the ticker, and
+  // "AAPL-Report-url" parses to nothing by leading-word rules. Falls back to
+  // the first word so every plain-text alert resolves exactly as before.
+  const symbol = payload.symbol || (isTvSymbol(firstWord) ? firstWord : '')
 
   return {
     id: crypto.randomUUID(),
@@ -86,6 +82,9 @@ function buildTvAlert(data: any): Alert {
     color: alertTypeColorHex('tradingview'),
     timestamp: data.received_utc ? new Date(data.received_utc) : new Date(),
     read: false,
+    // Makes the row clickable and routes it through TC's popup like every
+    // other alert url. Omitted entirely for plain text, which carries none.
+    ...(payload.url ? { url: payload.url } : {}),
   }
 }
 
