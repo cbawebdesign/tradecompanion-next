@@ -153,9 +153,15 @@ export function useChinaScore(symbol: string | null | undefined): number | null 
   return useReportLinksEntry(symbol)?.chinaScore ?? null
 }
 
-/** `8.5/10`, and `8/10` rather than `8.0/10` for whole numbers. */
+/**
+ * Always one decimal: `8.5/10`, and `2.0/10` rather than `2/10`.
+ *
+ * Justin (10/21): "can you format the score in the top right of the data ribbon
+ * to always have a decimal for the score (X.X/10)". Fixed width also stops the
+ * badge jittering as you arrow between symbols.
+ */
 export function formatChinaScore(score: number): string {
-  return `${Number.isInteger(score) ? score : Number(score.toFixed(1))}/10`
+  return `${score.toFixed(1)}/10`
 }
 
 /**
@@ -369,18 +375,13 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         setFloatMsg({ text: json?.reason || `Failed (${resp.status})`, tone: 'err' })
         return
       }
-      if (json.skipped) {
-        // Not a failure — the guard did its job. Say why, and the right-click
-        // hint in the tooltip covers the case where he wants it anyway.
-        setFloatMsg({ text: `Fresh (${Math.round(json.ageDays)}d old)`, tone: 'warn' })
-        return
-      }
-      if (json.floatM == null && json.sharesOutM == null) {
-        // AskEdgar's audited coverage stops around $1B market cap, so a large
-        // cap legitimately returns nothing. Not an error worth a red message.
-        setFloatMsg({ text: 'No AskEdgar data', tone: 'warn' })
-        return
-      }
+      // Justin (10/21): "remove all of these messages. Just assume that the
+      // update worked. If we do get an error, ONLY report an error." A skip is
+      // the guard working as intended, so it says nothing.
+      if (json.skipped) return
+      // AskEdgar's audited coverage stops around $1B market cap, so a large cap
+      // legitimately returns nothing. Not an error, and now not a message.
+      if (json.floatM == null && json.sharesOutM == null) return
       // Fold the new figures into the row and the shared cache so the ribbon
       // updates without a refetch, and other panes see it too.
       const upper = t.toUpperCase()
@@ -396,7 +397,6 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
         notifyStockCache()
         return next
       })
-      setFloatMsg({ text: json.changed ? 'Updated' : 'No change', tone: 'ok' })
     } catch (err: any) {
       setFloatMsg({ text: err?.message || 'Failed', tone: 'err' })
     } finally {
@@ -700,7 +700,9 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
             disabled={floatBusy}
             className="px-1.5 py-0.5 rounded text-[10px] font-medium transition-opacity disabled:opacity-50"
             style={{ background: 'var(--bg-glass)', border: '1px solid var(--border-glass)', color: 'var(--text-secondary)' }}
-            title="Refresh float / shares outstanding from AskEdgar. Skipped if updated in the last 30 days — right-click to force."
+            /* Justin asked for exactly this wording and nothing else. The
+               right-click force still works, just undocumented here. */
+            title="Refresh float and shares outstanding"
           >
             {floatBusy ? '…' : '⟳ Float'}
           </button>
@@ -725,7 +727,8 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
             disabled={!l.present}
             onClick={(e) => {
               e.stopPropagation()
-              if (l.present && l.url) openInViewer(l.url, `${data.Ticker} — ${l.label}`)
+              // allowOpenInTab: false — these research pages stay inside TC.
+              if (l.present && l.url) openInViewer(l.url, `${data.Ticker} — ${l.label}`, { allowOpenInTab: false })
             }}
             className="px-1 font-medium"
             style={{
