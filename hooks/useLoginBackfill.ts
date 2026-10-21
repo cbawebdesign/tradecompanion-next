@@ -123,7 +123,24 @@ export function useLoginBackfill() {
           })
         }
 
-        if (alerts.length > 0) addAlerts(alerts)
+        // Instrumented for the same reason useQuoteSnapshot is: Justin saw an
+        // empty timeline after a refresh while the endpoint demonstrably had
+        // rows for that window, and every store gate these two types pass
+        // through is open to them (scanner and catalyst are both unfiltered,
+        // and clearedSince is not persisted). So the loss is somewhere between
+        // the fetch and the store, and one refresh with this will say where.
+        console.log(
+          `LoginBackfill: since ${json.sinceUtc} — ${(json.scans ?? []).length} scans, ` +
+          `${(json.catalysts ?? []).length} catalysts -> ${alerts.length} alerts`,
+        )
+
+        if (alerts.length > 0) {
+          const before = useStore.getState().alerts.length
+          addAlerts(alerts)
+          const after = useStore.getState().alerts.length
+          console.log(`LoginBackfill: timeline ${before} -> ${after}`,
+            after === before ? '(ALL DROPPED by the store gate)' : '')
+        }
       } catch {
         // A failed backfill just leaves the timeline as it was — never worse than
         // the empty screen this is trying to fix.
