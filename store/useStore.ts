@@ -686,9 +686,25 @@ export const useStore = create<AppState>()(
         flaggedSymbols: Array.from(state.flaggedSymbols), // Convert Set for storage
         config: state.config,
         selectedWatchlistId: state.selectedWatchlistId,
-        alerts: state.alerts,
+        // alerts and hiddenAlertIds are deliberately NOT persisted.
+        //
+        // Justin ("TC Bootup Backfill"): "I want to start from scratch on the
+        // Alerts timeline when someone opens up TC on a fresh reboot."
+        //
+        // Persisting them is what made the backfill look broken. His store was
+        // restoring ~365 old alerts with 364 of them hidden, so the timeline
+        // showed 1 row; the backfill then fetched correctly, built the right
+        // alerts, and addAlerts dropped every one as a duplicate of something
+        // already there but invisible. Verified: the backfill reports
+        // "applied" while the user sees nothing.
+        //
+        // Neither set was ever pruned either, so both grew without bound and
+        // the dedup window stretched across months.
+        //
+        // The timeline is now rebuilt on every load from the three sources he
+        // asked for — webhooks, 40% Scan and Catalyst PRs — which is what
+        // "start from scratch" means and removes the conflict entirely.
         scannerAlerts: state.scannerAlerts,
-        hiddenAlertIds: Array.from(state.hiddenAlertIds), // Convert Set for storage
         // Persisted so a reload does not forget what the user deleted — without
         // this the auditor re-injects them on the next poll.
         removedAlertKeys: Array.from(state.removedAlertKeys),
@@ -707,10 +723,12 @@ export const useStore = create<AppState>()(
         if (state && Array.isArray(state.flaggedSymbols)) {
           state.flaggedSymbols = new Set(state.flaggedSymbols as unknown as string[])
         }
-        // Convert hiddenAlertIds back to Set after rehydration
-        if (state && Array.isArray(state.hiddenAlertIds)) {
-          state.hiddenAlertIds = new Set(state.hiddenAlertIds as unknown as string[])
-        }
+        // hiddenAlertIds is no longer persisted, but a store written by an
+        // older build still has the array in localStorage. Drop it rather than
+        // rehydrating, or the first load after upgrading would keep hiding the
+        // very alerts the backfill just restored.
+        if (state) state.hiddenAlertIds = new Set()
+        if (state) state.alerts = []
         // Same for removedAlertKeys — the auditor reads this to avoid re-adding
         // alerts the user deleted, so it has to survive a reload.
         if (state && Array.isArray(state.removedAlertKeys)) {
