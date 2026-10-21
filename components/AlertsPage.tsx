@@ -38,7 +38,6 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     alerts,
     flaggedSymbols,
     toggleFlag,
-    clearAlerts,
     quotes,
     selectedSymbol,
     setSelectedSymbol,
@@ -367,34 +366,23 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
         isActive ? 'pane-active' : 'pane-inactive'
       )}
     >
-      {/* Header */}
-      <div className="px-3 py-2 glass-header rounded-t-lg flex items-center justify-between flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Alerts</h3>
-          {/* Settings/wrench removed per Justin — alert config now lives on the
-              per-watchlist gear icon, this one was a duplicate path that caused
-              confusion about where toggles were managed. */}
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={clearAlerts}
-            className="btn btn-secondary text-xs"
-          >
-            Clear All Alerts
-          </button>
-          {!isPopout && (
-            <PopOutButton route="/pop/alerts" title="Alerts" width={1000} height={600} />
-          )}
-        </div>
-      </div>
+      {/* The "Alerts / Clear All Alerts" strip that used to sit here is gone —
+          Justin (10/21): "Remove this row from the UI. The Clear All Alerts
+          button can be removed entirely and the Pop Out button can be moved to
+          the row below." Clearing is still available on the timeline itself;
+          this one was a second path to the same thing at the top of the screen.
+          Pop Out moved into the Flagged Symbols row below. */}
 
       {/* Flagged Symbols Header */}
-      <div className="px-3 py-2 flex-shrink-0" style={{ background: 'var(--bg-glass-light)', borderBottom: '1px solid var(--border-glass)' }}>
+      <div className="px-3 py-2 flex-shrink-0 rounded-t-lg" style={{ background: 'var(--bg-glass-light)', borderBottom: '1px solid var(--border-glass)' }}>
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Flagged Symbols</h3>
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{flaggedList.length} flagged</p>
           </div>
+          {/* Add Symbol, and the Pop Out button relocated from the row above,
+              grouped so justify-between keeps them together on the right. */}
+          <div className="flex items-center gap-2">
           {/* Add Symbol — directly flag without leaving the Alerts page */}
           <form
             onSubmit={(e) => {
@@ -424,6 +412,10 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
               + Flag
             </button>
           </form>
+            {!isPopout && (
+              <PopOutButton route="/pop/alerts" title="Alerts" width={1000} height={600} />
+            )}
+          </div>
         </div>
       </div>
 

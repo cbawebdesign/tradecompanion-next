@@ -22,7 +22,6 @@ const seenAlertKeys = new Set<string>()
 // Symbols that have had their "first-seen" full-day backfill run this session.
 // Prevents re-backfilling the same symbol every time the watchlist reference
 // changes (e.g. unrelated mutations). Cleared on page reload.
-const backfilledSymbols = new Set<string>()
 let hasRun = false
 
 const AUDIT_INTERVAL_MS = 60_000  // 60 seconds
@@ -268,85 +267,28 @@ export function useAlertAuditor() {
       }
     }
 
-    // One-shot backfill for a single symbol from today midnight ET → now.
-    // Fires whenever a symbol appears in the watchlist that we haven't backfilled
-    // yet this session. This fixes the "add BIRD at 9am, the 8am PR never reaches
-    // the timeline" bug — the periodic audit only pulls items since lastAuditTime,
-    // never the symbol's full history.
-    async function backfillNewSymbol(symbol: string) {
-      if (backfilledSymbols.has(symbol)) return
-      backfilledSymbols.add(symbol)
-
-      // Start-of-day ET cutoff
-      const now = new Date()
-      const etNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }))
-      const etMidnight = new Date(etNow)
-      etMidnight.setHours(0, 0, 0, 0)
-      // Convert back to UTC ISO for the API
-      const sinceStr = new Date(etMidnight.getTime() + (now.getTime() - etNow.getTime())).toISOString()
-
-      try {
-        const url = proxyUrl(`${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(symbol)}&since=${encodeURIComponent(sinceStr)}`)
-        const response = await fetch(url)
-        if (!response.ok) return
-
-        const data = await response.json()
-        const typeMap: Record<string, { items: any[]; alertType: Alert['type']; color: string }> = {
-          filings: { items: data.filings || [], alertType: 'filing', color: alertTypeColorHex('filing') },
-          tweets: { items: data.tweets || [], alertType: 'tweet', color: alertTypeColorHex('tweet') },
-          tradeExchange: { items: data.tradeExchange || [], alertType: 'trade_exchange', color: alertTypeColorHex('trade_exchange') },
-          tradingView: { items: data.tradingView || [], alertType: 'tradingview', color: alertTypeColorHex('tradingview') },
-          // Catalysts intentionally excluded — same reason as the periodic
-          // audit. New-symbol backfill fires once per fresh watchlist symbol
-          // on boot; including catalysts here was the source of Justin's
-          // orange catalyst dump after we removed them from the audit typeMap.
-        }
-
-        const batch: Alert[] = []
-        for (const [, { items, alertType, color }] of Object.entries(typeMap)) {
-          for (const item of items) {
-            const msg = item.title || item.headline || item.text || item.content || item.raw_text || item.message || ''
-            batch.push({
-              id: crypto.randomUUID(),
-              dedupKey: buildAuditDedupKey(item, symbol, alertType, msg),
-              source: 'useAlertAuditor:new-symbol-backfill',
-              symbol,
-              message: msg,
-              type: alertType,
-              color,
-              timestamp: resolveAuditTimestamp(item),
-              read: false,
-              url: buildAuditUrl(item, alertType),
-            })
-          }
-        }
-
-        if (batch.length > 0) {
-          // Store's addAlerts already dedups on dedupKey — existing items won't double.
-          addAlerts(batch)
-          console.log(`AlertAuditor: backfilled ${batch.length} items for new symbol ${symbol}`)
-        }
-      } catch {
-        // Silent — periodic audit will catch up.
-      }
-    }
-
-    // Track watchlist symbol changes → backfill any new ones immediately.
-    function checkForNewSymbols() {
-      const symbols = Array.from(new Set(
-        watchlistsRef.current.flatMap(w => w.symbols.map(s => s.symbol.toUpperCase()))
-      ))
-      for (const sym of symbols) {
-        if (!backfilledSymbols.has(sym)) {
-          void backfillNewSymbol(sym)
-        }
-      }
-    }
-
-    // Run immediately on mount (catches the initial watchlist load) and on each
-    // audit tick (catches additions between audits).
-    checkForNewSymbols()
-    const newSymbolInterval = setInterval(checkForNewSymbols, 5000)
+    // The per-symbol startup backfill that used to live here is GONE.
+    //
+    // backfillNewSymbol() fired for every symbol the session had not yet seen,
+    // and `backfilledSymbols` is module-level, so a page load made EVERY
+    // watchlist symbol "new" again. Each one fetched AlertsBySymbol back to ET
+    // midnight and pushed filings, tweets, trade-exchange and TradingView onto
+    // the timeline. The suppressedOnStartup guard added in v2.8.37 only covered
+    // the periodic audit()'s typeMap loop, never this function, so Justin kept
+    // seeing trade-exchange messages and SEC filings on a fresh restart after
+    // we had supposedly removed them. Confirmed from telemetry: 128
+    // AlertsBySymbol calls with userFilter=False and since=ET-midnight, from
+    // his machine, at the moment of his page load.
+    //
+    // Removing it is also exactly what he asked for — "when adding a new symbol
+    // to either a flagged list or a watch list, please disable any backfill
+    // process for the alerts timeline. We no longer need to backfill the alerts
+    // timeline when a user is adding symbols... The user can now get all the
+    // history in the data ribbon, which is different than when this backfill
+    // first went into TC."
+    //
+    // The periodic audit() below still runs as the safety net for alerts
+    // genuinely dropped by a SignalR gap mid-session.
 
     // Initial delay then periodic (periodic audit stays for ongoing safety-net work).
     const initTimer = setTimeout(() => {
@@ -362,7 +304,6 @@ export function useAlertAuditor() {
       cancelled = true
       clearTimeout(initTimer)
       clearInterval(interval)
-      clearInterval(newSymbolInterval)
     }
   }, [config.hubUrl, addAlert, addAlerts])
 }

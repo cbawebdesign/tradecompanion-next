@@ -20,19 +20,35 @@ import { create } from 'zustand'
 interface LinkViewerState {
   url: string | null
   title: string
-  open: (url: string, title?: string) => void
+  /**
+   * Whether the popup offers an "open in tab" escape hatch.
+   *
+   * Justin (10/21): "On the existing Dilution, Resistance, China & Catalysts
+   * buttons, please disable 'Open in Tab' on the pop up window. I want this
+   * info to be exclusive to TC and make it hard for people to locate and share
+   * the URL to other people outside of TC."
+   *
+   * Default stays true: for an SEC filing or a press release the escape hatch
+   * is the only thing standing between the user and a blank panel when the
+   * site refuses to be framed. It is turned off only for his research pages,
+   * which are known to frame.
+   */
+  allowOpenInTab: boolean
+  open: (url: string, title?: string, opts?: { allowOpenInTab?: boolean }) => void
   close: () => void
 }
 
 export const useLinkViewer = create<LinkViewerState>((set) => ({
   url: null,
   title: '',
-  open: (url, title = '') => set({ url, title }),
-  close: () => set({ url: null, title: '' }),
+  allowOpenInTab: true,
+  open: (url, title = '', opts) =>
+    set({ url, title, allowOpenInTab: opts?.allowOpenInTab !== false }),
+  close: () => set({ url: null, title: '', allowOpenInTab: true }),
 }))
 
 /** Imperative entry point for click handlers that aren't already subscribed. */
-export function openInViewer(url: string, title = '') {
+export function openInViewer(url: string, title = '', opts?: { allowOpenInTab?: boolean }) {
   if (!url) return
-  useLinkViewer.getState().open(url, title)
+  useLinkViewer.getState().open(url, title, opts)
 }

@@ -13,13 +13,17 @@ describe('formatChinaScore', () => {
     expect(formatChinaScore(8.5)).toBe('8.5/10')
   })
 
-  it('drops the decimal on a whole number rather than showing 8.0', () => {
-    expect(formatChinaScore(8)).toBe('8/10')
+  // Reversed on 10/21 at Justin's request: "always have a decimal for the
+  // score (X.X/10). So if the score is 2, it reads as 2.0/10 instead of 2/10".
+  // Fixed width also stops the badge jittering as he arrows between symbols.
+  it('always shows one decimal, including on a whole number', () => {
+    expect(formatChinaScore(8)).toBe('8.0/10')
+    expect(formatChinaScore(2)).toBe('2.0/10')
   })
 
   it('renders a genuine zero, which is a real score in the base', () => {
     // Distinct from "no China record", which renders nothing at all.
-    expect(formatChinaScore(0)).toBe('0/10')
+    expect(formatChinaScore(0)).toBe('0.0/10')
   })
 
   it('covers the observed range ends', () => {
@@ -38,7 +42,7 @@ describe('formatChinaScore', () => {
     expect(formatChinaScore(6.55)).toBe('6.5/10')
   })
 
-  it('does not emit a trailing .0 after rounding', () => {
-    expect(formatChinaScore(7.02)).toBe('7/10')
+  it('rounds to one decimal and keeps it', () => {
+    expect(formatChinaScore(7.02)).toBe('7.0/10')
   })
 })

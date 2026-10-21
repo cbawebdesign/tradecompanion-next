@@ -31,10 +31,13 @@ export function ReportPopup({
   url,
   title,
   onClose,
+  allowOpenInTab = true,
 }: {
   url: string
   title: string
   onClose: () => void
+  /** See LinkViewerState.allowOpenInTab — off for the research buttons. */
+  allowOpenInTab?: boolean
 }) {
   const [loaded, setLoaded] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
@@ -120,16 +123,18 @@ export function ReportPopup({
             {title}
           </span>
           <div className="flex items-center gap-3 flex-shrink-0 pl-3">
-            <a
-              href={url}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs hover:underline"
-              style={{ color: 'var(--text-muted)' }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              open in tab
-            </a>
+            {allowOpenInTab && (
+              <a
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs hover:underline"
+                style={{ color: 'var(--text-muted)' }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                open in tab
+              </a>
+            )}
             <button
               onClick={onClose}
               aria-label="Close"
@@ -151,16 +156,22 @@ export function ReportPopup({
               <span className="text-xs max-w-md" style={{ color: 'var(--text-muted)' }}>
                 {plan.reason || 'The site refuses to be embedded. Nothing is wrong with the link.'}
               </span>
-              <a
-                href={url}
-                target="_blank"
-                rel="noreferrer"
-                className="px-3 py-1.5 rounded text-sm"
-                style={{ background: 'var(--accent-primary)', color: '#fff' }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Open in a new tab
-              </a>
+              {allowOpenInTab ? (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="px-3 py-1.5 rounded text-sm"
+                  style={{ background: 'var(--accent-primary)', color: '#fff' }}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Open in a new tab
+                </a>
+              ) : (
+                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                  This report is only viewable inside TC.
+                </span>
+              )}
             </div>
           ) : null}
           {plan.src && (
@@ -198,7 +209,7 @@ export function ReportPopup({
           <span>ESC or × to close</span>
           {/* Always reachable. Some sites fire onLoad for their own block page,
               so the timeout above cannot catch every blank panel. */}
-          {plan.src && (
+          {plan.src && allowOpenInTab && (
             <>
               <span>·</span>
               <a
@@ -227,7 +238,8 @@ export function ReportPopup({
 export function LinkViewer() {
   const url = useLinkViewer((s) => s.url)
   const title = useLinkViewer((s) => s.title)
+  const allowOpenInTab = useLinkViewer((s) => s.allowOpenInTab)
   const close = useLinkViewer((s) => s.close)
   if (!url) return null
-  return <ReportPopup url={url} title={title} onClose={close} />
+  return <ReportPopup url={url} title={title} onClose={close} allowOpenInTab={allowOpenInTab} />
 }

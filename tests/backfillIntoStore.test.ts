@@ -107,3 +107,32 @@ describe('a stale timeline must not suppress the backfill', () => {
     expect(partialize).not.toContain('hiddenAlertIds:')
   })
 })
+
+describe('no per-symbol backfill on startup', () => {
+  // The real cause of "trade exchange and SEC filings still come in on a
+  // restart". useAlertAuditor.backfillNewSymbol() fired for every watchlist
+  // symbol on every page load (its seen-set is module-level, so a reload made
+  // them all "new"), fetching AlertsBySymbol back to ET midnight and pushing
+  // filings / tweets / trade-exchange onto the timeline. The v2.8.37
+  // suppression guarded only the periodic audit, never this path.
+  //
+  // Also exactly what Justin asked for: "when adding a new symbol to either a
+  // flagged list or a watch list, please disable any backfill process for the
+  // alerts timeline."
+  it('the auditor no longer contains a per-symbol backfill path', () => {
+    const src = readFileSync(new URL('../hooks/useAlertAuditor.ts', import.meta.url), 'utf8')
+    const code = src.split('\n').filter(l => !l.trim().startsWith('//')).join('\n')
+    expect(code).not.toContain('backfillNewSymbol(')
+    expect(code).not.toContain('checkForNewSymbols(')
+    expect(code).not.toMatch(/backfilledSymbols\s*=/)
+  })
+
+  it('the auditor still fetches AlertsBySymbol with a user filter only', () => {
+    // The surviving periodic audit passes userKey; the removed path did not,
+    // which is how it was identified in the worker logs.
+    const src = readFileSync(new URL('../hooks/useAlertAuditor.ts', import.meta.url), 'utf8')
+    const calls = src.split('\n').filter(l => l.includes('AlertsBySymbol?symbol='))
+    expect(calls.length).toBe(1)
+    expect(calls[0] + src.slice(src.indexOf(calls[0]), src.indexOf(calls[0]) + 400)).toContain('userKey')
+  })
+})
