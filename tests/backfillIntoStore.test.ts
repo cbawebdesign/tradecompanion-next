@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useStore } from '../store/useStore'
-import { runLoginBackfill, __resetBackfillGuards } from '../lib/loginBackfill'
+import { runLoginBackfill, __resetBackfillGuards, buildBackfillAlerts } from '../lib/loginBackfill'
+import { readFileSync } from 'fs'
 
 /**
  * The last mile: backfill -> the REAL store -> the timeline.
@@ -67,5 +68,42 @@ describe('backfill lands on the real timeline', () => {
     stubFetch(RESPONSE)
     await runLoginBackfill('/api', useStore.getState().addAlerts)
     expect(useStore.getState().alerts.length).toBe(0)
+  })
+})
+
+describe('a stale timeline must not suppress the backfill', () => {
+  // This was the actual cause of "the backfill does nothing".
+  //
+  // alerts and hiddenAlertIds were both persisted and never pruned, so a
+  // reload restored hundreds of old alerts with nearly all of them hidden.
+  // The timeline looked empty, the backfill fetched correctly, and addAlerts
+  // dropped every row as a duplicate of something already present but
+  // invisible — reporting success the whole time.
+  it('backfilled alerts are visible even when the same stories were hidden before', async () => {
+    const prior = buildBackfillAlerts(RESPONSE)
+    useStore.setState({
+      alerts: prior,
+      hiddenAlertIds: new Set(prior.map(a => a.id)),
+      clearedSince: null,
+    })
+    // What a reload now does: the timeline is rebuilt, not restored.
+    useStore.setState({ alerts: [], hiddenAlertIds: new Set() })
+
+    __resetBackfillGuards()
+    stubFetch(RESPONSE)
+    await runLoginBackfill('/api', useStore.getState().addAlerts)
+
+    const alerts = useStore.getState().alerts
+    const hidden = useStore.getState().hiddenAlertIds
+    const visible = alerts.filter(a => !hidden.has(a.id))
+    expect(visible.length).toBe(2)
+  })
+
+  it('neither alerts nor hiddenAlertIds are written to storage', () => {
+    // Guards the fix itself: re-persisting either one reintroduces the bug.
+    const src = readFileSync(new URL('../store/useStore.ts', import.meta.url), 'utf8')
+    const partialize = src.slice(src.indexOf('partialize:'), src.indexOf('onRehydrateStorage'))
+    expect(partialize).not.toMatch(/^\s*alerts:\s*state\.alerts/m)
+    expect(partialize).not.toContain('hiddenAlertIds:')
   })
 })
