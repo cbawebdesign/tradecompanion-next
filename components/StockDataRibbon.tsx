@@ -249,24 +249,44 @@ export function preloadStockData(symbols: string[], hubUrl: string) {
   const uncached = symbols.filter(s => !sharedCache[s.toUpperCase()])
   if (uncached.length === 0) { _preloading = false; return }
   console.log(`StockDataRibbon: preloading ${uncached.length} symbols`)
-  const batchSize = 10
-  let i = 0
-  function nextBatch() {
-    const batch = uncached.slice(i, i + batchSize)
-    if (batch.length === 0) { _preloading = false; return }
-    Promise.all(
-      batch.map(sym =>
-        fetch(proxyUrl(`${baseApi}/StockData?symbol=${encodeURIComponent(sym.toUpperCase())}`))
-          .then(r => r.ok ? r.json() : null)
-          .then(data => { if (data) { sharedCache[sym.toUpperCase()] = normalizeStockData(data); persistCache(); notifyStockCache() } })
-          .catch(() => {})
-      )
-    ).then(() => {
-      i += batchSize
-      setTimeout(nextBatch, 100)
-    })
-  }
-  nextBatch()
+
+  // One request per 200 symbols instead of one per symbol.
+  //
+  // This used to fire a GET per ticker, ten at a time. On Justin's account
+  // that was 42 round trips on every load and his console filled with red,
+  // because the single-symbol route answers 404 for a ticker we hold no
+  // record for — an ordinary outcome, reported as a failure 30-odd times a
+  // load. The batch route just omits those.
+  //
+  // The request count matters more than the noise: this is a 1-CPU worker,
+  // and 42 concurrent-ish requests on startup is the same kind of load that
+  // starved its thread pool and left the ribbon hanging for 11 seconds in
+  // September.
+  const CHUNK = 200   // server caps at 500
+  const chunks: string[][] = []
+  for (let i = 0; i < uncached.length; i += CHUNK) chunks.push(uncached.slice(i, i + CHUNK))
+
+  Promise.all(
+    chunks.map(c =>
+      fetch(proxyUrl(`${baseApi}/StockData/batch?symbols=${encodeURIComponent(c.map(x => x.toUpperCase()).join(','))}`))
+        .then(r => (r.ok ? r.json() : null))
+        .catch(() => null),
+    ),
+  ).then(responses => {
+    let n = 0
+    for (const j of responses) {
+      for (const item of (j?.items ?? [])) {
+        const ticker = String(item?.Ticker || '').toUpperCase()
+        if (!ticker) continue
+        sharedCache[ticker] = normalizeStockData(item)
+        n++
+      }
+    }
+    // Persist and notify ONCE for the whole preload rather than per symbol —
+    // the old loop re-rendered every subscriber up to 42 times on startup.
+    if (n > 0) { persistCache(); notifyStockCache() }
+    console.log(`StockDataRibbon: preloaded ${n}/${uncached.length} symbols in ${chunks.length} request(s)`)
+  }).finally(() => { _preloading = false })
 }
 
 function formatMillions(val: number | null | undefined): string {
