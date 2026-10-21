@@ -81,3 +81,22 @@ describe('parseTvPayload', () => {
     })
   })
 })
+
+describe('url scheme validation', () => {
+  // Alert.url is rendered as a bare <a href> in the popup's fallback panel,
+  // and the webhook route is anonymous — anyone with the key posts the body.
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,<script>alert(1)</script>',
+    'file:///etc/passwd',
+    'not a url at all',
+  ])('drops a non-http(s) url: %s', (bad) => {
+    const p = parseTvPayload(JSON.stringify({ symbol: 'AAPL', title: 'X', url: bad }))
+    expect(p.url).toBeUndefined()
+    expect(p.text).toBe('X')   // the alert still renders, just not clickable
+  })
+
+  it.each(['https://www.espn.com/', 'http://example.test/a?b=c'])('keeps %s', (good) => {
+    expect(parseTvPayload(JSON.stringify({ title: 'X', url: good })).url).toBe(good)
+  })
+})
