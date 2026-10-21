@@ -1,0 +1,71 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { useStore } from '../store/useStore'
+import { runLoginBackfill, __resetBackfillGuards } from '../lib/loginBackfill'
+
+/**
+ * The last mile: backfill -> the REAL store -> the timeline.
+ *
+ * The other backfill tests stop at addAlerts with a stub, so they prove the
+ * fetch and the alert shapes but not that the alerts survive the store's
+ * admission gate. That gate is where I spent a day looking for a bug that was
+ * never there, so it is worth pinning that these two types really do pass it.
+ */
+const RESPONSE = {
+  ok: true,
+  sinceUtc: '2026-10-20T20:00:00Z',
+  scans: [
+    { symbol: 'AHT', pct: 40.2, price: 2.58, session: 'AH', alertTimeEt: '2026-10-20T21:54:57', createdUtc: '2026-10-21T01:54:57Z' },
+  ],
+  catalysts: [
+    { symbol: 'INO', title: 'INOVIO Announces Favorable Judgment', notes: 'Confirmed at $3.10', url: '', resourceId: 'a0cdf597', modifiedUtc: '2026-10-20T20:07:11Z' },
+  ],
+}
+
+function stubFetch(body: unknown) {
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => body } as unknown as Response)))
+}
+
+describe('backfill lands on the real timeline', () => {
+  beforeEach(() => {
+    __resetBackfillGuards()
+    useStore.setState({ alerts: [], clearedSince: null })
+  })
+  afterEach(() => { vi.unstubAllGlobals() })
+
+  it('alerts survive the store admission gate and appear', async () => {
+    stubFetch(RESPONSE)
+    const before = useStore.getState().alerts.length
+    const outcome = await runLoginBackfill('/api', useStore.getState().addAlerts)
+    const after = useStore.getState().alerts
+
+    expect(outcome).toBe('applied')
+    expect(after.length).toBe(before + 2)
+    expect(after.map(a => a.symbol).sort()).toEqual(['AHT', 'INO'])
+  })
+
+  it('passes with no watchlists and no subscriptions at all', async () => {
+    // scanner and catalyst are unfiltered types, so an empty config must not
+    // gate them — this is the case a fresh login hits before CosmosSync lands.
+    useStore.setState({ alerts: [], watchlists: [], alertSubscriptions: [], flaggedSymbols: new Set() })
+    stubFetch(RESPONSE)
+    await runLoginBackfill('/api', useStore.getState().addAlerts)
+    expect(useStore.getState().alerts.length).toBe(2)
+  })
+
+  it('a second identical run does not double the timeline', async () => {
+    stubFetch(RESPONSE)
+    await runLoginBackfill('/api', useStore.getState().addAlerts)
+    __resetBackfillGuards()            // simulate a fresh page load
+    await runLoginBackfill('/api', useStore.getState().addAlerts)
+    expect(useStore.getState().alerts.length).toBe(2)   // dedupKeys collapse
+  })
+
+  it('is correctly suppressed after the user clears the timeline', async () => {
+    // Pre-close rows must not come back after "Clear All Alerts" — that is
+    // intended behaviour, not the bug, and it should stay intended.
+    useStore.setState({ alerts: [], clearedSince: Date.now() })
+    stubFetch(RESPONSE)
+    await runLoginBackfill('/api', useStore.getState().addAlerts)
+    expect(useStore.getState().alerts.length).toBe(0)
+  })
+})
