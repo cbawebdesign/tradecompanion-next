@@ -28,6 +28,12 @@ function TradingViewChartInner({ symbol, height = 400, theme = 'dark' }: Trading
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js'
     script.type = 'text/javascript'
     script.async = true
+    // crossOrigin so a throw inside TradingView's widget reports properly.
+    // Without it the browser masks everything as a bare "Script error." with
+    // no file, line or stack — which is exactly the undiagnosable report that
+    // came in from Safari on 2026-10-21. Their CDN sends
+    // Access-Control-Allow-Origin: * (verified), so this costs nothing.
+    script.crossOrigin = 'anonymous'
     script.innerHTML = JSON.stringify({
       autosize: true,
       symbol: symbol,
@@ -119,6 +125,12 @@ function TradingViewMiniChartInner({ symbol, width = '100%', height = 220 }: Min
     script.src = 'https://s3.tradingview.com/external-embedding/embed-widget-mini-symbol-overview.js'
     script.type = 'text/javascript'
     script.async = true
+    // crossOrigin so a throw inside TradingView's widget reports properly.
+    // Without it the browser masks everything as a bare "Script error." with
+    // no file, line or stack — which is exactly the undiagnosable report that
+    // came in from Safari on 2026-10-21. Their CDN sends
+    // Access-Control-Allow-Origin: * (verified), so this costs nothing.
+    script.crossOrigin = 'anonymous'
     script.innerHTML = JSON.stringify({
       symbol: symbol,
       width: '100%',
