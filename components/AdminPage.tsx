@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
+import { parseSymbolList } from '@/lib/symbolBlocklist'
 
 interface StockDataItem {
   Ticker: string
@@ -96,6 +97,72 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
       setSaveMessage(err.message)
     }
   }, [lookupSymbol, hubUrl])
+
+  // ── Banned symbols ──────────────────────────────────────────────────────
+  //
+  // Justin ("Loose Ends"): "Is there a way for me to maintain a Banned List so
+  // that any symbol on my banned list, never goes into TC or the 40% Scan
+  // airtable DB? … Ideally in the Admin dashboard … so that I can update it in
+  // real time."
+  //
+  // The list was already stored and already served; what was missing was a way
+  // for him to edit it without curl, and enforcement anywhere but the browser.
+  // The worker now reads this same list and drops banned symbols before the
+  // scanner broadcasts or writes to Airtable, so saving here is the whole job.
+  const [banText, setBanText] = useState('')
+  const [banLoaded, setBanLoaded] = useState(false)
+  const [banUpdatedAt, setBanUpdatedAt] = useState<string | null>(null)
+  const [banStatus, setBanStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle')
+  const [banMessage, setBanMessage] = useState('')
+
+  const loadBanList = useCallback(async () => {
+    if (!hubUrl) return
+    setBanStatus('loading')
+    try {
+      const resp = await fetch(proxyUrl(`${hubUrl}/tcadmin/symbol-blocklist`), { cache: 'no-store' })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const data = await resp.json()
+      // Newline-separated in the editor: a long list is far easier to scan and
+      // to delete a line from than one pipe-joined run-on.
+      setBanText(Array.from(parseSymbolList(data.symbols)).join('\n'))
+      setBanUpdatedAt(data.updatedAt ?? null)
+      setBanLoaded(true)
+      setBanStatus('idle')
+    } catch (err: any) {
+      setBanStatus('error')
+      setBanMessage(err.message)
+    }
+  }, [hubUrl])
+
+  // Load once on mount. Without this the box would open empty, which reads as
+  // "nothing is banned" — and saving from that state would wipe the list.
+  useEffect(() => { loadBanList() }, [loadBanList])
+
+  const banCount = parseSymbolList(banText).size
+
+  const saveBanList = useCallback(async () => {
+    if (!hubUrl) return
+    setBanStatus('saving')
+    try {
+      const resp = await fetch(proxyUrl(`${hubUrl}/tcadmin/symbol-blocklist`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbols: Array.from(parseSymbolList(banText)).join('|') }),
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const data = await resp.json()
+      // Show what the server actually stored, not what was typed — it
+      // normalises case, de-duplicates and drops anything over six characters.
+      setBanText(Array.from(parseSymbolList(data.symbols)).join('\n'))
+      setBanUpdatedAt(data.updatedAt ?? null)
+      setBanStatus('saved')
+      setBanMessage(`${data.count} symbol${data.count === 1 ? '' : 's'} banned`)
+      setTimeout(() => setBanStatus('idle'), 3000)
+    } catch (err: any) {
+      setBanStatus('error')
+      setBanMessage(err.message)
+    }
+  }, [hubUrl, banText])
 
   const formatNum = (val: number | null | undefined) => {
     if (val == null) return '\u2014'
@@ -219,6 +286,58 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
               </div>
             )}
           </div>
+        </section>
+
+        {/* Banned Symbols */}
+        <section className="glass-panel rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-secondary)' }}>Banned Symbols</h3>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {banLoaded ? `${banCount} symbol${banCount === 1 ? '' : 's'}` : 'loading…'}
+            </span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+            One ticker per line. The 40% Scan drops these before they reach the timeline
+            and before the row is written to Airtable, so a banned symbol never lands
+            anywhere. Takes effect on the next scan, within about a minute — no restart.
+          </p>
+          <textarea
+            value={banText}
+            onChange={(e) => setBanText(e.target.value.toUpperCase())}
+            spellCheck={false}
+            rows={10}
+            placeholder={'AHTPI\nAHTPG'}
+            className="w-full font-mono text-sm"
+            style={{ resize: 'vertical' }}
+          />
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={saveBanList}
+              disabled={!banLoaded || banStatus === 'saving' || banStatus === 'loading'}
+              className="btn btn-primary"
+            >
+              {banStatus === 'saving' ? 'Saving...' : 'Save Banned List'}
+            </button>
+            <button
+              onClick={loadBanList}
+              disabled={banStatus === 'saving' || banStatus === 'loading'}
+              className="btn"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Reload
+            </button>
+            {banStatus === 'saved' && <span className="text-xs text-green-400">{banMessage}</span>}
+            {banStatus === 'error' && <span className="text-xs text-red-400">Error: {banMessage}</span>}
+          </div>
+          {banUpdatedAt && (
+            <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+              Last saved: {new Date(banUpdatedAt).toLocaleString()}
+            </p>
+          )}
+          <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
+            To hide <em>every</em> alert type for these tickers — filings, PRs, news —
+            and not just the scanner, turn on &quot;Hide blocked symbols&quot; in Settings.
+          </p>
         </section>
 
         {/* Deployment & Rollback */}

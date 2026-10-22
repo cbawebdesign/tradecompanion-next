@@ -12,6 +12,7 @@ import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import type { Alert, Quote } from '@/types'
 import { alertTypeColorHex } from '@/lib/alertTypeColor'
 import { parseTvPayload, isTvSymbol } from '@/lib/tvPayload'
+import { tvBackfillIdentities } from '@/lib/tvBackfillIdentities'
 
 interface NegotiateResult {
   url: string
@@ -804,15 +805,35 @@ export function useSignalR() {
         // set before it is built, and addAlerts dedups on dedupKey again.
         const runTvBackfill = async (reason: string) => {
           const cfg = configRef.current
-          if (!cfg.tradingViewId || isLocalHub) return
+          if (isLocalHub) return
+          // One request per identity that can deliver to this client — the TC
+          // login the live socket is bound to, any legacy TradingView id, and
+          // the system webhook bucket. See lib/tvBackfillIdentities: asking
+          // only for tradingViewId is why system alerts never came back and
+          // why a user who never filled that box got no backfill at all.
+          const identities = tvBackfillIdentities(cfg)
+          if (identities.length === 0) return
           try {
             const trimmedUrl = cfg.hubUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
-            const backfillUrl = `${trimmedUrl}/api/tv/alerts?userid=${encodeURIComponent(cfg.tradingViewId)}`
-            console.log(`SignalR: TradingView backfill (${reason}) from`, backfillUrl)
-            const resp = await fetch(proxyUrl(backfillUrl))
-            if (!resp.ok) return
-            const records = await resp.json()
-            if (!Array.isArray(records)) return
+            console.log(`SignalR: TradingView backfill (${reason}) for`, identities.join(', '))
+
+            // In parallel, and one failing identity must not cost the others —
+            // the system bucket is the one every user depends on.
+            const records = (
+              await Promise.all(
+                identities.map(async (id) => {
+                  try {
+                    const url = `${trimmedUrl}/api/tv/alerts?userid=${encodeURIComponent(id)}`
+                    const resp = await fetch(proxyUrl(url))
+                    if (!resp.ok) return []
+                    const rows = await resp.json()
+                    return Array.isArray(rows) ? rows : []
+                  } catch {
+                    return []
+                  }
+                }),
+              )
+            ).flat()
             console.log(`SignalR: TradingView backfill got ${records.length} alerts`)
 
             const since = new Date(prevMarketCloseISO()).getTime()
