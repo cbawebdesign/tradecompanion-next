@@ -23,6 +23,26 @@ const STALE_QUOTE_MS = 3 * 60 * 1000       // 3 minutes — re-sub if no update
 const STALE_CHECK_INTERVAL_MS = 30 * 1000   // check every 30 seconds
 const QUOTE_BATCH_FLUSH_MS = 250            // flush quote buffer every 250ms
 
+/**
+ * The identity this connection is bound to, used by SignalR's Clients.User.
+ *
+ * config.userKey is the TC login username (LoginGate sets it from the
+ * authenticated username, lowercased) — the same string a personal webhook key
+ * is registered against, which is what lets the worker deliver a personal
+ * webhook to its owner instead of to everyone.
+ *
+ * tradingViewId is kept only as a fallback for a client that has a TradingView
+ * id configured but has not logged in; it is null on every account today.
+ * 'anonymous' is the last resort, and a connection bound to it will not receive
+ * anyone's personal webhooks — which is the correct outcome for a session we
+ * cannot attribute to a user.
+ */
+function signalRUserId(cfg: { userKey?: string; tradingViewId?: string }): string {
+  return (cfg.userKey || '').trim().toLowerCase()
+    || (cfg.tradingViewId || '').trim()
+    || 'anonymous'
+}
+
 async function negotiate(baseUrl: string, userId: string): Promise<NegotiateResult> {
   // Remove trailing /api/ if present, then add /api/negotiate
   const trimmedUrl = baseUrl.replace(/\/api\/?$/, '').replace(/\/$/, '')
@@ -224,7 +244,7 @@ export function useSignalR() {
             .build()
         } else {
           // Azure SignalR - use negotiate endpoint
-          negotiateRef.current = await negotiate(config.hubUrl, config.tradingViewId || 'anonymous')
+          negotiateRef.current = await negotiate(config.hubUrl, signalRUserId(config))
 
           if (cancelled) return
 
@@ -239,7 +259,7 @@ export function useSignalR() {
           // Token refresh: re-negotiate every 40 minutes to prevent expiry disconnects
           tokenRefreshTimer = setInterval(async () => {
             try {
-              const fresh = await negotiate(config.hubUrl, config.tradingViewId || 'anonymous')
+              const fresh = await negotiate(config.hubUrl, signalRUserId(config))
               negotiateRef.current = fresh
               console.log('SignalR: Token refreshed (next reconnect will use new token)')
             } catch (e) {
@@ -257,7 +277,7 @@ export function useSignalR() {
           // Re-negotiate on reconnect attempt so the token is fresh
           if (!isLocalHub) {
             try {
-              const fresh = await negotiate(config.hubUrl, config.tradingViewId || 'anonymous')
+              const fresh = await negotiate(config.hubUrl, signalRUserId(config))
               negotiateRef.current = fresh
               console.log('SignalR: Re-negotiated token for reconnect')
             } catch (e) {
