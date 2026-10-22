@@ -153,10 +153,17 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
       const data = await resp.json()
       // Show what the server actually stored, not what was typed — it
       // normalises case, de-duplicates and drops anything over six characters.
-      setBanText(Array.from(parseSymbolList(data.symbols)).join('\n'))
+      const stored = parseSymbolList(data.symbols)
+      setBanText(Array.from(stored).join('\n'))
       setBanUpdatedAt(data.updatedAt ?? null)
       setBanStatus('saved')
-      setBanMessage(`${data.count} symbol${data.count === 1 ? '' : 's'} banned`)
+      // Name anything the server refused. Without this a fat-fingered entry
+      // just vanishes from the box on save and reads as a failure to save.
+      const dropped = Array.from(parseSymbolList(banText)).filter((s) => !stored.has(s))
+      setBanMessage(
+        `${data.count} symbol${data.count === 1 ? '' : 's'} banned` +
+        (dropped.length ? ` — ignored ${dropped.join(', ')} (not a ticker)` : '')
+      )
       setTimeout(() => setBanStatus('idle'), 3000)
     } catch (err: any) {
       setBanStatus('error')
