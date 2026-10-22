@@ -28,20 +28,41 @@ export function clipboardTextForAlert(alert: Pick<Alert, 'type' | 'message' | 'u
 /**
  * The popup's header title for an alert.
  *
- * Justin: "Can you make the Title of the Pop Up the JSON Title from the
- * Webhook?" — his webhook popups read "SUB — tradingview", which is the symbol
- * and alert type rather than anything he sent. parseTvPayload already resolves
- * the body's `title` into Alert.message, so the message IS the JSON title by
- * the time it reaches here.
+ * Justin asked for this twice, and the two asks together fix the format:
+ *   "Can you make the title SYMBOL - Alert Title instead of the generic
+ *    'tradingview'?"  ("Pop Up Touchup")
+ *   "Can you make the Title of the Pop Up the JSON Title from the Webhook?"
+ *    ("Loose Ends")
  *
- * Falls back to "SYMBOL — type" when there is no message, so nothing ends up
- * with an empty header.
+ * His popups read "SUB — tradingview": the symbol and the alert TYPE. He wants
+ * the symbol kept and the type replaced with what he actually sent, so the
+ * header becomes "SUB — Bullish Reversal (5 min)". parseTvPayload already
+ * resolves a webhook body's `title` into Alert.message, so the message IS the
+ * JSON title by the time it reaches here.
+ *
+ * The symbol is dropped when the title already opens with it — Justin's bots
+ * post "AHTPI - Dilution Report", and "AHTPI — AHTPI - Dilution Report" reads
+ * like a bug. Falls back to "SYMBOL — type" when there is no title at all, and
+ * to the bare title when the alert carries no symbol, so the separator never
+ * dangles at either end.
  */
 export function popupTitleForAlert(alert: Pick<Alert, 'symbol' | 'type' | 'message'>): string {
+  const symbol = (alert.symbol || '').trim()
   const msg = (alert.message || '').replace(/^Catalyst PR\s*/i, '').trim()
-  if (!msg) return `${alert.symbol} — ${alert.type}`
-  // Long PR headlines would push the close button off a narrow popup.
-  return msg.length > 110 ? msg.slice(0, 107) + '…' : msg
+
+  if (!msg) return symbol ? `${symbol} — ${alert.type}` : String(alert.type)
+
+  // Already leads with the ticker, in any of the shapes his bots use
+  // ("AAPL - x", "AAPL: x", "AAPL — x", "$AAPL x"): don't say it twice.
+  const leadsWithSymbol =
+    !!symbol &&
+    new RegExp(`^\\$?${symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(msg)
+
+  const full = !symbol || leadsWithSymbol ? msg : `${symbol} — ${msg}`
+
+  // Long PR headlines would push the close button off a narrow popup. Truncate
+  // the whole thing, so the symbol survives however long the title is.
+  return full.length > 110 ? full.slice(0, 107) + '…' : full
 }
 
 /**

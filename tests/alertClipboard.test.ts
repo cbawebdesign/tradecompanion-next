@@ -27,10 +27,25 @@ describe('clipboardTextForAlert', () => {
 })
 
 describe('popupTitleForAlert', () => {
-  it('uses the webhook JSON title rather than "SYMBOL — type"', () => {
-    // His report: the popup header read "SUB — tradingview" instead of what he sent.
+  it('is SYMBOL — JSON title, not SYMBOL — type', () => {
+    // His report: the popup header read "SUB — tradingview". He asked for the
+    // symbol kept and the type replaced with the title he actually sent.
     expect(popupTitleForAlert({ symbol: 'SUB', type: 'tradingview', message: 'China Report' }))
-      .toBe('China Report')
+      .toBe('SUB — China Report')
+  })
+
+  it('does not repeat a symbol the title already leads with', () => {
+    // His bots post "AHTPI - Dilution Report"; prefixing would double it.
+    for (const msg of ['AHTPI - Dilution Report', 'AHTPI: Dilution Report',
+                       'AHTPI — Dilution Report', '$AHTPI Dilution Report']) {
+      expect(popupTitleForAlert({ symbol: 'AHTPI', type: 'tradingview', message: msg })).toBe(msg)
+    }
+  })
+
+  it('does not treat a longer ticker as a match for a shorter one', () => {
+    // "AHTPI …" must not count as already leading with "AH".
+    expect(popupTitleForAlert({ symbol: 'AH', type: 'tradingview', message: 'AHTPI runs' }))
+      .toBe('AH — AHTPI runs')
   })
 
   it('falls back to symbol and type when there is no message', () => {
@@ -38,11 +53,24 @@ describe('popupTitleForAlert', () => {
       .toBe('AAPL — filing')
   })
 
+  it('never dangles a separator when the alert carries no symbol', () => {
+    expect(popupTitleForAlert({ symbol: '', type: 'tradingview', message: 'Market open' }))
+      .toBe('Market open')
+    expect(popupTitleForAlert({ symbol: '', type: 'tradingview', message: '' }))
+      .toBe('tradingview')
+  })
+
   it('truncates a long headline so the close button stays reachable', () => {
     const long = 'x'.repeat(200)
     const out = popupTitleForAlert({ symbol: 'A', type: 'catalyst', message: long })
     expect(out.length).toBeLessThanOrEqual(110)
     expect(out.endsWith('…')).toBe(true)
+  })
+
+  it('keeps the symbol visible even when the title is far too long', () => {
+    // Truncating the combined string, not the title first, is what guarantees this.
+    const out = popupTitleForAlert({ symbol: 'NVDA', type: 'catalyst', message: 'y'.repeat(300) })
+    expect(out.startsWith('NVDA — ')).toBe(true)
   })
 })
 
