@@ -25,6 +25,11 @@ function scheduleAlertClear(symbol: string, field: 'upperAlert' | 'lowerAlert') 
         state.updateSymbolInWatchlist(wl.id, { ...target, [field]: null })
       }
     }
+    // Same auto-clear for an alert held outside any watchlist, or a
+    // flagged-only alert would re-fire on every tick after it triggered.
+    if (state.standaloneAlerts?.[symbol]?.[field] != null) {
+      state.setPriceAlertFromTimeline(symbol, field, null)
+    }
   }, CLEAR_AFTER_MS)
 }
 
@@ -41,8 +46,18 @@ export function usePriceAlerts() {
 
       const { watchlists, triggeredPriceAlerts, addAlert, addTriggeredPriceAlert, config } = state
 
+      // Watchlist entries, plus alerts held for symbols that are on no
+      // watchlist at all (flagged-only). Before standaloneAlerts existed the
+      // store had to ADD such a symbol to a watchlist for its alert to ever be
+      // evaluated here, which is what quietly reorganised Justin's lists.
+      const standalone = Object.entries(state.standaloneAlerts ?? {}).map(
+        ([symbol, a]) => ({ symbol, upperAlert: a.upperAlert, lowerAlert: a.lowerAlert }),
+      )
+      const groups: Array<{ symbols: Array<{ symbol: string; upperAlert: number | null; lowerAlert: number | null }> }> =
+        [...watchlists.map((w) => ({ symbols: w.symbols as any })), { symbols: standalone }]
+
       // Only check symbols that actually have price alerts set (skip the rest)
-      for (const watchlist of watchlists) {
+      for (const watchlist of groups) {
         for (const item of watchlist.symbols) {
           const hasUpper = item.upperAlert && item.upperAlert > 0
           const hasLower = item.lowerAlert && item.lowerAlert > 0

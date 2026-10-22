@@ -104,6 +104,19 @@ interface AppState {
   // Returns the watchlist name it had to add the symbol to, or null if it was
   // already tracked — the caller surfaces that so the write is never silent.
   setPriceAlertFromTimeline: (symbol: string, field: 'upperAlert' | 'lowerAlert', value: number | null) => string | null
+  /**
+   * Price alerts for symbols that are NOT on any watchlist — typically ones
+   * that are only flagged.
+   *
+   * Justin: "When I add a price alert from the timeline and the stock is on a
+   * flagged list but not a watch list, TC will automatically put the stock on
+   * a random watch list. Please fix."
+   *
+   * The add existed because usePriceAlerts only ever walked watchlists, so an
+   * alert on an untracked symbol could never fire. Giving those alerts their
+   * own home fixes the real problem instead of quietly reorganising his lists.
+   */
+  standaloneAlerts: Record<string, { upperAlert: number | null; lowerAlert: number | null }>
   reorderWatchlists: (orderedIds: string[]) => void
 
   // Flagged symbols
@@ -575,39 +588,29 @@ export const useStore = create<AppState>()(
           state.setPriceAlertEverywhere(symbol, field, value)
           return null
         }
-        // CLEARING an alert on a symbol we do not track is a no-op, not a
-        // reason to start tracking it.
+        // NOT on a watchlist. Store the alert on its own rather than adding the
+        // symbol to a list the user never chose.
         //
-        // This was the silent watchlist-polluter. PriceAlertInput commits on
-        // EVERY blur (components/PriceAlertInput.tsx:74), so merely focusing a
-        // price box and clicking away — no typing — commits null. That landed
-        // here, fell through to the add below, and put the symbol on
-        // selectedWatchlistId. Both callers then suppressed their confirmation
-        // toast precisely because value was null (AlertBar.tsx:311,
-        // AlertsPage.tsx:114), so it happened with no feedback at all. The
-        // boxes sit on every timeline row and every flagged-list row, so a
-        // pass through either list could quietly add a dozen symbols to a
-        // watchlist the user never picked — which is exactly what Justin
-        // reported finding.
-        if (value == null) return null
-        const target =
-          state.watchlists.find(w => w.id === state.selectedWatchlistId) ?? state.watchlists[0]
-        if (!target) return null
-        set({
-          watchlists: state.watchlists.map(w =>
-            w.id === target.id
-              ? {
-                  ...w,
-                  symbols: [
-                    ...w.symbols,
-                    { symbol, upperAlert: null, lowerAlert: null, notes: '', [field]: value } as any,
-                  ],
-                }
-              : w
-          ),
-        })
-        return target.name
+        // This used to append the symbol to selectedWatchlistId, because
+        // usePriceAlerts only walked watchlists and an alert held nowhere would
+        // never be evaluated. That hook now reads standaloneAlerts too, so the
+        // alert fires without touching anyone's lists — which is what Justin
+        // asked for, and it also removes the silent-growth path entirely
+        // (PriceAlertInput commits on every blur, so a bare focus-and-leave was
+        // enough to add a symbol).
+        const prev = state.standaloneAlerts[symbol] ?? { upperAlert: null, lowerAlert: null }
+        const next = { ...prev, [field]: value }
+        if (next.upperAlert == null && next.lowerAlert == null) {
+          // Nothing left to watch — drop the entry rather than accumulate empties.
+          const rest = { ...state.standaloneAlerts }
+          delete rest[symbol]
+          set({ standaloneAlerts: rest })
+          return null
+        }
+        set({ standaloneAlerts: { ...state.standaloneAlerts, [symbol]: next } })
+        return null
       },
+      standaloneAlerts: {},
       reorderWatchlists: (orderedIds) => set((state) => ({
         config: { ...state.config, watchlistOrder: orderedIds }
       })),
@@ -724,6 +727,9 @@ export const useStore = create<AppState>()(
         // this the auditor re-injects them on the next poll.
         removedAlertKeys: Array.from(state.removedAlertKeys),
         alertSubscriptions: state.alertSubscriptions,
+        // Flagged-only price alerts live here now; losing them on reload would
+        // be worse than the watchlist-add behaviour they replaced.
+        standaloneAlerts: state.standaloneAlerts,
         hasMigratedSubs: state.hasMigratedSubs,
         favoriteThemes: state.favoriteThemes,
         // clearedSince intentionally NOT persisted — Justin: "they are gone
