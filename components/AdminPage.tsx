@@ -112,6 +112,10 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
   const [banText, setBanText] = useState('')
   const [banLoaded, setBanLoaded] = useState(false)
   const [banUpdatedAt, setBanUpdatedAt] = useState<string | null>(null)
+  // What the SCANNER holds in memory, which is not the same question as what
+  // is stored — it refreshes on its own tick. Showing both is what turns "I
+  // saved it" into "it is live".
+  const [banEnforcing, setBanEnforcing] = useState<{ count: number; symbols: string; ageSeconds: number | null } | null>(null)
   const [banStatus, setBanStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle')
   const [banMessage, setBanMessage] = useState('')
 
@@ -126,6 +130,7 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
       // to delete a line from than one pipe-joined run-on.
       setBanText(Array.from(parseSymbolList(data.symbols)).join('\n'))
       setBanUpdatedAt(data.updatedAt ?? null)
+      setBanEnforcing(data.enforcing ?? null)
       setBanLoaded(true)
       setBanStatus('idle')
     } catch (err: any) {
@@ -156,6 +161,7 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
       const stored = parseSymbolList(data.symbols)
       setBanText(Array.from(stored).join('\n'))
       setBanUpdatedAt(data.updatedAt ?? null)
+      setBanEnforcing(data.enforcing ?? null)
       setBanStatus('saved')
       // Name anything the server refused. Without this a fat-fingered entry
       // just vanishes from the box on save and reads as a failure to save.
@@ -339,6 +345,18 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
           {banUpdatedAt && (
             <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
               Last saved: {new Date(banUpdatedAt).toLocaleString()}
+            </p>
+          )}
+          {/* Stored is not the same question as live. The scanner picks the list
+              up on its own tick, so for up to a minute after a save these two
+              disagree — and that gap is the thing worth being able to see. */}
+          {banEnforcing && (
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              {banEnforcing.count === banCount && banCount > 0
+                ? `Scanner is enforcing all ${banEnforcing.count} — live.`
+                : banEnforcing.count === 0 && banCount === 0
+                  ? 'Scanner is enforcing nothing — the list is empty.'
+                  : `Scanner is currently enforcing ${banEnforcing.count} (${banEnforcing.symbols || 'none'}). It picks up changes on its next scan — hit Reload in a minute.`}
             </p>
           )}
           <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
