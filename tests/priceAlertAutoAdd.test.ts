@@ -19,6 +19,7 @@ describe('setPriceAlertFromTimeline', () => {
         { id: 'wl-b', name: 'Beta', symbols: [{ symbol: 'TSLA', upperAlert: null, lowerAlert: null, notes: '' } as any] },
       ],
       selectedWatchlistId: 'wl-a',
+      standaloneAlerts: {},
     })
   })
 
@@ -36,12 +37,26 @@ describe('setPriceAlertFromTimeline', () => {
     expect(useStore.getState().watchlists.find(w => w.id === 'wl-a')!.symbols).toHaveLength(0)
   })
 
-  it('still adds — and reports the list — for a REAL value', () => {
+  // Changed on Justin's "Loose Ends" ask: "the stock is on a flagged list but
+  // not a watch list. TC will automatically put the stock on a random watch
+  // list. Please fix." A real value is now held standalone — the alert still
+  // fires, nobody's lists change.
+  it('holds a REAL value standalone instead of adding to a watchlist', () => {
     const added = useStore.getState().setPriceAlertFromTimeline('NVDA', 'upperAlert', 123.45)
-    expect(added).toBe('Alpha')
-    const wl = useStore.getState().watchlists.find(w => w.id === 'wl-a')!
-    expect(wl.symbols.map(s => s.symbol)).toContain('NVDA')
-    expect(wl.symbols.find(s => s.symbol === 'NVDA')!.upperAlert).toBe(123.45)
+    expect(added).toBeNull()
+    const all = useStore.getState().watchlists.flatMap(w => w.symbols.map(s => s.symbol))
+    expect(all).not.toContain('NVDA')
+    expect(useStore.getState().standaloneAlerts['NVDA']).toEqual({ upperAlert: 123.45, lowerAlert: null })
+  })
+
+  it('drops the standalone entry once both sides are cleared', () => {
+    const st = useStore.getState()
+    st.setPriceAlertFromTimeline('NVDA', 'upperAlert', 10)
+    st.setPriceAlertFromTimeline('NVDA', 'lowerAlert', 5)
+    expect(useStore.getState().standaloneAlerts['NVDA']).toBeTruthy()
+    useStore.getState().setPriceAlertFromTimeline('NVDA', 'upperAlert', null)
+    useStore.getState().setPriceAlertFromTimeline('NVDA', 'lowerAlert', null)
+    expect(useStore.getState().standaloneAlerts['NVDA']).toBeUndefined()
   })
 
   it('clearing an alert on an ALREADY tracked symbol still works', () => {

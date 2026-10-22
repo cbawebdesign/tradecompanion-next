@@ -11,6 +11,7 @@ import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
+import { clipboardTextForAlert, popupTitleForAlert } from '@/lib/alertClipboard'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
 import { openInViewer } from '@/lib/linkViewer'
@@ -57,6 +58,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     activePane,
     setActivePane,
     setPriceAlertFromTimeline,
+    standaloneAlerts,
     triggeredPriceAlerts,
     isBootstrapping,
   } = useStore()
@@ -166,9 +168,9 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
   const handleAlertMessageClick = useCallback((e: React.MouseEvent, alert: Alert) => {
     e.stopPropagation()
 
-    // Copy alert text to clipboard
-    const text = (alert.message || '').replace(/^Catalyst PR\s*/i, '')
-    copyToClipboard(text)
+    // Copy to clipboard. SEC filings copy their URL instead of the title —
+    // see lib/alertClipboard.
+    copyToClipboard(clipboardTextForAlert(alert))
 
     // Update selected symbol + fire AHK (skip pseudo-symbols)
     if (isRealSymbol(alert.symbol)) {
@@ -183,7 +185,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     // note — the clipboard copy above is the behaviour he asked us to keep
     // while making this change.
     if (alert.url) {
-      openInViewer(alert.url, `${alert.symbol} — ${alert.type}`)
+      openInViewer(alert.url, popupTitleForAlert(alert))
     }
   }, [config.ahkEnabled, config.ahkUrl, setSelectedSymbol])
 
@@ -483,8 +485,11 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                       // May be untracked — setPriceAlertFromTimeline handles that and
                       // reports which watchlist it had to add the symbol to.
                       const hit = findEntry(alert.symbol)
-                      const upper = hit?.entry.upperAlert ?? null
-                      const lower = hit?.entry.lowerAlert ?? null
+                      // Fall back to the standalone store for a symbol on no watchlist —
+                      // otherwise a flagged-only alert would be saved but show blank.
+                      const solo = standaloneAlerts[alert.symbol]
+                      const upper = hit?.entry.upperAlert ?? solo?.upperAlert ?? null
+                      const lower = hit?.entry.lowerAlert ?? solo?.lowerAlert ?? null
                       return (
                         <span className="inline-flex items-center gap-1 ml-2 align-middle" onClick={(e) => e.stopPropagation()}>
                           <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>Upper</span>
@@ -558,7 +563,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
               <button
                 className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700"
                 onClick={() => {
-                  openInViewer(ca.url!, `${ca.symbol} — ${ca.type}`)
+                  openInViewer(ca.url!, popupTitleForAlert(ca))
                   setContextMenu(prev => ({ ...prev, visible: false }))
                 }}
               >

@@ -17,6 +17,7 @@ import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
 import { parseTvPayload } from '@/lib/tvPayload'
 import { openInViewer } from '@/lib/linkViewer'
+import { clipboardTextForAlert, popupTitleForAlert } from '@/lib/alertClipboard'
 import { copyToClipboard } from '@/lib/clipboard'
 import type { Alert } from '@/types'
 
@@ -48,6 +49,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     updateConfig,
     watchlists,
     setPriceAlertFromTimeline,
+    standaloneAlerts,
     triggeredPriceAlerts,
   } = useStore()
   // Company name for the pane header — see useCompanyName in StockDataRibbon.
@@ -543,8 +545,11 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                         </td>
                         {(() => {
                           const hit = findEntry(symbol)
-                          const upper = hit?.entry.upperAlert ?? null
-                          const lower = hit?.entry.lowerAlert ?? null
+                          // Fall back to the standalone store for a symbol on no watchlist —
+                          // otherwise a flagged-only alert would be saved but show blank.
+                          const solo = standaloneAlerts[symbol]
+                          const upper = hit?.entry.upperAlert ?? solo?.upperAlert ?? null
+                          const lower = hit?.entry.lowerAlert ?? solo?.lowerAlert ?? null
                           return (
                             <>
                               <td className="text-right">
@@ -652,7 +657,13 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                               /* Opens in TC's popup rather than a browser tab.
                                  href is kept so middle-click and "copy link
                                  address" still behave like a real link. */
-                              onClick={(e) => { e.preventDefault(); openInViewer(alert.url!, `${alert.symbol} — ${alert.type}`) }}
+                              onClick={(e) => {
+                                e.preventDefault()
+                                // Restores the copy-on-click the popup change
+                                // dropped on this pane. Filings copy their URL.
+                                copyToClipboard(clipboardTextForAlert(alert))
+                                openInViewer(alert.url!, popupTitleForAlert(alert))
+                              }}
                             >{formatAlertText(alert.message)}</a>
                           ) : formatAlertText(alert.message)}
                         </td>

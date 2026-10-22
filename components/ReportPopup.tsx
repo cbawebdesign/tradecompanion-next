@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { planEmbed } from '@/lib/embeddableUrl'
 import { useLinkViewer } from '@/lib/linkViewer'
+import { isTradeCompanionHost } from '@/lib/alertClipboard'
 
 /**
  * In-app viewer for any URL TC wants to show — Airtable reports, SEC filings,
@@ -45,6 +46,12 @@ export function ReportPopup({
   const frameRef = useRef<HTMLIFrameElement>(null)
 
   const plan = useMemo(() => planEmbed(url), [url])
+
+  // Any tradecompanion.com subdomain keeps its URL inside TC, whatever the
+  // caller asked for. Host-based so a new subdomain needs no code change —
+  // reports.tradecompanion.com was the one that slipped through when this was
+  // wired per-button.
+  const allowTab = allowOpenInTab && !isTradeCompanionHost(url)
 
   useEffect(() => setMounted(true), [])
 
@@ -123,7 +130,7 @@ export function ReportPopup({
             {title}
           </span>
           <div className="flex items-center gap-3 flex-shrink-0 pl-3">
-            {allowOpenInTab && (
+            {allowTab && (
               <a
                 href={url}
                 target="_blank"
@@ -156,7 +163,7 @@ export function ReportPopup({
               <span className="text-xs max-w-md" style={{ color: 'var(--text-muted)' }}>
                 {plan.reason || 'The site refuses to be embedded. Nothing is wrong with the link.'}
               </span>
-              {allowOpenInTab ? (
+              {allowTab ? (
                 <a
                   href={url}
                   target="_blank"
@@ -209,7 +216,7 @@ export function ReportPopup({
           <span>ESC or × to close</span>
           {/* Always reachable. Some sites fire onLoad for their own block page,
               so the timeout above cannot catch every blank panel. */}
-          {plan.src && allowOpenInTab && (
+          {plan.src && allowTab && (
             <>
               <span>·</span>
               <a
