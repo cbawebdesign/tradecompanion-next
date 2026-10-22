@@ -381,7 +381,17 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
         <div className="flex items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>Flagged Symbols</h3>
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{flaggedList.length} flagged</p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {flaggedList.length} flagged
+              {/* This notice was declared, set and auto-cleared but never
+                  rendered, so adding a flagged symbol to a watchlist from a
+                  price box was completely silent. */}
+              {flaggedAddedNotice && (
+                <span className="ml-3" style={{ color: 'var(--accent-primary)' }}>
+                  Added {flaggedAddedNotice.symbol} to {flaggedAddedNotice.watchlist}
+                </span>
+              )}
+            </p>
           </div>
           {/* Add Symbol, and the Pop Out button relocated from the row above,
               grouped so justify-between keeps them together on the right. */}

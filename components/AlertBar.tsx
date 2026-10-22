@@ -588,7 +588,13 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
             <>
               <div className="border-t border-gray-600 my-1" />
               <div className="px-3 py-1 text-xs text-gray-500">Add to Watchlist:</div>
-              {watchlists.map((wl) => (
+              {/* Saved Settings order, not raw store order. Every other
+                  watchlist picker already sorts this way — Watchlist.tsx,
+                  SymbolContextMenu.tsx, WatchlistChips.tsx, SettingsPage.tsx —
+                  and commit 3870e1b fixed exactly this in the OTHER right-click
+                  menu, noting "Justin picked entries by visual position and the
+                  symbol landed on the wrong list." This menu was missed. */}
+              {orderedWatchlistsForLookup.map((wl) => (
                 <button
                   key={wl.id}
                   className="w-full text-left px-3 py-1.5 text-sm hover:bg-gray-700 pl-6"

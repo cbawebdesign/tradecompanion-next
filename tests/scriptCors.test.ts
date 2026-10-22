@@ -30,7 +30,9 @@ describe('cross-origin script loaders', () => {
   it('every injected script points at a host known to allow CORS', () => {
     for (const f of FILES) {
       const src = readFileSync(new URL(`../${f}`, import.meta.url), 'utf8')
-      for (const m of src.matchAll(/script\.src\s*=\s*'([^']+)'/g)) {
+      const srcs = src.match(/script\.src\s*=\s*'[^']+'/g) || []
+      for (const m0 of srcs) {
+        const m = [m0, m0.replace(/^[^']*'/, '').replace(/'$/, '')]
         // Adding crossOrigin to a host that does NOT send ACAO would block the
         // load outright, so this pins the assumption rather than leaving it.
         expect(m[1]).toMatch(/^https:\/\/s3\.tradingview\.com\//)

@@ -575,6 +575,21 @@ export const useStore = create<AppState>()(
           state.setPriceAlertEverywhere(symbol, field, value)
           return null
         }
+        // CLEARING an alert on a symbol we do not track is a no-op, not a
+        // reason to start tracking it.
+        //
+        // This was the silent watchlist-polluter. PriceAlertInput commits on
+        // EVERY blur (components/PriceAlertInput.tsx:74), so merely focusing a
+        // price box and clicking away — no typing — commits null. That landed
+        // here, fell through to the add below, and put the symbol on
+        // selectedWatchlistId. Both callers then suppressed their confirmation
+        // toast precisely because value was null (AlertBar.tsx:311,
+        // AlertsPage.tsx:114), so it happened with no feedback at all. The
+        // boxes sit on every timeline row and every flagged-list row, so a
+        // pass through either list could quietly add a dozen symbols to a
+        // watchlist the user never picked — which is exactly what Justin
+        // reported finding.
+        if (value == null) return null
         const target =
           state.watchlists.find(w => w.id === state.selectedWatchlistId) ?? state.watchlists[0]
         if (!target) return null
