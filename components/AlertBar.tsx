@@ -10,6 +10,7 @@ import type { Alert } from '@/types'
 import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { fireAhk } from '@/lib/ahk'
+import { isRealSymbol } from '@/lib/popupBridge'
 import { copyToClipboard } from '@/lib/clipboard'
 import { clipboardTextForAlert, popupTitleForAlert } from '@/lib/alertClipboard'
 import { formatAlertText } from '@/lib/formatAlertText'
@@ -26,9 +27,10 @@ const shouldShowGrok = (alert: Alert): boolean => {
 // Treat as a real ticker for the purposes of AHK / Add-to-Watchlist / Flag.
 // RSS/YT/SUB/MAIL/NEWS rows carry these placeholders so the action would
 // pollute watchlists or fire AHK on garbage.
-const NON_SYMBOLS = new Set(['RSS', 'MAIL', 'YT', 'SUB', 'NEWS', 'N/A', ''])
-const isRealSymbol = (s: string | undefined | null): s is string =>
-  !!s && !NON_SYMBOLS.has(s.toUpperCase())
+// Moved to lib/popupBridge so the popup bridge rejects exactly the same rows
+// this does — a flag or watchlist add arriving from an embedded page must not
+// be able to land on a source tag that the timeline itself refuses.
+
 
 interface ContextMenuState {
   visible: boolean
