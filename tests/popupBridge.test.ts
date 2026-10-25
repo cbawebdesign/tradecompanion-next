@@ -167,3 +167,33 @@ describe('tc-embed.js works on his existing pages', () => {
     expect(src).toContain('if (window.top === window.self) return')
   })
 })
+
+describe('the + button can be seen to have worked', () => {
+  const popup = readFileSync(join(__dirname, '..', 'components', 'ReportPopup.tsx'), 'utf8')
+  const embed = readFileSync(join(__dirname, '..', 'public', 'tc-embed.js'), 'utf8')
+
+  it('TC names the watchlist it actually added to', () => {
+    // Inferring it from onWatchlists is wrong: a symbol on several lists gives
+    // no clue which one the click hit.
+    expect(popup).toContain('reply(req.symbol, target?.name)')
+    expect(popup).toContain('addedTo')
+  })
+
+  it('leaves addedTo absent when there was no watchlist to add to', () => {
+    // That is the one case the page should report as a failure rather than
+    // a silent success.
+    expect(popup).toContain("...(addedTo ? { addedTo } : {})")
+  })
+
+  it('the script repaints the + and not only the flag', () => {
+    // "The + button doesn't seem to be working properly" — it was adding the
+    // symbol, but repainted nothing, so a working click looked like a dead one.
+    expect(embed).toContain('[data-tc-plus]')
+    expect(embed).toContain("d.addedTo ? '✓ ' + d.addedTo : 'no watchlist'")
+  })
+
+  it('says where it went in text, not only in a tooltip', () => {
+    // A tooltip needs a hover; the question is "did that do anything".
+    expect(embed).toContain('function flash(')
+  })
+})
