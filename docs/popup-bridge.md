@@ -105,14 +105,26 @@ case to report as a failure.
 
 ### Which watchlist does `+` use?
 
-The one currently selected in TC, which with a few dozen lists is effectively
-arbitrary from the page's point of view. Two ways to be explicit:
+It opens an **"Add to…" menu** listing every watchlist, in the same order as
+the app's own right-click menu, and adds to whichever you pick. The list is
+re-fetched each time the menu opens, so it is never stale — which is why TC
+does not need to push an update when a list is added or renamed.
+
+To skip the menu and always target one list, pin it on the element:
 
 ```html
 <span data-tc-symbol="AHTPI" data-tc-watchlist="Movers">AHTPI</span>
 ```
 
-or build a picker — every reply carries the full `watchlists` list.
+Building your own menu instead? Ask for the names with no symbol in hand:
+
+```js
+window.parent.postMessage({ type: 'tc-watchlists' }, '*')
+// -> { type: 'tc-watchlists', lists: ['Top Shorts', 'Top Longs', …] }
+```
+
+`TradeCompanion.watchlists()` does the same. Every `tc-state` reply also
+carries the same ordered array as `watchlists`.
 
 There is no push: TC replies to what you send, it does not broadcast changes
 made elsewhere in the app. Send `tc-query` if you need to re-sync.

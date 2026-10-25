@@ -122,11 +122,15 @@
     plus.setAttribute('data-tc-plus', '');
     plus.addEventListener('click', function (ev) {
       ev.stopPropagation();
+      // A list pinned on the element skips the menu entirely — that element
+      // has already decided where its symbol goes.
       var named = el.getAttribute('data-tc-watchlist');
-      var msg = { type: 'tc-watchlist-add', symbol: symbol };
-      if (named) msg.watchlist = named;
-      plus.setAttribute('data-tc-pending', '1');
-      send(msg);
+      if (named) {
+        plus.setAttribute('data-tc-pending', '1');
+        send({ type: 'tc-watchlist-add', symbol: symbol, watchlist: named });
+        return;
+      }
+      openMenu(plus, symbol);
     });
 
     // After the element, not inside it, so the page's own text is untouched.
@@ -139,6 +143,88 @@
 
     // Ask for the real state so the flag starts out correct rather than empty.
     send({ type: 'tc-query', symbol: symbol });
+  }
+
+  // ---- "Add to ..." menu -------------------------------------------------
+  //
+  // Justin's bot offered to build this if TC would send the list. TC does
+  // send it — tc-state has carried `watchlists` since the bridge shipped, and
+  // tc-watchlists now asks for it without needing a symbol in hand — but
+  // building the menu here means his pages need no further work at all.
+  //
+  // The list is re-fetched every time the menu OPENS, which is why TC does
+  // not need to push updates when a list is added or renamed: a menu that
+  // asks on open is never stale, and nothing has to stay subscribed.
+
+  var openMenuEl = null;
+  var pendingMenu = null;   // { symbol, button } awaiting a tc-watchlists reply
+
+  function closeMenu() {
+    if (openMenuEl && openMenuEl.parentNode) openMenuEl.parentNode.removeChild(openMenuEl);
+    openMenuEl = null;
+  }
+
+  document.addEventListener('click', function () { closeMenu(); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeMenu(); });
+
+  function openMenu(button, symbol) {
+    closeMenu();
+    pendingMenu = { symbol: symbol, button: button };
+    send({ type: 'tc-watchlists' });
+  }
+
+  function renderMenu(button, symbol, lists) {
+    closeMenu();
+    var menu = document.createElement('div');
+    menu.setAttribute('data-tc-menu', '');
+    menu.style.cssText = [
+      'position:absolute', 'z-index:2147483647', 'min-width:170px',
+      'max-height:60vh', 'overflow-y:auto', 'padding:4px 0',
+      'border:1px solid rgba(128,128,128,.4)', 'border-radius:6px',
+      // Readable on his dark reports without assuming a theme.
+      'background:#1b1f27', 'color:#e6e9ef',
+      'box-shadow:0 8px 24px rgba(0,0,0,.45)',
+      'font:inherit', 'font-size:13px', 'text-align:left'
+    ].join(';');
+    menu.addEventListener('click', function (ev) { ev.stopPropagation(); });
+
+    if (!lists.length) {
+      var empty = document.createElement('div');
+      empty.textContent = 'No watchlists';
+      empty.style.cssText = 'padding:6px 12px;opacity:.6';
+      menu.appendChild(empty);
+    }
+
+    for (var i = 0; i < lists.length; i++) {
+      (function (name) {
+        var row = document.createElement('div');
+        row.textContent = name;
+        row.setAttribute('role', 'button');
+        row.style.cssText = 'padding:6px 12px;cursor:pointer;white-space:nowrap';
+        row.addEventListener('mouseenter', function () { row.style.background = 'rgba(255,255,255,.08)'; });
+        row.addEventListener('mouseleave', function () { row.style.background = 'transparent'; });
+        row.addEventListener('click', function () {
+          button.setAttribute('data-tc-pending', '1');
+          send({ type: 'tc-watchlist-add', symbol: symbol, watchlist: name });
+          closeMenu();
+        });
+        menu.appendChild(row);
+      })(lists[i]);
+    }
+
+    // Positioned in page coordinates so it travels with the document rather
+    // than detaching on scroll.
+    var r = button.getBoundingClientRect();
+    menu.style.left = (r.left + window.scrollX) + 'px';
+    menu.style.top = (r.bottom + window.scrollY + 4) + 'px';
+    document.body.appendChild(menu);
+    openMenuEl = menu;
+
+    // Nudge back inside the viewport if it would hang off the right edge.
+    var mr = menu.getBoundingClientRect();
+    if (mr.right > window.innerWidth - 8) {
+      menu.style.left = Math.max(8, window.innerWidth - mr.width - 8 + window.scrollX) + 'px';
+    }
   }
 
   // Briefly widen a button to carry a word, then put it back.
@@ -161,7 +247,17 @@
   // TC answers every verb with the symbol's current state. Paint it.
   window.addEventListener('message', function (e) {
     var d = e.data;
-    if (!d || d.type !== 'tc-state' || typeof d.symbol !== 'string') return;
+    if (!d) return;
+
+    if (d.type === 'tc-watchlists' && Array.isArray(d.lists)) {
+      if (!pendingMenu) return;
+      var pm = pendingMenu;
+      pendingMenu = null;
+      renderMenu(pm.button, pm.symbol, d.lists);
+      return;
+    }
+
+    if (d.type !== 'tc-state' || typeof d.symbol !== 'string') return;
     var lists = (d.onWatchlists && d.onWatchlists.length) ? d.onWatchlists : null;
     var els = bySymbol[d.symbol] || [];
     for (var i = 0; i < els.length; i++) {
@@ -227,6 +323,7 @@
       if (name) m.watchlist = name;
       send(m);
     },
+    watchlists: function () { send({ type: 'tc-watchlists' }); },
     query: function (s) { send({ type: 'tc-query', symbol: norm(s) }); },
     scan: scan
   };

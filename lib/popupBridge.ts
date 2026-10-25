@@ -78,6 +78,14 @@ export type BridgeRequest =
   | { type: 'tc-watchlist-add'; symbol: string; watchlist?: string }
   /** Ask for the current state, so a page can paint its buttons on load. */
   | { type: 'tc-query'; symbol: string }
+  /**
+   * Ask for the watchlist names alone, with no symbol in hand.
+   *
+   * tc-state has carried `watchlists` since the bridge shipped, but that
+   * requires a symbol to ask about. A page building an "Add to…" menu has no
+   * symbol at that moment, so this is the query his bot actually needed.
+   */
+  | { type: 'tc-watchlists' }
 
 /** What TC sends back after any verb, and in answer to tc-query. */
 export interface BridgeState {
@@ -86,7 +94,12 @@ export interface BridgeState {
   flagged: boolean
   /** Names of every watchlist the symbol is on — [] when it is on none. */
   onWatchlists: string[]
-  /** Every watchlist name, so a page can offer a picker. */
+  /**
+   * Every watchlist name, in the SAME ORDER as the app's own "Add to" menu —
+   * his bot asked for that explicitly, and picking by position against a
+   * different order is how a symbol lands on the wrong list. See
+   * lib/watchlistOrder.
+   */
   watchlists: string[]
   /** False when AHK is off or unconfigured, so a page can hide the affordance. */
   ahkEnabled: boolean
@@ -122,6 +135,8 @@ export function parseBridgeMessage(data: unknown): BridgeRequest | null {
       : null
   }
 
+  if (type === 'tc-watchlists') return { type: 'tc-watchlists' }
+
   // His bot's name for it. Normalised here so there is one verb downstream.
   const verb = type === 'tc-chart' ? 'tc-symbol-click' : type
 
@@ -147,6 +162,12 @@ export function parseBridgeMessage(data: unknown): BridgeRequest | null {
   }
 
   return null
+}
+
+/** The answer to tc-watchlists. */
+export interface BridgeWatchlists {
+  type: 'tc-watchlists'
+  lists: string[]
 }
 
 /** Verbs that change TC's state, and so require the trusted-origin checks. */

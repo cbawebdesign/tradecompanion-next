@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { orderWatchlists } from '../lib/watchlistOrder'
 import {
   parseBridgeMessage,
   normalizeBridgeSymbol,
@@ -195,5 +196,58 @@ describe('the + button can be seen to have worked', () => {
   it('says where it went in text, not only in a tooltip', () => {
     // A tooltip needs a hover; the question is "did that do anything".
     expect(embed).toContain('function flash(')
+  })
+})
+
+describe('watchlist names for an "Add to" menu', () => {
+  const popup = readFileSync(join(__dirname, '..', 'components', 'ReportPopup.tsx'), 'utf8')
+  const menu = readFileSync(join(__dirname, '..', 'components', 'SymbolContextMenu.tsx'), 'utf8')
+  const embed = readFileSync(join(__dirname, '..', 'public', 'tc-embed.js'), 'utf8')
+
+  it('tc-watchlists needs no symbol — that was the actual gap', () => {
+    // tc-state always carried `watchlists`, but asking for it required a
+    // symbol, and a page building a menu has none at that moment.
+    expect(parseBridgeMessage({ type: 'tc-watchlists' })).toEqual({ type: 'tc-watchlists' })
+  })
+
+  it('is privileged, because it discloses his watchlist names', () => {
+    expect(isPrivilegedBridgeRequest({ type: 'tc-watchlists' })).toBe(true)
+  })
+
+  it('orders names the way the app orders its own menu', () => {
+    const raw = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
+    expect(orderWatchlists(raw, ['c', 'a', 'b']).map((w) => w.id)).toEqual(['c', 'a', 'b'])
+  })
+
+  it('keeps a list missing from the saved order instead of dropping it', () => {
+    // A list created since the order was last saved must not disappear from
+    // the menu.
+    const raw = [{ id: 'a' }, { id: 'new' }, { id: 'b' }]
+    expect(orderWatchlists(raw, ['b', 'a']).map((w) => w.id)).toEqual(['b', 'a', 'new'])
+  })
+
+  it('falls back to raw order when nothing is saved', () => {
+    const raw = [{ id: 'a' }, { id: 'b' }]
+    expect(orderWatchlists(raw, undefined).map((w) => w.id)).toEqual(['a', 'b'])
+    expect(orderWatchlists(raw, []).map((w) => w.id)).toEqual(['a', 'b'])
+  })
+
+  it('the bridge and the right-click menu share one ordering', () => {
+    // His bot asked for "the same order as the app\'s own Add To menu", which
+    // only stays true if there is one copy of this.
+    expect(popup).toContain('orderWatchlists(s.watchlists, s.config.watchlistOrder)')
+    expect(menu).toContain('orderWatchlists(rawWatchlists, watchlistOrder)')
+  })
+
+  it('tc-embed builds the menu and refetches on every open', () => {
+    // A menu that asks on open is never stale, so TC does not need to push
+    // updates when a list is added or renamed.
+    expect(embed).toContain('function openMenu(')
+    expect(embed).toContain("send({ type: 'tc-watchlists' })")
+    expect(embed).toContain('function renderMenu(')
+  })
+
+  it('a pinned data-tc-watchlist still skips the menu', () => {
+    expect(embed).toContain("var named = el.getAttribute('data-tc-watchlist')")
   })
 })
