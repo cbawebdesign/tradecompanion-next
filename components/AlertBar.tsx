@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '@/store/useStore'
+import { formatClock } from '@/lib/formatTime'
 import { PriceAlertInput } from './PriceAlertInput'
 import { isTradeableSymbol } from '@/lib/reportSymbol'
 import { clsx } from 'clsx'
@@ -277,10 +278,9 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isActive, visibleAlerts, selectedAlertId, toggleFlag, removeAlert, handleAlertClick])
 
-  const formatTime = (date: Date) => {
-    const d = new Date(date)
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  }
+  // Shared with the ribbon panes — see lib/formatTime for why the locale and
+  // hourCycle are both pinned.
+  const formatTime = (date: Date) => formatClock(date)
 
   // For inline price-alert inputs on price-type timeline rows. Finds the
   // first watchlist entry for the symbol in saved Settings order so the
