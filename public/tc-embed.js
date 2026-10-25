@@ -15,6 +15,17 @@
  *
  *     <span data-tc-symbol="AHTPI">AHTPI</span>
  *
+ * Pages that already use data-sym (the shape his report generator emits:
+ * <span class="tk" data-sym="DELL">DELL</span>) need NO markup change at all —
+ * adding the script tag is the whole job. Those get the click behaviour only,
+ * not buttons, because that markup appears on dense tables where fifty pairs
+ * of buttons would be noise. Opt in with window.TC_EMBED = { controls: 'all' }.
+ *
+ * An existing page's own click handler keeps running and is harmless: its
+ * direct fetch to localhost is the thing that does not work from inside a
+ * frame, which is the whole reason this exists. Leaving it alone also leaves
+ * its "Sent X to chart" toast working.
+ *
  * You get, next to it: the ticker itself clickable (selects the symbol in TC
  * and fires AutoHotkey), a flag toggle that shows TC's real flag state, and a
  * "+" that adds the symbol to a watchlist.
@@ -40,6 +51,9 @@
   var CFG = window.TC_EMBED || {};
   var WANT_CONTROLS = CFG.controls !== false;
   var WANT_CLICK = CFG.click !== false;
+  // 'all' also puts buttons on legacy data-sym elements.
+  var CONTROLS_ON_LEGACY = CFG.controls === 'all';
+  var SELECTOR = '[data-tc-symbol],[data-sym]';
 
   // Every symbol element on the page, keyed by ticker, so a tc-state reply
   // repaints all of them at once — the same ticker often appears twice.
@@ -73,9 +87,12 @@
 
   function decorate(el) {
     if (el.getAttribute('data-tc-ready') === '1') return;
-    var symbol = norm(el.getAttribute('data-tc-symbol') || el.textContent);
+    var explicit = el.getAttribute('data-tc-symbol');
+    var legacy = el.getAttribute('data-sym');
+    var symbol = norm(explicit || legacy || el.textContent);
     if (!symbol) return;
     el.setAttribute('data-tc-ready', '1');
+    var wantButtons = WANT_CONTROLS && (explicit != null || CONTROLS_ON_LEGACY);
 
     (bySymbol[symbol] = bySymbol[symbol] || []).push(el);
 
@@ -89,7 +106,7 @@
       });
     }
 
-    if (!WANT_CONTROLS || el.getAttribute('data-tc-controls') === 'off') {
+    if (!wantButtons || el.getAttribute('data-tc-controls') === 'off') {
       send({ type: 'tc-query', symbol: symbol });
       return;
     }
@@ -123,7 +140,7 @@
   }
 
   function scan(root) {
-    var nodes = (root || document).querySelectorAll('[data-tc-symbol]');
+    var nodes = (root || document).querySelectorAll(SELECTOR);
     for (var i = 0; i < nodes.length; i++) decorate(nodes[i]);
   }
 

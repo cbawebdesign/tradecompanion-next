@@ -63,7 +63,14 @@ export function normalizeBridgeSymbol(raw: unknown): string | null {
 export type BridgeRequest =
   /** Open a link in a real browser window. Already supported; unchanged. */
   | { type: 'tc-open-url'; url: string }
-  /** Behave as if the symbol had been clicked in TC: select it, fire AHK. */
+  /**
+   * Behave as if the symbol had been clicked in TC: select it, fire AHK.
+   *
+   * `tc-chart` is accepted as an alias and normalised to this. Justin's bot
+   * proposed that name to him verbatim — "window.parent.postMessage({type:
+   * 'tc-chart', symbol:'ZS'}, '*')" — so a page written from that advice must
+   * work without him having to notice TC calls it something else.
+   */
   | { type: 'tc-symbol-click'; symbol: string }
   /** `on` omitted toggles; true/false sets it outright, so a button is idempotent. */
   | { type: 'tc-flag'; symbol: string; on?: boolean }
@@ -103,25 +110,28 @@ export function parseBridgeMessage(data: unknown): BridgeRequest | null {
       : null
   }
 
-  if (type === 'tc-symbol-click' || type === 'tc-query' || type === 'tc-flag' || type === 'tc-watchlist-add') {
+  // His bot's name for it. Normalised here so there is one verb downstream.
+  const verb = type === 'tc-chart' ? 'tc-symbol-click' : type
+
+  if (verb === 'tc-symbol-click' || verb === 'tc-query' || verb === 'tc-flag' || verb === 'tc-watchlist-add') {
     const symbol = normalizeBridgeSymbol(d.symbol)
     if (!symbol) return null
 
-    if (type === 'tc-flag') {
+    if (verb === 'tc-flag') {
       return typeof d.on === 'boolean'
-        ? { type, symbol, on: d.on }
-        : { type, symbol }
+        ? { type: verb, symbol, on: d.on }
+        : { type: verb, symbol }
     }
-    if (type === 'tc-watchlist-add') {
+    if (verb === 'tc-watchlist-add') {
       // A name longer than any real watchlist is a sign of a confused caller,
       // not a watchlist; drop it and fall back to the selected one.
       const watchlist =
         typeof d.watchlist === 'string' && d.watchlist.trim() && d.watchlist.length <= 64
           ? d.watchlist.trim()
           : undefined
-      return watchlist ? { type, symbol, watchlist } : { type, symbol }
+      return watchlist ? { type: verb, symbol, watchlist } : { type: verb, symbol }
     }
-    return { type, symbol }
+    return { type: verb, symbol }
   }
 
   return null
