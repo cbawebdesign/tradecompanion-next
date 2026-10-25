@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '@/store/useStore'
+import { orderWatchlists } from '@/lib/watchlistOrder'
 
 export interface SymbolContextMenuProps {
   x: number
@@ -39,18 +40,9 @@ export function SymbolContextMenu({
 
   // Render watchlists in the user's saved Settings order — the dropdown is
   // already ordered, so the right-click menu needs to match. Otherwise users
-  // pick by position and end up adding to the wrong list.
-  const watchlists = (() => {
-    if (!watchlistOrder || watchlistOrder.length === 0) return rawWatchlists
-    const byId = new Map(rawWatchlists.map((w) => [w.id, w]))
-    const out: typeof rawWatchlists = []
-    for (const id of watchlistOrder) {
-      const w = byId.get(id)
-      if (w) { out.push(w); byId.delete(id) }
-    }
-    Array.from(byId.values()).forEach((w) => out.push(w))
-    return out
-  })()
+  // pick by position and end up adding to the wrong list. Shared with the
+  // popup bridge, which reports the same order to embedded pages.
+  const watchlists = orderWatchlists(rawWatchlists, watchlistOrder)
 
   const ref = useRef<HTMLDivElement | null>(null)
   const [pos, setPos] = useState({ top: y, left: x })

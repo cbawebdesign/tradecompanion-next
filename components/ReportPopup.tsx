@@ -5,7 +5,8 @@ import { createPortal } from 'react-dom'
 import { planEmbed } from '@/lib/embeddableUrl'
 import { useLinkViewer } from '@/lib/linkViewer'
 import { isTradeCompanionHost } from '@/lib/alertClipboard'
-import { parseBridgeMessage, isPrivilegedBridgeRequest, type BridgeState } from '@/lib/popupBridge'
+import { parseBridgeMessage, isPrivilegedBridgeRequest, type BridgeState, type BridgeWatchlists } from '@/lib/popupBridge'
+import { orderWatchlists } from '@/lib/watchlistOrder'
 import { useStore } from '@/store/useStore'
 import { fireAhk } from '@/lib/ahk'
 
@@ -114,7 +115,9 @@ export function ReportPopup({
           onWatchlists: s.watchlists
             .filter((w) => w.symbols.some((x) => x.symbol.toUpperCase() === symbol))
             .map((w) => w.name),
-          watchlists: s.watchlists.map((w) => w.name),
+          // Same order as the app's own "Add to" menu — picking by position
+          // against a different order is how a symbol lands on the wrong list.
+          watchlists: orderWatchlists(s.watchlists, s.config.watchlistOrder).map((w) => w.name),
           ahkEnabled: !!(s.config.ahkEnabled && s.config.ahkUrl),
         }
         // Addressed to the frame's own origin, never '*' — the reply carries
@@ -175,6 +178,17 @@ export function ReportPopup({
         case 'tc-query':
           reply(req.symbol)
           return
+
+        case 'tc-watchlists': {
+          // No symbol involved, so this cannot go through reply().
+          const s = useStore.getState()
+          const msg: BridgeWatchlists = {
+            type: 'tc-watchlists',
+            lists: orderWatchlists(s.watchlists, s.config.watchlistOrder).map((w) => w.name),
+          }
+          try { (e.source as Window)?.postMessage(msg, e.origin) } catch { /* frame gone */ }
+          return
+        }
       }
     }
     window.addEventListener('message', onMessage)
