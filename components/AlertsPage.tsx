@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
+import { mapReportAlerts } from '@/lib/reportAlerts'
 import { formatClockWithDate } from '@/lib/formatTime'
 import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
@@ -297,6 +298,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
             url: catUrl,
           })
         })
+        mapped.push(...mapReportAlerts(data.reports, fetchedFor))
         dbAlertsCache[fetchedFor.toUpperCase()] = mapped
         if (!aborted && useStore.getState().selectedSymbol === fetchedFor) {
           setDbAlerts(mapped)
