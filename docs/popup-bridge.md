@@ -25,6 +25,32 @@ itself clickable, and keeps the flag showing TC's real state.
 | `data-tc-watchlist="Movers"` | `+` adds to that list instead of the selected one |
 | `data-tc-controls="off"` | clickable ticker, no buttons |
 
+### Already using `data-sym`? Change nothing
+
+Pages the report generator emits already look like this:
+
+```html
+<span class="tk" data-sym="DELL">DELL</span>
+```
+
+The script picks those up as-is, so **adding the script tag is the whole job** —
+no regenerating reports. Legacy elements get the click behaviour only, not the
+buttons, because that markup shows up on fifty-row tables where fifty pairs of
+buttons would be noise. Want them anyway:
+
+```html
+<script>window.TC_EMBED = { controls: 'all' }</script>
+```
+
+The page's own click handler keeps running, which is harmless — its direct
+`fetch` to `localhost` is the thing that doesn't work from inside a frame, and
+that's the whole reason this exists. Leaving it alone also leaves its
+"Sent DELL to chart" toast working.
+
+> Note that toast fires whether or not anything happened: the request is
+> `mode: "no-cors"` with an `Image()` fallback, and neither can report failure.
+> That's why the popup looked like it was working.
+
 Page-wide, set **before** the script tag:
 
 ```html
@@ -51,6 +77,7 @@ same page still works opened in a normal tab.
 
 ```js
 window.parent.postMessage({ type: 'tc-symbol-click',  symbol: 'AHTPI' }, '*')
+window.parent.postMessage({ type: 'tc-chart',         symbol: 'AHTPI' }, '*')  // alias
 window.parent.postMessage({ type: 'tc-flag',          symbol: 'AHTPI' }, '*')          // toggle
 window.parent.postMessage({ type: 'tc-flag',          symbol: 'AHTPI', on: true }, '*')
 window.parent.postMessage({ type: 'tc-watchlist-add', symbol: 'AHTPI' }, '*')
@@ -96,3 +123,22 @@ Symbols are validated before anything happens: upper-cased, `$` stripped, and
 shaped like a ticker. Source tags the timeline refuses (`RSS`, `MAIL`, `YT`,
 `SUB`, `NEWS`, `N/A`) are refused here too, from the same shared list, so a
 stray row can't end up on a watchlist.
+
+## Why not `allow="local-network-access"` on the iframe
+
+It was the other option suggested, and it does not work here.
+
+Local Network Access delegation is only half of it: the local server must also
+answer with `Access-Control-Allow-Private-Network`, and the AHK companion
+doesn't send it. The permission's name is also still unsettled — MDN documents
+`local-network` and `loopback-network`, Chrome-facing docs use
+`local-network-access` — and Chrome's enterprise opt-out is being retired after
+Chrome 152, so anything built on it has a shelf life.
+
+It is also the wrong shape. Granting it on the popup's iframe would hand local
+network access to **every** page the popup shows, including press releases and
+SEC filings, to fix a problem that only TC's own pages have.
+
+Letting TC make the call from the top frame — where it already works, because
+that is how AHK fires from the timeline today — needs no browser permission, no
+server header, and no trust in third-party frames.

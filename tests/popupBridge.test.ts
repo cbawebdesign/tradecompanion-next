@@ -50,6 +50,15 @@ describe('parseBridgeMessage', () => {
     }
   })
 
+  it("accepts tc-chart, his bot's name for the same thing", () => {
+    // The bot told him verbatim: postMessage({type:'tc-chart', symbol:'ZS'}).
+    // A page written from that advice must work without him noticing TC calls
+    // the verb something else.
+    expect(parseBridgeMessage({ type: 'tc-chart', symbol: 'ZS' }))
+      .toEqual({ type: 'tc-symbol-click', symbol: 'ZS' })
+    expect(parseBridgeMessage({ type: 'tc-chart', symbol: 'RSS' })).toBeNull()
+  })
+
   it('parses the symbol verbs', () => {
     expect(parseBridgeMessage({ type: 'tc-symbol-click', symbol: 'aapl' }))
       .toEqual({ type: 'tc-symbol-click', symbol: 'AAPL' })
@@ -135,5 +144,26 @@ describe('ReportPopup enforces both halves of the gate', () => {
     // The reply carries his watchlist names.
     expect(src).toContain('postMessage(state, e.origin)')
     expect(src).not.toContain("postMessage(state, '*')")
+  })
+})
+
+describe('tc-embed.js works on his existing pages', () => {
+  const src = readFileSync(join(__dirname, '..', 'public', 'tc-embed.js'), 'utf8')
+
+  it('recognises the data-sym markup his generator already emits', () => {
+    // His live page: <span class="tk" data-sym="DELL">DELL</span>. Requiring
+    // data-tc-symbol would mean regenerating every report before anything works.
+    expect(src).toContain("'[data-tc-symbol],[data-sym]'")
+    expect(src).toContain("el.getAttribute('data-sym')")
+  })
+
+  it('keeps buttons opt-in on legacy markup', () => {
+    // data-sym appears on 50-row tables; 50 button pairs would be noise.
+    expect(src).toContain('CONTROLS_ON_LEGACY')
+    expect(src).toContain("CFG.controls === 'all'")
+  })
+
+  it('does nothing outside a frame', () => {
+    expect(src).toContain('if (window.top === window.self) return')
   })
 })
