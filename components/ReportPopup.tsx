@@ -5,6 +5,9 @@ import { createPortal } from 'react-dom'
 import { planEmbed } from '@/lib/embeddableUrl'
 import { useLinkViewer } from '@/lib/linkViewer'
 import { isTradeCompanionHost } from '@/lib/alertClipboard'
+import { parseBridgeMessage, isPrivilegedBridgeRequest, type BridgeState } from '@/lib/popupBridge'
+import { useStore } from '@/store/useStore'
+import { fireAhk } from '@/lib/ahk'
 
 /**
  * In-app viewer for any URL TC wants to show — Airtable reports, SEC filings,
@@ -68,24 +71,106 @@ export function ReportPopup({
     return () => document.removeEventListener('keydown', onKey, true)
   }, [onClose])
 
-  // Links clicked INSIDE a proxied page open a real browser window.
+  // The bridge: what a page inside the popup is allowed to ask TC to do.
   //
-  // Justin: "from here if I click any of these URL's in the pop up window, I
-  // get an error … from the popup, any other URL's open in a new browser
-  // window?"
+  // Originally one verb. Links clicked INSIDE a proxied page open a real
+  // browser window — Justin: "from here if I click any of these URL's in the
+  // pop up window, I get an error … from the popup, any other URL's open in a
+  // new browser window?" /api/embed injects a click handler that forwards the
+  // URL here rather than relying on target="_blank", which Electron denies
+  // from inside a frame. TC's own window.open does work in his build.
   //
-  // /api/embed injects a click handler that forwards the URL here rather than
-  // relying on target="_blank", which Electron denies from inside a frame. TC's
-  // own window.open does work in his build — the pop-out buttons use it.
+  // Now also flag / watchlist / AHK, for the pages he writes himself:
+  // "it would be absolutely amazing if auto hotkey could work when clicking a
+  // symbol in a pop up window … and then add a flag / unflag button next to
+  // the symbol along with a '+' to add the symbol to a watch list."
+  //
+  // Those verbs touch his data, so they are gated on two things the browser
+  // sets and a frame cannot forge: the message came from THIS frame, and its
+  // origin is tradecompanion.com. See lib/popupBridge for why that cleanly
+  // separates his pages from any third-party page the popup happens to show.
+  //
+  // Reads go through useStore.getState() rather than a subscription on
+  // purpose: this component must not re-render every time a flag changes
+  // somewhere else in the app while a report is open.
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
-      const data = e.data as { type?: string; url?: string } | null
-      if (!data || data.type !== 'tc-open-url' || typeof data.url !== 'string') return
-      // The frame is sandboxed to an opaque origin, so the sender cannot be
-      // checked by origin. Validate the payload instead: only ever a web URL,
-      // and opening a new tab is the only effect.
-      if (!/^https?:\/\//i.test(data.url)) return
-      window.open(data.url, '_blank', 'noopener,noreferrer')
+      const req = parseBridgeMessage(e.data)
+      if (!req) return
+
+      if (isPrivilegedBridgeRequest(req)) {
+        const frameWindow = frameRef.current?.contentWindow
+        if (!frameWindow || e.source !== frameWindow) return
+        if (!isTradeCompanionHost(e.origin)) return
+      }
+
+      const reply = (symbol: string) => {
+        const s = useStore.getState()
+        const state: BridgeState = {
+          type: 'tc-state',
+          symbol,
+          flagged: s.flaggedSymbols.has(symbol),
+          onWatchlists: s.watchlists
+            .filter((w) => w.symbols.some((x) => x.symbol.toUpperCase() === symbol))
+            .map((w) => w.name),
+          watchlists: s.watchlists.map((w) => w.name),
+          ahkEnabled: !!(s.config.ahkEnabled && s.config.ahkUrl),
+        }
+        // Addressed to the frame's own origin, never '*' — the reply carries
+        // his watchlist names.
+        try { (e.source as Window)?.postMessage(state, e.origin) } catch { /* frame gone */ }
+      }
+
+      switch (req.type) {
+        case 'tc-open-url':
+          window.open(req.url, '_blank', 'noopener,noreferrer')
+          return
+
+        case 'tc-symbol-click': {
+          // Same behaviour as clicking the symbol on an alert row, so his
+          // charts move the way they already do everywhere else in TC.
+          const s = useStore.getState()
+          if (s.config.ahkEnabled && s.config.ahkUrl) fireAhk(req.symbol, s.config.ahkUrl)
+          s.setSelectedSymbol(req.symbol)
+          reply(req.symbol)
+          return
+        }
+
+        case 'tc-flag': {
+          const s = useStore.getState()
+          const isOn = s.flaggedSymbols.has(req.symbol)
+          // toggleFlag is the only flag mutator; `on` is honoured by simply
+          // not calling it when the symbol is already in the wanted state,
+          // which makes a button that fires twice harmless.
+          if (req.on === undefined || req.on !== isOn) s.toggleFlag(req.symbol)
+          reply(req.symbol)
+          return
+        }
+
+        case 'tc-watchlist-add': {
+          const s = useStore.getState()
+          const named = req.watchlist
+            ? s.watchlists.find((w) => w.name.toLowerCase() === req.watchlist!.toLowerCase())
+            : undefined
+          const target =
+            named
+            ?? s.watchlists.find((w) => w.id === s.selectedWatchlistId)
+            ?? s.watchlists[0]
+          // No watchlists at all: reply anyway so his button stops spinning.
+          if (target) {
+            // addSymbolToWatchlist already no-ops on a duplicate.
+            s.addSymbolToWatchlist(target.id, {
+              symbol: req.symbol, upperAlert: null, lowerAlert: null, notes: '',
+            })
+          }
+          reply(req.symbol)
+          return
+        }
+
+        case 'tc-query':
+          reply(req.symbol)
+          return
+      }
     }
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
