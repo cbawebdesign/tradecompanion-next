@@ -90,6 +90,18 @@ export interface BridgeState {
   watchlists: string[]
   /** False when AHK is off or unconfigured, so a page can hide the affordance. */
   ahkEnabled: boolean
+  /**
+   * Set only on the reply to tc-watchlist-add: the list the symbol actually
+   * landed on. Present even when it was already there, so a page can say
+   * where without re-deriving it.
+   *
+   * Inferring this from onWatchlists does not work — a symbol on several
+   * lists gives no clue which one this click targeted.
+   *
+   * Absent when there were no watchlists to add to, which is the one case a
+   * page should report as a failure.
+   */
+  addedTo?: string
 }
 
 /**

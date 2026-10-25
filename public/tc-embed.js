@@ -119,11 +119,13 @@
     });
 
     var plus = btn('+', 'Add ' + symbol + ' to a watchlist');
+    plus.setAttribute('data-tc-plus', '');
     plus.addEventListener('click', function (ev) {
       ev.stopPropagation();
       var named = el.getAttribute('data-tc-watchlist');
       var msg = { type: 'tc-watchlist-add', symbol: symbol };
       if (named) msg.watchlist = named;
+      plus.setAttribute('data-tc-pending', '1');
       send(msg);
     });
 
@@ -139,6 +141,18 @@
     send({ type: 'tc-query', symbol: symbol });
   }
 
+  // Briefly widen a button to carry a word, then put it back.
+  function flash(el, text) {
+    if (el.getAttribute('data-tc-flashing') === '1') return;
+    el.setAttribute('data-tc-flashing', '1');
+    var was = el.textContent;
+    el.textContent = text;
+    setTimeout(function () {
+      el.textContent = was;
+      el.removeAttribute('data-tc-flashing');
+    }, 1600);
+  }
+
   function scan(root) {
     var nodes = (root || document).querySelectorAll(SELECTOR);
     for (var i = 0; i < nodes.length; i++) decorate(nodes[i]);
@@ -148,16 +162,42 @@
   window.addEventListener('message', function (e) {
     var d = e.data;
     if (!d || d.type !== 'tc-state' || typeof d.symbol !== 'string') return;
+    var lists = (d.onWatchlists && d.onWatchlists.length) ? d.onWatchlists : null;
     var els = bySymbol[d.symbol] || [];
     for (var i = 0; i < els.length; i++) {
       var host = els[i].nextSibling;
       if (!host || !host.getAttribute || host.getAttribute('data-tc-controls-for') !== d.symbol) continue;
+
       var f = host.querySelector('[data-tc-flag]');
-      if (!f) continue;
-      f.setAttribute('data-tc-on', d.flagged ? '1' : '0');
-      f.style.opacity = d.flagged ? '1' : '0.65';
-      f.style.fontWeight = d.flagged ? '700' : 'inherit';
-      f.title = (d.flagged ? 'Unflag ' : 'Flag ') + d.symbol + ' in TradeCompanion';
+      if (f) {
+        f.setAttribute('data-tc-on', d.flagged ? '1' : '0');
+        f.style.opacity = d.flagged ? '1' : '0.65';
+        f.style.fontWeight = d.flagged ? '700' : 'inherit';
+        f.title = (d.flagged ? 'Unflag ' : 'Flag ') + d.symbol + ' in TradeCompanion';
+      }
+
+      // The + used to repaint nothing at all, so a click that worked looked
+      // exactly like a click that did not — Justin: "The + button doesn't seem
+      // to be working properly." It was adding the symbol; there was simply no
+      // acknowledgement, and with dozens of watchlists he had no way to tell
+      // WHICH one it landed on. TC already reports both in every reply.
+      var p = host.querySelector('[data-tc-plus]');
+      if (p) {
+        p.textContent = lists ? '✓' : '+';
+        p.setAttribute('data-tc-on', lists ? '1' : '0');
+        p.style.opacity = lists ? '1' : '0.65';
+        p.style.fontWeight = lists ? '700' : 'inherit';
+        p.title = lists
+          ? d.symbol + ' is on: ' + lists.join(', ')
+          : 'Add ' + d.symbol + ' to a watchlist';
+
+        // Straight after a click, say WHERE it went, in text. A tooltip needs
+        // a hover, and the question being answered is "did that do anything".
+        if (p.getAttribute('data-tc-pending') === '1') {
+          p.removeAttribute('data-tc-pending');
+          flash(p, d.addedTo ? '✓ ' + d.addedTo : 'no watchlist');
+        }
+      }
     }
   });
 

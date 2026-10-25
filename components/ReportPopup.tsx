@@ -104,11 +104,12 @@ export function ReportPopup({
         if (!isTradeCompanionHost(e.origin)) return
       }
 
-      const reply = (symbol: string) => {
+      const reply = (symbol: string, addedTo?: string) => {
         const s = useStore.getState()
         const state: BridgeState = {
           type: 'tc-state',
           symbol,
+          ...(addedTo ? { addedTo } : {}),
           flagged: s.flaggedSymbols.has(symbol),
           onWatchlists: s.watchlists
             .filter((w) => w.symbols.some((x) => x.symbol.toUpperCase() === symbol))
@@ -163,7 +164,11 @@ export function ReportPopup({
               symbol: req.symbol, upperAlert: null, lowerAlert: null, notes: '',
             })
           }
-          reply(req.symbol)
+          // Name the target rather than letting the page guess from
+          // onWatchlists — a symbol on several lists gives no clue which one
+          // this click hit. No target at all means no watchlists exist, and
+          // addedTo stays absent so the page can say so.
+          reply(req.symbol, target?.name)
           return
         }
 

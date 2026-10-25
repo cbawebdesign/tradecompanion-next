@@ -94,8 +94,25 @@ buttons without tracking anything itself:
   flagged: true,
   onWatchlists: ['Main'],      // [] when on none
   watchlists:   ['Main', 'Movers'],
-  ahkEnabled:   true }
+  ahkEnabled:   true,
+  addedTo:      'Main' }       // only on a tc-watchlist-add reply
 ```
+
+`addedTo` names the list the symbol actually landed on. Don't infer it from
+`onWatchlists` — a symbol on several lists gives no clue which one the click
+hit. It is **absent** when there were no watchlists to add to, which is the one
+case to report as a failure.
+
+### Which watchlist does `+` use?
+
+The one currently selected in TC, which with a few dozen lists is effectively
+arbitrary from the page's point of view. Two ways to be explicit:
+
+```html
+<span data-tc-symbol="AHTPI" data-tc-watchlist="Movers">AHTPI</span>
+```
+
+or build a picker — every reply carries the full `watchlists` list.
 
 There is no push: TC replies to what you send, it does not broadcast changes
 made elsewhere in the app. Send `tc-query` if you need to re-sync.
