@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useStore } from '@/store/useStore'
+import { formatClockWithDate } from '@/lib/formatTime'
 import { clsx } from 'clsx'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { fireAhk } from '@/lib/ahk'
@@ -549,16 +550,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
     return sortDir === 'asc' ? ' ▲' : ' ▼'
   }
 
-  const formatTime = (date: Date) => {
-    const d = new Date(date)
-    const time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-    // Prior calendar day(s) get a MM/DD/YY date prefix so the day is clear
-    // (Justin — data-ribbon/drill-down only). Same-day items stay time-only.
-    if (d.toDateString() !== new Date().toDateString()) {
-      return `${d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: '2-digit' })} ${time}`
-    }
-    return time
-  }
+  const formatTime = (date: Date) => formatClockWithDate(date)
 
   return (
     <div

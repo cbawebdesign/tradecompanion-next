@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '@/store/useStore'
+import { formatClock } from '@/lib/formatTime'
 
 interface ServiceStatus {
   name: string
@@ -171,7 +172,7 @@ export function MonitorPage() {
           {alerts.slice(0, 50).map((alert) => (
             <div key={alert.id} className="flex items-center gap-2 py-1 text-xs" style={{ borderBottom: '1px solid var(--border-glass)' }}>
               <span className="font-mono w-16 flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
-                {new Date(alert.timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {formatClock(alert.timestamp)}
               </span>
               <span className="w-14 flex-shrink-0 px-1 py-0.5 rounded text-center" style={{
                 background: alert.type === 'filing' ? 'rgba(59,130,246,0.2)' :
