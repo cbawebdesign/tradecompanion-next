@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useStore } from '@/store/useStore'
+import { mapReportAlerts } from '@/lib/reportAlerts'
 import { formatClockWithDate } from '@/lib/formatTime'
 import { clsx } from 'clsx'
 import { proxyUrl } from '@/lib/proxyUrl'
@@ -79,6 +80,9 @@ async function prefetchRibbon(symbols: string[], baseUrl: string, _userKey: stri
           const catUrl = c.resource_id ? `/api/pr?id=${c.resource_id}` : undefined
           mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: sym, message: c.text, type: 'catalyst', color: '#9c27b0', timestamp: new Date(c.time), read: false, url: catUrl })
         })
+        // Airtable reports. The server has always returned these; no call site
+        // ever read them. See lib/reportAlerts.
+        mapped.push(...mapReportAlerts(data.reports, sym))
         dbAlertsCache[sym.toUpperCase()] = mapped
       } catch { /* swallow */ }
       finally { prefetchInFlight.delete(sym.toUpperCase()) }
@@ -263,6 +267,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
           const catUrl = c.resource_id ? `/api/pr?id=${c.resource_id}` : undefined
           mapped.push({ id: `db-cat-${c.time}-${c.symbol}`, symbol: fetchedFor, message: c.text, type: 'catalyst', color: '#9c27b0', timestamp: new Date(c.time), read: false, url: catUrl })
         })
+        mapped.push(...mapReportAlerts(data.reports, fetchedFor))
         // Cache regardless of whether the user is still on this symbol — a
         // future selection of the same symbol will use it.
         dbAlertsCache[fetchedFor.toUpperCase()] = mapped
