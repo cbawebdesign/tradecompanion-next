@@ -30,6 +30,12 @@ export function useCrossWindowSync() {
             if (parsed.state.watchlists && !isEqual(parsed.state.watchlists, current.watchlists)) {
               useStore.setState({ watchlists: parsed.state.watchlists })
             }
+            // Flagged-only price alerts live outside the watchlists, so without
+            // this a pop-out kept showing a level the main window had already
+            // fired and auto-cleared.
+            if (parsed.state.standaloneAlerts && !isEqual(parsed.state.standaloneAlerts, current.standaloneAlerts)) {
+              useStore.setState({ standaloneAlerts: parsed.state.standaloneAlerts })
+            }
             if (parsed.state.flaggedSymbols) {
               const flags = Array.isArray(parsed.state.flaggedSymbols)
                 ? new Set(parsed.state.flaggedSymbols)
