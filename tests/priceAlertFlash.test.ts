@@ -118,6 +118,23 @@ describe('price alert flash', () => {
     expect(flashing(150.5)).toBe(false)
   })
 
+  it('lower side: re-entering a level that fired earlier does not flash while price is above it', () => {
+    // Justin's exact report: 4.72 lower fired earlier, stock now over 4.80.
+    const lower = () => useStore.getState().watchlists[0].symbols[0].lowerAlert
+    const lowerFlashing = (p: number) => useStore.getState().triggeredPriceAlerts.has(`lower-${SYM}-${p}`)
+    useStore.getState().setPriceAlertEverywhere(SYM, 'lowerAlert', 4.72)
+    tick(4.71)
+    expect(lowerFlashing(4.72)).toBe(true)
+    vi.advanceTimersByTime(CLEAR_AFTER_MS)
+    expect(lower()).toBeNull()
+
+    tick(4.85)
+    useStore.getState().setPriceAlertEverywhere(SYM, 'lowerAlert', 4.72)
+    tick(4.83)
+    expect(lowerFlashing(4.72)).toBe(false)
+    expect(lower()).toBe(4.72)
+  })
+
   it('applies to flagged-only alerts as well', () => {
     useStore.setState({ watchlists: [] })
     useStore.getState().setPriceAlertFromTimeline(SYM, 'upperAlert', 150.2)
