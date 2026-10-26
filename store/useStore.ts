@@ -1,11 +1,12 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
 import type { Alert, Quote, Watchlist, WatchlistSymbol, AppConfig, ConnectionState, ScannerAlert, AlertSubscription, AlertType } from '@/types'
 import { logAlert } from '@/lib/alertLogger'
 import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { isSymbolBlocked } from '@/lib/symbolBlocklist'
 import { normalizeAlertMessage, alertMatchKey } from '@/lib/alertDedup'
+import { createDedupedStorage } from '@/lib/dedupedStorage'
 
 // Keep the alert timeline in strict chronological order (newest first).
 // Backfill races (catalysts poll at 5s, filings at a different cadence, etc.)
@@ -89,6 +90,7 @@ interface AppState {
   // Price alert tracking (to avoid duplicate alerts)
   triggeredPriceAlerts: Set<string>
   addTriggeredPriceAlert: (key: string) => void
+  removeTriggeredPriceAlert: (key: string) => void
   clearTriggeredPriceAlerts: () => void
 
   // Watchlists
@@ -196,6 +198,8 @@ export const defaultConfig: AppConfig = {
   ahkUrl: 'http://localhost:9876',
   alertSounds: defaultAlertSounds,
 }
+
+const dedupedLocalStorage = createDedupedStorage(() => localStorage)
 
 export const useStore = create<AppState>()(
   persist(
@@ -462,6 +466,12 @@ export const useStore = create<AppState>()(
         newSet.add(key)
         return { triggeredPriceAlerts: newSet }
       }),
+      removeTriggeredPriceAlert: (key) => set((state) => {
+        if (!state.triggeredPriceAlerts.has(key)) return {}
+        const newSet = new Set(state.triggeredPriceAlerts)
+        newSet.delete(key)
+        return { triggeredPriceAlerts: newSet }
+      }),
       clearTriggeredPriceAlerts: () => set({ triggeredPriceAlerts: new Set() }),
 
       // Watchlists
@@ -699,6 +709,13 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'trade-companion-storage',
+      // Skips writes that change nothing — see lib/dedupedStorage for the
+      // cross-window race this closes. Throwing when localStorage is absent
+      // (SSR) leaves persist inert, which is what the default storage did.
+      storage: createJSONStorage(() => {
+        if (typeof localStorage === 'undefined') throw new Error('no localStorage')
+        return dedupedLocalStorage
+      }),
       partialize: (state) => ({
         watchlists: state.watchlists,
         flaggedSymbols: Array.from(state.flaggedSymbols), // Convert Set for storage
