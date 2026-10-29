@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useStore, LIVE_QUOTE_WINS_MS } from '@/store/useStore'
 import { evaluatePriceAlerts, CLEAR_AFTER_MS } from '@/hooks/usePriceAlerts'
 import { createDedupedStorage } from '@/lib/dedupedStorage'
+import { applyStorageValue } from '@/hooks/useCrossWindowSync'
 import type { StateStorage } from 'zustand/middleware'
 
 /**
@@ -38,6 +39,7 @@ beforeEach(() => {
   useStore.setState({
     watchlists: [{ id: 'a', name: 'Movers', symbols: [{ symbol: SYM, upperAlert: null, lowerAlert: null, notes: '' }] }],
     standaloneAlerts: {},
+    watchlistsUpdatedAt: 0,
     triggeredPriceAlerts: new Set(),
     alerts: [],
     quotes: {},
@@ -191,6 +193,59 @@ describe('stale prices never fire an alert', () => {
     useStore.setState({ quotes: { [SYM]: { symbol: SYM, last: 4.85, timestamp: new Date(Date.now() - LIVE_QUOTE_WINS_MS - 1000) } as any } })
     snapshotTick(4.9)
     expect(useStore.getState().quotes[SYM].last).toBe(4.9)
+  })
+})
+
+describe('another window cannot put an old level back', () => {
+  // Justin's video (10/29): typed 75.20 over a flashing 10.01; a second later
+  // the box was back to 10.01 and flashing again.
+  const persisted = () => JSON.stringify({ state: {
+    watchlists: useStore.getState().watchlists,
+    standaloneAlerts: useStore.getState().standaloneAlerts,
+    watchlistsUpdatedAt: useStore.getState().watchlistsUpdatedAt,
+  } })
+
+  it("a stale window's save does not undo a newer edit", () => {
+    vi.setSystemTime(new Date('2026-10-29T14:00:00Z'))
+    setUpper(10.01)
+    const staleCopy = persisted()            // the pop-out's view, saved later
+    vi.setSystemTime(new Date('2026-10-29T14:00:05Z'))
+    setUpper(75.2)                           // Justin's edit
+    applyStorageValue(staleCopy)             // pop-out saves before hearing of it
+    expect(upper()).toBe(75.2)
+  })
+
+  it('a newer edit from another window is still applied', () => {
+    vi.setSystemTime(new Date('2026-10-29T14:00:00Z'))
+    setUpper(10.01)
+    vi.setSystemTime(new Date('2026-10-29T14:00:05Z'))
+    setUpper(75.2)
+    const newerCopy = persisted()
+    useStore.setState({ watchlistsUpdatedAt: 0 })
+    setUpper(10.01)
+    useStore.setState({ watchlistsUpdatedAt: new Date('2026-10-29T14:00:01Z').getTime() })
+    applyStorageValue(newerCopy)
+    expect(upper()).toBe(75.2)
+  })
+
+  it('a window on an old build (no stamp) cannot overwrite', () => {
+    setUpper(75.2)
+    applyStorageValue(JSON.stringify({ state: {
+      watchlists: [{ id: 'a', name: 'Movers', symbols: [{ symbol: SYM, upperAlert: 10.01, lowerAlert: null, notes: '' }] }],
+    } }))
+    expect(upper()).toBe(75.2)
+  })
+
+  it('the auto-clear is not undone by a stale window either', () => {
+    vi.setSystemTime(new Date('2026-10-29T14:00:00Z'))
+    setUpper(10.01)
+    const staleCopy = persisted()
+    tick(10.02)
+    vi.advanceTimersByTime(CLEAR_AFTER_MS)
+    expect(upper()).toBeNull()
+    applyStorageValue(staleCopy)
+    expect(upper()).toBeNull()
+    expect(flashing(10.01)).toBe(false)
   })
 })
 

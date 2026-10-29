@@ -119,6 +119,12 @@ interface AppState {
    * own home fixes the real problem instead of quietly reorganising his lists.
    */
   standaloneAlerts: Record<string, { upperAlert: number | null; lowerAlert: number | null }>
+  /**
+   * When watchlists or standaloneAlerts last changed IN ANY WINDOW (ms). Every
+   * window persists its whole state, so without this an older copy from a
+   * pop-out could overwrite a newer edit — see useCrossWindowSync.
+   */
+  watchlistsUpdatedAt: number
   reorderWatchlists: (orderedIds: string[]) => void
 
   // Flagged symbols
@@ -635,6 +641,7 @@ export const useStore = create<AppState>()(
         return null
       },
       standaloneAlerts: {},
+      watchlistsUpdatedAt: 0,
       reorderWatchlists: (orderedIds) => set((state) => ({
         config: { ...state.config, watchlistOrder: orderedIds }
       })),
@@ -761,6 +768,7 @@ export const useStore = create<AppState>()(
         // Flagged-only price alerts live here now; losing them on reload would
         // be worse than the watchlist-add behaviour they replaced.
         standaloneAlerts: state.standaloneAlerts,
+        watchlistsUpdatedAt: state.watchlistsUpdatedAt,
         hasMigratedSubs: state.hasMigratedSubs,
         favoriteThemes: state.favoriteThemes,
         // clearedSince intentionally NOT persisted — Justin: "they are gone
@@ -844,3 +852,13 @@ export const useStore = create<AppState>()(
     }
   )
 )
+
+// Stamp every local change to the price-alert state. A change that already
+// carries a new stamp came from another window via useCrossWindowSync and keeps
+// that window's stamp.
+useStore.subscribe((state, prev) => {
+  if ((state.watchlists !== prev.watchlists || state.standaloneAlerts !== prev.standaloneAlerts)
+      && state.watchlistsUpdatedAt === prev.watchlistsUpdatedAt) {
+    useStore.setState({ watchlistsUpdatedAt: Math.max(Date.now(), prev.watchlistsUpdatedAt + 1) })
+  }
+})
