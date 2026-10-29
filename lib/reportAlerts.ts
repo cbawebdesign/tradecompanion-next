@@ -46,6 +46,9 @@ export function mapReportAlerts(rows: ReportRow[] | undefined, symbol: string): 
       // base — two bases can legitimately hold the same symbol and title.
       id: `db-report-${r.source || ''}-${r.time || ''}-${symbol}`,
       symbol,
+      // Which base it came from — the ribbon keeps some bases for 90 days and
+      // everything else since the previous close (lib/ribbonAlerts).
+      source: `report:${r.source || ''}`,
       // "SYMBOL: Title" is the shape his bots write and the shape the live
       // handler already uses, so the ticker stays clickable for AHK.
       message: title ? `${symbol}: ${title}` : `${symbol}: ${r.source || 'Report'}`,

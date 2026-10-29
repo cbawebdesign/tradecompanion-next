@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
 import { mapReportAlerts } from '@/lib/reportAlerts'
+import { buildRibbonAlerts } from '@/lib/ribbonAlerts'
 import { formatClockWithDate } from '@/lib/formatTime'
 import { clsx } from 'clsx'
 import { GrokButton } from './GrokButton'
@@ -13,8 +14,6 @@ import { ResizableTh } from './ResizableTh'
 import { PriceAlertInput } from './PriceAlertInput'
 import { fireAhk } from '@/lib/ahk'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
-import { normalizeAlertMessage } from '@/lib/alertDedup'
-import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
 import { parseTvPayload } from '@/lib/tvPayload'
@@ -320,40 +319,13 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     }
   }, [selectedSymbol, config.hubUrl])
 
-  // Merge live + DB alerts. Dedup uses normalized message + minute-resolution
-  // timestamp so TX prefix variants and catalyst price suffixes collapse to a
-  // single entry across live (SignalR) and DB (poll) sources.
-  const liveAlerts = selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : []
-  const mergedDbAlerts = dbAlertsSymbol === selectedSymbol ? dbAlerts : []
-  // Per-symbol dedup: same symbol + same normalized message collapses to one
-  // row regardless of type or timestamp.
-  //
-  // Justin (5/21): hide catalyst-confirmer alerts in this view because
-  // they're a duplicate of the underlying PR (the same headline, but later,
-  // with a `($price)` suffix). Always-newer = always wins dedup, hiding
-  // the actual PR.
-  //
-  // Safety net: if a catalyst is the ONLY signal for this symbol (no
-  // underlying PR / TX / filing in our DB), show it. Otherwise the user
-  // sees nothing despite a real event having happened.
-  const symbolAlertsMerged = [...liveAlerts, ...mergedDbAlerts]
-    // Ambulance-chaser blacklist for the flagged-symbol drill-down pane. Same
-    // leak as Watchlist: these dbAlerts are fetched directly from /AlertsBySymbol
-    // and bypass the store's central addAlert filter. Idempotent for live alerts.
-    .filter(a => !shouldBlacklistAlert(a.type, a.message, config.excludePrPatterns))
-    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  const nonCatalystMessages = new Set(
-    symbolAlertsMerged.filter(a => a.type !== 'catalyst').map(a => normalizeAlertMessage(a.message))
+  // Live + DB alerts for the selected symbol — see lib/ribbonAlerts for the
+  // filtering and dedup rules.
+  const symbolAlerts = buildRibbonAlerts(
+    selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : [],
+    dbAlertsSymbol === selectedSymbol ? dbAlerts : [],
+    { excludePrPatterns: config.excludePrPatterns, sinceMs: new Date(prevMarketCloseISO()).getTime() },
   )
-  const seenKeys = new Set<string>()
-  const symbolAlerts = symbolAlertsMerged
-    .filter(a => a.type !== 'catalyst' || !nonCatalystMessages.has(normalizeAlertMessage(a.message)))
-    .filter(a => {
-      const key = `${a.symbol}|${normalizeAlertMessage(a.message)}`
-      if (seenKeys.has(key)) return false
-      seenKeys.add(key)
-      return true
-    })
 
   const formatTime = (date: Date) => formatClockWithDate(date)
 
@@ -633,7 +605,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                     <tr>
                       <th className="w-20 px-2 py-1 text-left">Time</th>
                       <th className="px-2 py-1 text-left">Message</th>
-                      <th className="w-16 px-2 py-1"></th>
+                      <th className="w-px py-1"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -659,16 +631,18 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                                 openInViewer(alert.url!, popupTitleForAlert(alert))
                               }}
                             >{formatAlertText(alert.message)}</a>
-                          ) : formatAlertText(alert.message)}
+                          ) : (
+                            <span
+                              className="cursor-pointer"
+                              title="Click to copy"
+                              onClick={() => copyToClipboard((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
+                            >{formatAlertText(alert.message)}</span>
+                          )}
                         </td>
-                        <td className="px-2 py-1 text-center whitespace-nowrap">
-                          <button
-                            onClick={() => copyToClipboard((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
-                            className="text-gray-500 hover:text-gray-300 text-xs mr-1"
-                            title="Copy to clipboard"
-                          >
-                            📋
-                          </button>
+                        {/* Justin ("Data Ribbon Touchup"): no clipboard icon — clicking
+                            the message copies it — and give the width to the text.
+                            w-px collapses this cell to nothing on rows with no Grok. */}
+                        <td className="w-px py-1 text-center whitespace-nowrap">
                           {shouldShowGrok(alert) && alert.url && (
                             <GrokButton
                               url={alert.url}
