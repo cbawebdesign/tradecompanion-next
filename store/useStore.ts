@@ -119,6 +119,12 @@ interface AppState {
    * own home fixes the real problem instead of quietly reorganising his lists.
    */
   standaloneAlerts: Record<string, { upperAlert: number | null; lowerAlert: number | null }>
+  /**
+   * When watchlists or standaloneAlerts last changed IN ANY WINDOW (ms). Every
+   * window persists its whole state, so without this an older copy from a
+   * pop-out could overwrite a newer edit — see useCrossWindowSync.
+   */
+  watchlistsUpdatedAt: number
   reorderWatchlists: (orderedIds: string[]) => void
 
   // Flagged symbols
@@ -200,6 +206,10 @@ export const defaultConfig: AppConfig = {
 }
 
 const dedupedLocalStorage = createDedupedStorage(() => localStorage)
+
+// How long a websocket print outranks a REST snapshot price. A thin name that
+// has not printed for longer than this still gets the snapshot's newer price.
+export const LIVE_QUOTE_WINS_MS = 2 * 60 * 1000
 
 export const useStore = create<AppState>()(
   persist(
@@ -438,6 +448,15 @@ export const useStore = create<AppState>()(
           // for every NBBO tick (across 1500+ subs) was saturating the main
           // thread. Last + change* are the only fields that affect render.
           const prev = updated[q.symbol]
+          // Justin (Price Alerts Bug, again): a $4.72 lower alert fired with the
+          // stock over $4.80. The snapshot is up to ~45s old on the server and
+          // lands every 60s, so on a fast mover it was putting a minute-old
+          // price over the live one — TC briefly believed the stock was back at
+          // $4.71. A live print younger than this is always the better price.
+          if (q.snapshot && prev && !prev.seeded && !prev.snapshot
+              && Date.now() - new Date(prev.timestamp).getTime() < LIVE_QUOTE_WINS_MS) {
+            return
+          }
           if (prev
               && prev.last === q.last
               && prev.change === q.change
@@ -445,7 +464,8 @@ export const useStore = create<AppState>()(
               && prev.volume === q.volume
               // A seeded row replaced by a real quote with identical numbers is
               // still a change: it is the difference between "-" and "0.00%".
-              && !!prev.seeded === !!q.seeded) {
+              && !!prev.seeded === !!q.seeded
+              && !!prev.snapshot === !!q.snapshot) {
             return // bid/ask-only drift — skip
           }
           updated[q.symbol] = q
@@ -621,6 +641,7 @@ export const useStore = create<AppState>()(
         return null
       },
       standaloneAlerts: {},
+      watchlistsUpdatedAt: 0,
       reorderWatchlists: (orderedIds) => set((state) => ({
         config: { ...state.config, watchlistOrder: orderedIds }
       })),
@@ -747,6 +768,7 @@ export const useStore = create<AppState>()(
         // Flagged-only price alerts live here now; losing them on reload would
         // be worse than the watchlist-add behaviour they replaced.
         standaloneAlerts: state.standaloneAlerts,
+        watchlistsUpdatedAt: state.watchlistsUpdatedAt,
         hasMigratedSubs: state.hasMigratedSubs,
         favoriteThemes: state.favoriteThemes,
         // clearedSince intentionally NOT persisted — Justin: "they are gone
@@ -830,3 +852,13 @@ export const useStore = create<AppState>()(
     }
   )
 )
+
+// Stamp every local change to the price-alert state. A change that already
+// carries a new stamp came from another window via useCrossWindowSync and keeps
+// that window's stamp.
+useStore.subscribe((state, prev) => {
+  if ((state.watchlists !== prev.watchlists || state.standaloneAlerts !== prev.standaloneAlerts)
+      && state.watchlistsUpdatedAt === prev.watchlistsUpdatedAt) {
+    useStore.setState({ watchlistsUpdatedAt: Math.max(Date.now(), prev.watchlistsUpdatedAt + 1) })
+  }
+})

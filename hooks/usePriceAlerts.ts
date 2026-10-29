@@ -71,6 +71,11 @@ export function evaluatePriceAlerts(state: ReturnType<typeof useStore.getState>)
 
       const quote = state.quotes[item.symbol]
       if (!quote || !quote.last || quote.last <= 0) continue
+      // Only a real print can fire an alert. A seeded row is yesterday's close
+      // and a snapshot row can be a minute old — either one put a stock that
+      // was trading over $4.80 below Justin's $4.72 lower alert. A level the
+      // stock really reaches is crossed by a live print anyway.
+      if (quote.seeded || quote.snapshot) continue
 
       const currentLast = quote.last
 

@@ -109,6 +109,7 @@ export function useQuoteSnapshot() {
             change: q.prevClose > 0 ? q.last - q.prevClose : 0,
             changePercent: q.changePercent ?? 0,
             timestamp: now,
+            snapshot: true,
           }))
 
         if (mapped.length > 0) {

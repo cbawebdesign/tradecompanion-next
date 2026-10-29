@@ -15,6 +15,12 @@ export interface Quote {
    * flat — the table shows "-" for these and a real 0.00% for everything else.
    */
   seeded?: boolean
+  /**
+   * True when this price came from the REST snapshot (useQuoteSnapshot) rather
+   * than a websocket print. The snapshot can be a minute old, so it never
+   * replaces a fresh live price and never fires a price alert.
+   */
+  snapshot?: boolean
 }
 
 // Alert types
