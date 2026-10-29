@@ -610,8 +610,6 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
   }
   if (!data) return null
 
-  const isChina = data.Country?.toLowerCase() === 'china'
-
   return (
     <div>
       {/* Data ribbon.
@@ -633,12 +631,13 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
             which had no backend field to hold it until now. Falls back to the
             ticker alone while a newly-listed symbol is still being filled in,
             so nothing shifts once the name arrives. */}
+        {/* Justin ("Data Ribbon Touchup", 10/27): MVPHS and FVOL removed — both
+            were placeholders that never had data. Country and Exchange are off
+            the ribbon too, but only the rendering: both stay in StockDataItem and
+            in the database ("keep all the information we have on these"), so
+            re-adding them is one renderField line each. China is covered by the
+            China button. */}
         {renderField('Float', 'SharesFloat', formatMillions(data.SharesFloat), data.SharesFloat)}
-        {renderSep()}
-        <span className="inline-flex gap-0.5 items-center">
-          <span style={{ color: 'var(--text-muted)' }}>MVPHS</span>
-          <span className="font-medium" style={{ color: '#00e676' }}>{'\u2014'}</span>
-        </span>
         {renderSep()}
         {renderField('O/S', 'SharesOutstanding', formatMillions(data.SharesOutstanding), data.SharesOutstanding)}
         {renderSep()}
@@ -647,22 +646,12 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
           <span className="font-medium" style={{ color: '#00e676' }}>{formatMillions(data.MarketCap)}</span>
         </span>
         {renderSep()}
-        <span className="inline-flex gap-0.5 items-center">
-          <span style={{ color: 'var(--text-muted)' }}>FVOL</span>
-          <span className="font-medium" style={{ color: '#00e676' }}>{'\u2014'}</span>
-        </span>
-        {renderSep()}
-        {renderField('Country', 'Country', data.Country || '\u2014', data.Country,
-          isChina ? { color: '#f85149', fontWeight: 700 } : undefined)}
-        {renderSep()}
         {renderField('Sector', 'Sector', data.Sector || '\u2014', data.Sector)}
         {renderSep()}
         {renderField('Theme', 'Theme', data.Theme || '\u2014', data.Theme)}
-        {renderSep()}
         {/* Justin (5/21): hide Type from the TC ribbon, keep it editable in
             the Admin Dashboard. The field stays in StockDataItem + on the
             server \u2014 we just don't render it here. */}
-        {renderField('Exchange', 'Exchange', data.Exchange || '\u2014', data.Exchange)}
         {/* The legacy link row that used to sit here \u2014 Dilution, Finviz, X,
             Options, Dividends, Filings, Website, Notes URL, Bookmarks \u2014 is gone
             as of the Data Ribbon Step 2 note: "I'm ready to remove the legacy
