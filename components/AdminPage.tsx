@@ -177,6 +177,69 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
     }
   }, [hubUrl, banText])
 
+  // ── SEC form types skipped for Airtable ─────────────────────────────────
+  //
+  // Justin ("SEC filings filtering for airtable"): banned symbols plus banned
+  // filing types, so only filings that pass both reach the SEC Filings base —
+  // editable here "so I don't have to bug you". The banned symbols above apply
+  // to that base too; this list is the form-type half. Timeline unaffected.
+  const [formText, setFormText] = useState('')
+  const [formLoaded, setFormLoaded] = useState(false)
+  const [formUpdatedAt, setFormUpdatedAt] = useState<string | null>(null)
+  const [formIsDefault, setFormIsDefault] = useState(false)
+  const [formStatus, setFormStatus] = useState<'idle' | 'loading' | 'saving' | 'saved' | 'error'>('idle')
+  const [formMessage, setFormMessage] = useState('')
+
+  // One per line, pipes accepted. Not spaces: "SCHEDULE 13G/A" is one form.
+  const parseForms = (raw: string) =>
+    Array.from(new Set(raw.split(/[|,\r\n]+/).map((f) => f.trim().replace(/\s+/g, ' ').toUpperCase()).filter(Boolean)))
+
+  const loadFormList = useCallback(async () => {
+    if (!hubUrl) return
+    setFormStatus('loading')
+    try {
+      const resp = await fetch(proxyUrl(`${hubUrl}/tcadmin/sec-form-skiplist`), { cache: 'no-store' })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const data = await resp.json()
+      setFormText(parseForms(data.forms ?? '').join('\n'))
+      setFormUpdatedAt(data.updatedAt ?? null)
+      setFormIsDefault(!!data.isDefault)
+      setFormLoaded(true)
+      setFormStatus('idle')
+    } catch (err: any) {
+      setFormStatus('error')
+      setFormMessage(err.message)
+    }
+  }, [hubUrl])
+
+  // Same reason as the banned list: an empty box saved would wipe the filter.
+  useEffect(() => { loadFormList() }, [loadFormList])
+
+  const formCount = parseForms(formText).length
+
+  const saveFormList = useCallback(async () => {
+    if (!hubUrl) return
+    setFormStatus('saving')
+    try {
+      const resp = await fetch(proxyUrl(`${hubUrl}/tcadmin/sec-form-skiplist`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ forms: parseForms(formText).join('|') }),
+      })
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+      const data = await resp.json()
+      setFormText(parseForms(data.forms ?? '').join('\n'))
+      setFormUpdatedAt(data.updatedAt ?? null)
+      setFormIsDefault(false)
+      setFormStatus('saved')
+      setFormMessage(`${data.count} form type${data.count === 1 ? '' : 's'} skipped`)
+      setTimeout(() => setFormStatus('idle'), 3000)
+    } catch (err: any) {
+      setFormStatus('error')
+      setFormMessage(err.message)
+    }
+  }, [hubUrl, formText])
+
   const formatNum = (val: number | null | undefined) => {
     if (val == null) return '\u2014'
     if (val >= 1000) return (val / 1000).toFixed(1) + 'B'
@@ -311,8 +374,8 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
           </div>
           <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
             One ticker per line. The 40% Scan drops these before they reach the timeline
-            and before the row is written to Airtable, so a banned symbol never lands
-            anywhere. Takes effect on the next scan, within about a minute — no restart.
+            and before the row is written to Airtable, and they are kept out of the Press
+            Releases and SEC Filings Airtable bases too. Takes effect on the next scan, within about a minute — no restart.
           </p>
           <textarea
             value={banText}
@@ -362,6 +425,55 @@ export function AdminPage({ showRollback = true }: AdminPageProps = {}) {
           <p className="text-xs mt-3" style={{ color: 'var(--text-muted)' }}>
             To hide <em>every</em> alert type for these tickers — filings, PRs, news —
             and not just the scanner, turn on &quot;Hide blocked symbols&quot; in Settings.
+          </p>
+        </section>
+
+        {/* SEC form types skipped for Airtable */}
+        <section className="glass-panel rounded-lg p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg font-semibold" style={{ color: 'var(--text-secondary)' }}>SEC Filings → Airtable: Skip Form Types</h3>
+            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              {formLoaded ? `${formCount} form type${formCount === 1 ? '' : 's'}` : 'loading…'}
+            </span>
+          </div>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+            One form type per line, exact match (&quot;4&quot; does not cover &quot;4/A&quot;).
+            Filings of these types — and any filing for a Banned Symbol — are not written
+            to the SEC Filings Airtable base. The timeline is not affected. Takes effect
+            within about 15 seconds — no restart.
+          </p>
+          <textarea
+            value={formText}
+            onChange={(e) => setFormText(e.target.value.toUpperCase())}
+            spellCheck={false}
+            rows={10}
+            placeholder={'4\n4/A\nSCHEDULE 13G/A'}
+            className="w-full font-mono text-sm"
+            style={{ resize: 'vertical' }}
+          />
+          <div className="flex items-center gap-2 mt-3">
+            <button
+              onClick={saveFormList}
+              disabled={!formLoaded || formStatus === 'saving' || formStatus === 'loading'}
+              className="btn btn-primary"
+            >
+              {formStatus === 'saving' ? 'Saving...' : 'Save Form Types'}
+            </button>
+            <button
+              onClick={loadFormList}
+              disabled={formStatus === 'saving' || formStatus === 'loading'}
+              className="btn"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              Reload
+            </button>
+            {formStatus === 'saved' && <span className="text-xs text-green-400">{formMessage}</span>}
+            {formStatus === 'error' && <span className="text-xs text-red-400">Error: {formMessage}</span>}
+          </div>
+          <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>
+            {formIsDefault
+              ? 'Showing the list you sent — live now. Edit and save to change it.'
+              : formUpdatedAt ? `Last saved: ${new Date(formUpdatedAt).toLocaleString()}` : ''}
           </p>
         </section>
 
