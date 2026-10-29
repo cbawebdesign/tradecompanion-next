@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useStore } from '@/store/useStore'
+import { useStore, LIVE_QUOTE_WINS_MS } from '@/store/useStore'
 import { evaluatePriceAlerts, CLEAR_AFTER_MS } from '@/hooks/usePriceAlerts'
 import { createDedupedStorage } from '@/lib/dedupedStorage'
 import type { StateStorage } from 'zustand/middleware'
@@ -26,7 +26,7 @@ function setUpper(value: number | null) {
   useStore.getState().setPriceAlertEverywhere(SYM, 'upperAlert', value)
 }
 function tick(last: number) {
-  useStore.setState({ quotes: { [SYM]: { symbol: SYM, last } as any } })
+  useStore.setState({ quotes: { [SYM]: { symbol: SYM, last, timestamp: new Date() } as any } })
   evaluatePriceAlerts(useStore.getState())
 }
 const upper = () => useStore.getState().watchlists[0].symbols[0].upperAlert
@@ -41,6 +41,7 @@ beforeEach(() => {
     triggeredPriceAlerts: new Set(),
     alerts: [],
     quotes: {},
+    prevCloses: {},
     clearedSince: null,
   } as any)
 })
@@ -143,6 +144,53 @@ describe('price alert flash', () => {
     vi.advanceTimersByTime(CLEAR_AFTER_MS)
     expect(useStore.getState().standaloneAlerts[SYM]).toBeUndefined()
     expect(flashing(150.2)).toBe(false)
+  })
+})
+
+describe('stale prices never fire an alert', () => {
+  // Justin, after v2.8.59: still firing a $4.72 lower alert with the stock over
+  // $4.80. The REST snapshot (up to a minute old) was overwriting the live price.
+  const lowerFlashing = (p: number) => useStore.getState().triggeredPriceAlerts.has(`lower-${SYM}-${p}`)
+  const snapshotTick = (last: number) => {
+    useStore.getState().updateQuotes([{ symbol: SYM, bid: 0, ask: 0, last, volume: 0, change: 0, changePercent: 0, timestamp: new Date(), snapshot: true }])
+    evaluatePriceAlerts(useStore.getState())
+  }
+  const liveTick = (last: number) => {
+    useStore.getState().updateQuotes([{ symbol: SYM, bid: 0, ask: 0, last, volume: 0, change: 0, changePercent: 0, timestamp: new Date() }])
+    evaluatePriceAlerts(useStore.getState())
+  }
+
+  it('a minute-old snapshot does not overwrite a fresh live price', () => {
+    liveTick(4.85)
+    snapshotTick(4.71)
+    expect(useStore.getState().quotes[SYM].last).toBe(4.85)
+  })
+
+  it('a snapshot below the level does not fire it', () => {
+    useStore.getState().setPriceAlertEverywhere(SYM, 'lowerAlert', 4.72)
+    snapshotTick(4.71)
+    expect(lowerFlashing(4.72)).toBe(false)
+    expect(priceAlerts()).toHaveLength(0)
+  })
+
+  it("yesterday's close standing in for a quote does not fire it", () => {
+    useStore.getState().setPriceAlertEverywhere(SYM, 'lowerAlert', 4.72)
+    useStore.getState().updateQuotes([{ symbol: SYM, bid: 0, ask: 0, last: 4.5, volume: 0, change: 0, changePercent: 0, timestamp: new Date(), seeded: true }])
+    evaluatePriceAlerts(useStore.getState())
+    expect(lowerFlashing(4.72)).toBe(false)
+  })
+
+  it('a live print through the level still fires', () => {
+    useStore.getState().setPriceAlertEverywhere(SYM, 'lowerAlert', 4.72)
+    liveTick(4.85)
+    liveTick(4.71)
+    expect(lowerFlashing(4.72)).toBe(true)
+  })
+
+  it('a thin name with no print for over 2 minutes takes the snapshot price', () => {
+    useStore.setState({ quotes: { [SYM]: { symbol: SYM, last: 4.85, timestamp: new Date(Date.now() - LIVE_QUOTE_WINS_MS - 1000) } as any } })
+    snapshotTick(4.9)
+    expect(useStore.getState().quotes[SYM].last).toBe(4.9)
   })
 })
 
