@@ -25,7 +25,7 @@ is guilty until proven innocent.
 
 ## Where things are
 
-    app/page.tsx      tab shell — 1 Alerts, 2 Watchlist, 3 Scanner, 4 Themes, 5 Settings
+    app/page.tsx      tab shell — 1 Alerts, 2 Watchlist, 5 Settings, 6 Status (3 Scanner / 4 Themes hidden)
     app/api/          server-side routes (keeps API keys off the client)
     app/pop/          pop-out windows, synced via BroadcastChannel
     components/       all UI, one file per surface

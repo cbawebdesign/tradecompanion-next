@@ -9,7 +9,6 @@ import { clsx } from 'clsx'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
-import { GrokButton } from './GrokButton'
 import { SymbolContextMenu } from './SymbolContextMenu'
 import { PopOutButton } from './PopOutButton'
 import { StockDataRibbon, useCompanyName, ChinaScoreBadge } from './StockDataRibbon'
@@ -23,13 +22,6 @@ import { clipboardTextForAlert, popupTitleForAlert } from '@/lib/alertClipboard'
 import { prevMarketCloseISO } from '@/lib/marketCalendar'
 import { WatchlistSubscriptionsModal } from './WatchlistSubscriptionsModal'
 import type { Alert } from '@/types'
-
-// Check if alert should show Grok button (filings/PRs with URL)
-const shouldShowGrok = (alert: Alert): boolean => {
-  if (!alert.url) return false
-  const type = alert.type.toLowerCase()
-  return type === 'filing' || type.includes('pr') || type.includes('filing')
-}
 
 // Module-level cache for AlertsBySymbol results — survives remounts
 const dbAlertsCache: Record<string, Alert[]> = {}
@@ -872,7 +864,6 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                     <tr>
                       <th className="w-20 px-2 py-1 text-left">Time</th>
                       <th className="px-2 py-1 text-left">Message</th>
-                      <th className="w-px py-1"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -904,20 +895,6 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
                               title="Click to copy"
                               onClick={() => copyToClipboard((alert.message || '').replace(/^Catalyst PR\s*/i, ''))}
                             >{formatAlertText(alert.message)}</span>
-                          )}
-                        </td>
-                        {/* Justin ("Data Ribbon Touchup"): no clipboard icon — clicking
-                            the message copies it — and give the width to the text.
-                            w-px collapses this cell to nothing on rows with no Grok. */}
-                        <td className="w-px py-1 text-center whitespace-nowrap">
-                          {shouldShowGrok(alert) && alert.url && (
-                            <GrokButton
-                              url={alert.url}
-                              symbol={alert.symbol}
-                              alertType={alert.type}
-                              alertText={alert.message}
-                              displayMode="modal"
-                            />
                           )}
                         </td>
                       </tr>
