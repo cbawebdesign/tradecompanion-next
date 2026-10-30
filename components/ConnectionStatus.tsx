@@ -14,14 +14,18 @@ export function ConnectionStatus() {
   }
 
   const { color, textClass, text } = statusConfig[connectionState]
+  // Header space is tight (Justin, "UI"): a green dot says enough when all is
+  // well. Any other state still spells itself out — that is the one you need
+  // to notice.
+  const showText = connectionState !== 'connected'
 
   return (
-    <div className="flex items-center gap-2 text-xs">
+    <div className="flex items-center gap-2 text-xs" title={text}>
       <span
         className={clsx('w-2 h-2 rounded-full', color)}
         style={{ boxShadow: connectionState === 'connected' ? '0 0 8px rgba(34, 197, 94, 0.6)' : connectionState === 'disconnected' ? '0 0 8px rgba(239, 68, 68, 0.6)' : '0 0 8px rgba(234, 179, 8, 0.6)' }}
       />
-      <span className={textClass}>{text}</span>
+      {showText && <span className={textClass}>{text}</span>}
     </div>
   )
 }

@@ -4,8 +4,6 @@ import { useStore } from '@/store/useStore'
 import { AlertBar } from '@/components/AlertBar'
 import { Watchlist } from '@/components/Watchlist'
 import { AlertsPage } from '@/components/AlertsPage'
-import { ScannerPage } from '@/components/ScannerPage'
-import { ThemesPage } from '@/components/ThemesPage'
 import { SettingsPage } from '@/components/SettingsPage'
 import { AdminPage } from '@/components/AdminPage'
 import { ConnectionStatus } from '@/components/ConnectionStatus'
@@ -14,11 +12,17 @@ import { AlertMascot } from '@/components/AlertMascot'
 import { LinkViewer } from '@/components/ReportPopup'
 import { clsx } from 'clsx'
 
+// Justin ("UI", 10/30): drop Scanner (3) and Themes (4) — not in use, may come
+// back later (ScannerPage / ThemesPage are kept) — and make the bar as narrow
+// and uncluttered as possible. Tab ids are unchanged so the store and AlertBar
+// (which jumps to 2) keep working.
 const TABS = [
   { id: 1, label: 'Alerts', icon: '🔔' },
   { id: 2, label: 'Watchlist', icon: '📋' },
-  { id: 3, label: 'Scanner', icon: '📊' },
-  { id: 4, label: 'Themes', icon: '🚀' },
+]
+
+// Settings and Status are used rarely, so they are icon-only at the far right.
+const UTILITY_TABS = [
   { id: 5, label: 'Settings', icon: '⚙️' },
   // Diagnostics. AdminPage was fully built — per-service health, last message
   // times, rollback — and imported by nothing, so it was unreachable. Wiring it
@@ -39,24 +43,19 @@ export default function Home() {
     <div className="flex flex-col h-screen" style={{ background: 'var(--bg-base)' }}>
       {/* Header */}
       <header
-        className="flex items-center justify-between px-4 py-2 glass-header"
+        className="flex items-center gap-3 h-8 px-3 flex-shrink-0 whitespace-nowrap glass-header"
         onClick={handleHeaderClick}
       >
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-bold" style={{ color: 'var(--accent-primary)' }}>Trade Companion</h1>
-          <ConnectionStatus />
-        </div>
+        <h1 className="text-sm font-bold" style={{ color: 'var(--accent-primary)' }}>Trade Companion</h1>
+        <ConnectionStatus />
 
         {/* Tabs */}
-        <nav className="flex gap-1">
+        <nav className="flex h-full">
           {TABS.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={clsx(
-                'tab',
-                activeTab === tab.id && 'active'
-              )}
+              className={clsx('tab tab-compact', activeTab === tab.id && 'active')}
             >
               <span className="mr-1">{tab.icon}</span>
               {tab.label}
@@ -64,14 +63,25 @@ export default function Home() {
           ))}
         </nav>
 
+        <nav className="flex h-full ml-auto">
+          {UTILITY_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={clsx('tab tab-compact', activeTab === tab.id && 'active')}
+              title={tab.label}
+              aria-label={tab.label}
+            >
+              {tab.icon}
+            </button>
+          ))}
+        </nav>
       </header>
 
       {/* Main Content */}
       <main className="flex-1 overflow-hidden">
         {activeTab === 1 && <AlertsPage />}
         {activeTab === 2 && <Watchlist />}
-        {activeTab === 3 && <ScannerPage />}
-        {activeTab === 4 && <ThemesPage />}
         {activeTab === 5 && <SettingsPage />}
         {activeTab === 6 && <AdminPage showRollback={false} />}
       </main>

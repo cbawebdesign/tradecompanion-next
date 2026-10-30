@@ -8,7 +8,6 @@ import { PriceAlertInput } from './PriceAlertInput'
 import { isTradeableSymbol } from '@/lib/reportSymbol'
 import { clsx } from 'clsx'
 import type { Alert } from '@/types'
-import { GrokButton } from './GrokButton'
 import { PopOutButton } from './PopOutButton'
 import { fireAhk } from '@/lib/ahk'
 import { isRealSymbol } from '@/lib/popupBridge'
@@ -17,13 +16,6 @@ import { clipboardTextForAlert, popupTitleForAlert } from '@/lib/alertClipboard'
 import { formatAlertText } from '@/lib/formatAlertText'
 import { alertDisplayColor } from '@/lib/alertTypeColor'
 import { openInViewer } from '@/lib/linkViewer'
-
-// Check if alert should show Grok button (any alert with a URL worth summarizing)
-const shouldShowGrok = (alert: Alert): boolean => {
-  if (!alert.url) return false
-  const type = alert.type.toLowerCase()
-  return type === 'filing' || type === 'news' || type === 'catalyst' || type === 'tweet'
-}
 
 // Treat as a real ticker for the purposes of AHK / Add-to-Watchlist / Flag.
 // RSS/YT/SUB/MAIL/NEWS rows carry these placeholders so the action would
@@ -404,7 +396,6 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                   message itself. */}
               <th className="w-8 px-2 py-1"></th>
               <th className="px-2 py-1 text-left">Alert</th>
-              <th className="w-8 px-2 py-1">AI</th>
             </tr>
           </thead>
           <tbody>
@@ -509,17 +500,6 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
                         </span>
                       )
                     })()}
-                  </td>
-                  <td className="px-2 py-1 text-center">
-                    {shouldShowGrok(alert) && alert.url && (
-                      <GrokButton
-                        url={alert.url}
-                        symbol={alert.symbol}
-                        alertType={alert.type}
-                        alertText={alert.message}
-                        displayMode="modal"
-                      />
-                    )}
                   </td>
                 </tr>
               )

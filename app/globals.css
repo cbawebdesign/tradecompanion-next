@@ -321,6 +321,10 @@ tr.selected {
   background: rgba(255, 255, 255, 0.03);
 }
 
+.tab-compact {
+  @apply flex items-center px-3 py-0 text-xs;
+}
+
 .tab.active {
   color: var(--accent-primary);
   border-color: var(--accent-primary);
