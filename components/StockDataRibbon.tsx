@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useReducer } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { WatchlistChips } from './WatchlistChips'
+import { ThemePills } from './ThemePills'
 import { openInViewer } from '@/lib/linkViewer'
 
 interface StockDataItem {
@@ -646,9 +647,10 @@ export function StockDataRibbon({ symbol }: { symbol: string | null }) {
           <span className="font-medium" style={{ color: '#00e676' }}>{formatMillions(data.MarketCap)}</span>
         </span>
         {renderSep()}
-        {renderField('Sector', 'Sector', data.Sector || '\u2014', data.Sector)}
-        {renderSep()}
-        {renderField('Theme', 'Theme', data.Theme || '\u2014', data.Theme)}
+        {/* Meeting 10/31: the manual Sector / Theme fields are replaced by pills
+            from Justin's Theme Tracker in Airtable. Sector and Theme stay in
+            StockDataItem and the database; only the rendering is gone. */}
+        <ThemePills symbol={data.Ticker || symbol} />
         {/* Justin (5/21): hide Type from the TC ribbon, keep it editable in
             the Admin Dashboard. The field stays in StockDataItem + on the
             server \u2014 we just don't render it here. */}
