@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildRibbonAlerts } from '@/lib/ribbonAlerts'
+import { buildRibbonAlerts, ribbonHistorySinceISO, RIBBON_HISTORY_DAYS } from '@/lib/ribbonAlerts'
 import type { Alert } from '@/types'
 
 /**
@@ -82,5 +82,49 @@ describe('catalyst rule unchanged', () => {
     const pr = a({ type: 'news', message: 'Davion Healthcare Announces Acquisition', timestamp: today('07:30:00') })
     const cat = a({ type: 'catalyst', message: 'Davion Healthcare Announces Acquisition ($4.10)', timestamp: today('07:30:06') })
     expect(build([], [pr, cat])).toEqual(['Davion Healthcare Announces Acquisition'])
+  })
+})
+
+describe('90-day history for press releases and SEC filings (meeting 10/31)', () => {
+  const NOW = new Date('2026-10-29T15:00:00Z').getTime()
+  const HISTORY = new Date(ribbonHistorySinceISO(NOW)).getTime()
+  const daysAgo = (d: number) => new Date(NOW - d * 24 * 60 * 60 * 1000)
+  const run = (db: Alert[]) =>
+    buildRibbonAlerts([], db, { sinceMs: PREV_CLOSE, historySinceMs: HISTORY }).map(x => x.message)
+
+  it('keeps a filing and a press release from 60 days ago', () => {
+    expect(run([
+      a({ type: 'filing', message: '8-K - Davion Inc', timestamp: daysAgo(60) }),
+      a({ type: 'catalyst', message: 'Davion announces Q3 results', timestamp: daysAgo(60) }),
+    ])).toEqual(['8-K - Davion Inc', 'Davion announces Q3 results'])
+  })
+
+  it('keeps a live news PR from last week', () => {
+    expect(run([a({ type: 'news', message: 'Davion wins contract', timestamp: daysAgo(7) })])).toEqual(['Davion wins contract'])
+  })
+
+  it('drops PRs and filings older than 90 days', () => {
+    expect(run([
+      a({ type: 'filing', message: 'old 10-K', timestamp: daysAgo(91) }),
+      a({ type: 'catalyst', message: 'old PR', timestamp: daysAgo(120) }),
+    ])).toEqual([])
+  })
+
+  it('Trade Exchange, TradingView and X stay at the previous close', () => {
+    expect(run([
+      a({ type: 'trade_exchange', message: '[TX] old note', timestamp: daysAgo(3) }),
+      a({ type: 'tradingview', message: 'Clear Out Volume', timestamp: daysAgo(3) }),
+      a({ type: 'tweet', message: '@someone: DAVI', timestamp: daysAgo(3) }),
+      a({ type: 'trade_exchange', message: '[TX] today', timestamp: today('09:31:00') }),
+    ])).toEqual(['[TX] today'])
+  })
+
+  it('without historySinceMs nothing changes (previous close for everything)', () => {
+    const old = a({ type: 'filing', message: '8-K - Davion Inc', timestamp: daysAgo(10) })
+    expect(buildRibbonAlerts([], [old], { sinceMs: PREV_CLOSE }).map(x => x.message)).toEqual([])
+  })
+
+  it('the fetch window starts exactly 90 days back', () => {
+    expect(NOW - HISTORY).toBe(RIBBON_HISTORY_DAYS * 24 * 60 * 60 * 1000)
   })
 })

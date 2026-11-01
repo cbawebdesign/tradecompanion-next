@@ -21,6 +21,24 @@ import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
  */
 export const NINETY_DAY_REPORT_BASES = new Set(['Press Release Summaries', 'IPO Reports'])
 
+/**
+ * Press releases and SEC filings stay in the ribbon for 90 days; Trade
+ * Exchange, TradingView and X stay at the previous close.
+ *
+ * Justin (meeting 10/31): a fresh boot once showed 90-100 days of PRs and
+ * filings, which "proved extremely helpful" — make that the rule for those two,
+ * "while trade exchange and trading view web hooks should remain restricted to
+ * data since the previous close". DB press releases arrive as `catalyst`; live
+ * ones as `news` or `catalyst`.
+ */
+export const RIBBON_HISTORY_DAYS = 90
+export const HISTORY_TYPES = new Set<Alert['type']>(['filing', 'catalyst', 'news'])
+
+/** `since` for the ribbon's /AlertsBySymbol fetch: the 90-day window start. */
+export function ribbonHistorySinceISO(now: number = Date.now()): string {
+  return new Date(now - RIBBON_HISTORY_DAYS * 24 * 60 * 60 * 1000).toISOString()
+}
+
 /** Two copies of one TradingView alert (live + stored) are this close in time. */
 export const TV_SAME_ALERT_MS = 2000
 
@@ -51,9 +69,10 @@ export function storyKey(a: Pick<Alert, 'message' | 'symbol'>): string {
 export function buildRibbonAlerts(
   live: Alert[],
   db: Alert[],
-  opts: { excludePrPatterns?: string; sinceMs: number },
+  opts: { excludePrPatterns?: string; sinceMs: number; historySinceMs?: number },
 ): Alert[] {
   const ts = (a: Alert) => new Date(a.timestamp).getTime()
+  const historySinceMs = opts.historySinceMs ?? opts.sinceMs
 
   const merged = [...live, ...db]
     // Ambulance-chaser blacklist. DB rows come straight from /AlertsBySymbol and
@@ -61,8 +80,11 @@ export function buildRibbonAlerts(
     // catalyst/filing PRs would still show here (the "$CAPR data ribbon" leak).
     // Idempotent for live alerts, which were filtered upstream.
     .filter(a => !shouldBlacklistAlert(a.type, a.message, opts.excludePrPatterns))
-    // Since the previous close, except the two 90-day bases (bounded server-side).
-    .filter(a => ts(a) >= opts.sinceMs || NINETY_DAY_REPORT_BASES.has(reportBase(a) ?? ''))
+    // Since the previous close, except the two 90-day bases (bounded server-side)
+    // and PRs / filings, which keep the 90-day history window.
+    .filter(a => ts(a) >= opts.sinceMs
+      || NINETY_DAY_REPORT_BASES.has(reportBase(a) ?? '')
+      || (HISTORY_TYPES.has(a.type) && ts(a) >= historySinceMs))
     .sort((a, b) => ts(b) - ts(a))
 
   // A report that repeats another alert's story loses to it. Justin (DAVI): "I

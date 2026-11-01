@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { useStore } from '@/store/useStore'
 import { mapReportAlerts } from '@/lib/reportAlerts'
-import { buildRibbonAlerts } from '@/lib/ribbonAlerts'
+import { buildRibbonAlerts, ribbonHistorySinceISO } from '@/lib/ribbonAlerts'
 import { formatClockWithDate } from '@/lib/formatTime'
 import { clsx } from 'clsx'
 import { proxyUrl } from '@/lib/proxyUrl'
@@ -44,9 +44,9 @@ async function prefetchRibbon(symbols: string[], baseUrl: string, _userKey: stri
     batch.forEach(s => prefetchInFlight.add(s.toUpperCase()))
     await Promise.all(batch.map(async (sym) => {
       try {
-        // Unfiltered per-symbol view, since prev market close — see notes in
-        // AlertsPage fetch + lib/marketCalendar.
-        const url = `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(sym)}&since=${encodeURIComponent(prevMarketCloseISO())}`
+        // Unfiltered per-symbol view. Fetched for the 90-day PR / filing window;
+        // buildRibbonAlerts keeps everything else to the previous close.
+        const url = `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(sym)}&since=${encodeURIComponent(ribbonHistorySinceISO())}`
         const r = await fetch(proxyUrl(url))
         if (!r.ok) return
         const data = await r.json()
@@ -227,10 +227,11 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
 
     // Drill-down view is unfiltered: every filing for the selected symbol,
     // including forms globally excluded from the timeline. Server skips the
-    // ExcludeFilings filter when no userKey is passed. since=prev market
-    // close so after-close events from the prior trading day still appear.
+    // ExcludeFilings filter when no userKey is passed. since = 90 days back for
+    // the PR / filing history; buildRibbonAlerts holds the other sources to the
+    // previous close.
     fetch(proxyUrl(
-      `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}&since=${encodeURIComponent(prevMarketCloseISO())}`
+      `${baseUrl}/api/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}&since=${encodeURIComponent(ribbonHistorySinceISO())}`
     ), { signal: controller.signal })
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -289,7 +290,7 @@ export function Watchlist({ isPopout = false }: WatchlistProps) {
   const symbolAlerts = buildRibbonAlerts(
     selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : [],
     dbAlertsSymbol === selectedSymbol ? dbAlerts : [],
-    { excludePrPatterns: config.excludePrPatterns, sinceMs: new Date(prevMarketCloseISO()).getTime() },
+    { excludePrPatterns: config.excludePrPatterns, sinceMs: new Date(prevMarketCloseISO()).getTime(), historySinceMs: new Date(ribbonHistorySinceISO()).getTime() },
   )
 
   const handleAddSymbol = useCallback((e: React.FormEvent) => {
