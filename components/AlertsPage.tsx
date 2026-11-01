@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
 import { mapReportAlerts } from '@/lib/reportAlerts'
-import { buildRibbonAlerts } from '@/lib/ribbonAlerts'
+import { buildRibbonAlerts, ribbonHistorySinceISO } from '@/lib/ribbonAlerts'
 import { formatClockWithDate } from '@/lib/formatTime'
 import { clsx } from 'clsx'
 import { PopOutButton } from './PopOutButton'
@@ -241,9 +241,10 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
     // Drill-down view is unfiltered: Justin wants to see every filing for a
     // selected symbol (including Form 4 etc. that he's globally excluded from
     // the timeline). Dropping userKey makes the server skip ExcludeFilings.
-    // Force since=prev market close so after-close PRs/filings from the
-    // prior trading day still show up — server default is midnight ET today.
-    const since = encodeURIComponent(prevMarketCloseISO())
+    // since = 90 days back for the PR / filing history (server default is
+    // midnight ET today); buildRibbonAlerts holds the other sources to the
+    // previous close.
+    const since = encodeURIComponent(ribbonHistorySinceISO())
     fetch(
       `${config.hubUrl}/AlertsBySymbol?symbol=${encodeURIComponent(selectedSymbol)}&since=${since}`,
       { signal: controller.signal }
@@ -316,7 +317,7 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
   const symbolAlerts = buildRibbonAlerts(
     selectedSymbol ? alerts.filter(a => a.symbol === selectedSymbol) : [],
     dbAlertsSymbol === selectedSymbol ? dbAlerts : [],
-    { excludePrPatterns: config.excludePrPatterns, sinceMs: new Date(prevMarketCloseISO()).getTime() },
+    { excludePrPatterns: config.excludePrPatterns, sinceMs: new Date(prevMarketCloseISO()).getTime(), historySinceMs: new Date(ribbonHistorySinceISO()).getTime() },
   )
 
   const formatTime = (date: Date) => formatClockWithDate(date)
