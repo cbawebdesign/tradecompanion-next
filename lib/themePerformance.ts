@@ -52,7 +52,9 @@ export async function fetchSymbolThemes(hubUrl: string, symbol: string, signal?:
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   const data = await r.json()
   const themes: SymbolTheme[] = Array.isArray(data?.themes) ? data.themes : []
-  symbolThemesCache.set(key, { at: Date.now(), themes })
+  // An empty answer is not cached: right after a server restart it can be a
+  // blip, and caching it would show "No themes" for 5 minutes.
+  if (themes.length > 0) symbolThemesCache.set(key, { at: Date.now(), themes })
   return themes
 }
 
