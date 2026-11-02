@@ -20,7 +20,7 @@ import {
  * a flag + add-to-watchlist on every row with AHK on the ticker — the look of
  * his TickerText files ([+][flag] TICKER, gold ticker, "Sent X to chart").
  */
-export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => void }) {
+export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; focusSymbol?: string; onClose: () => void }) {
   const hubUrl = useStore(s => s.config.hubUrl)
   const ahkEnabled = useStore(s => s.config.ahkEnabled)
   const ahkUrl = useStore(s => s.config.ahkUrl)
@@ -37,6 +37,7 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
   const [toast, setToast] = useState('')
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
+  const focusRow = useRef<HTMLTableRowElement>(null)
 
   useEffect(() => {
     const ctrl = new AbortController()
@@ -45,12 +46,16 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
       .then(({ asOfUtc, theme: t }) => {
         setAsOf(asOfUtc)
         setDetail(t)
+        // The stock whose pill was clicked must be on screen. Justin (NAUT, 11/1)
+        // couldn't find it — it is a small cap, so it sat under the closed arrow.
+        const focus = focusSymbol?.toUpperCase()
+        if (focus && t?.members.some(m => m.symbol === focus && m.cap === 'small')) setSmallOpen(true)
         if (!t) setError('No stocks are tagged with this theme in the Theme Tracker.')
       })
       .catch(err => { if (err?.name !== 'AbortError') setError('Could not load theme performance.') })
       .finally(() => setLoading(false))
     return () => ctrl.abort()
-  }, [hubUrl, theme])
+  }, [hubUrl, theme, focusSymbol])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -63,6 +68,11 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
   }, [ctxMenu, onClose])
 
   useEffect(() => () => clearTimeout(toastTimer.current), [])
+
+  // Bring the focused stock into view once its section is rendered.
+  useEffect(() => {
+    focusRow.current?.scrollIntoView({ block: 'center' })
+  }, [detail, smallOpen])
 
   const { large, small } = useMemo(() => {
     const split = splitByCap(detail?.members ?? [])
@@ -99,7 +109,9 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
   const row = (m: ThemeMember) => {
     const flagged = flaggedSymbols.has(m.symbol)
     return (
-      <tr key={m.symbol} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-glass)' }}
+      <tr key={m.symbol} ref={m.symbol === focusSymbol?.toUpperCase() ? focusRow : undefined}
+        className="border-b hover:bg-white/[0.03]"
+        style={{ borderColor: 'var(--border-glass)', ...(m.symbol === focusSymbol?.toUpperCase() ? { background: 'var(--accent-glow)' } : {}) }}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, symbol: m.symbol }) }}>
         <td className="w-px pl-3 pr-3 py-1 whitespace-nowrap">
           <span className="inline-flex items-center gap-1.5">
