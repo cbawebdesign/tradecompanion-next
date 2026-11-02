@@ -40,10 +40,12 @@ export interface SymbolTheme {
   today?: number | null
 }
 
-const SYMBOL_THEMES_TTL_MS = 5 * 60 * 1000
+// 1 min, matching the worker's Airtable refresh. Justin (11/1): edits took
+// ~5 min to show; with both caches at 5 min it could be nearer 10.
+const SYMBOL_THEMES_TTL_MS = 60 * 1000
 const symbolThemesCache = new Map<string, { at: number; themes: SymbolTheme[] }>()
 
-/** The ribbon pills for one symbol. Cached 5 min (the worker's Airtable cache). */
+/** The ribbon pills for one symbol. Cached 1 min (the worker's Airtable refresh). */
 export async function fetchSymbolThemes(hubUrl: string, symbol: string, signal?: AbortSignal): Promise<SymbolTheme[]> {
   const key = symbol.toUpperCase()
   const hit = symbolThemesCache.get(key)
