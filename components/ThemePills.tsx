@@ -27,7 +27,7 @@ export function ThemePills({ symbol }: { symbol: string }) {
 
   // The popup renders whatever state the pills are in, so a reload of the pills
   // (the ribbon switching symbol) can never close it.
-  const popup = open && <ThemePopup theme={open} onClose={() => setOpen(null)} />
+  const popup = open && <ThemePopup theme={open} focusSymbol={symbol} onClose={() => setOpen(null)} />
 
   if (themes === null) return <>{popup}</>
   if (themes.length === 0) {
