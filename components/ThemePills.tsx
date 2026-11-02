@@ -25,9 +25,13 @@ export function ThemePills({ symbol }: { symbol: string }) {
     return () => ctrl.abort()
   }, [hubUrl, symbol])
 
-  if (themes === null) return null
+  // The popup renders whatever state the pills are in, so a reload of the pills
+  // (the ribbon switching symbol) can never close it.
+  const popup = open && <ThemePopup theme={open} onClose={() => setOpen(null)} />
+
+  if (themes === null) return <>{popup}</>
   if (themes.length === 0) {
-    return <span style={{ color: 'var(--text-muted)' }} title="Not tagged in the Theme Tracker">No themes</span>
+    return <><span style={{ color: 'var(--text-muted)' }} title="Not tagged in the Theme Tracker">No themes</span>{popup}</>
   }
 
   return (
@@ -45,7 +49,7 @@ export function ThemePills({ symbol }: { symbol: string }) {
           </button>
         )
       })}
-      {open && <ThemePopup theme={open} onClose={() => setOpen(null)} />}
+      {popup}
     </>
   )
 }

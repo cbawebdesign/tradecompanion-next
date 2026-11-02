@@ -26,7 +26,6 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
   const ahkUrl = useStore(s => s.config.ahkUrl)
   const flaggedSymbols = useStore(s => s.flaggedSymbols)
   const toggleFlag = useStore(s => s.toggleFlag)
-  const setSelectedSymbol = useStore(s => s.setSelectedSymbol)
 
   const [detail, setDetail] = useState<ThemeDetail | null>(null)
   const [asOf, setAsOf] = useState<string | undefined>()
@@ -75,17 +74,24 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
     else { setSortKey(key); setSortDesc(true) }
   }
 
-  // Ticker click: same as the timeline — select it (ribbon follows) and fire AHK.
+  // Ticker click sends it to the chart and nothing else. It used to select the
+  // symbol too, which swapped the ribbon behind the popup — and the pills that
+  // own this popup reload with the ribbon, so it closed. Justin (11/1): "When I
+  // click the symbol to activate AHK, the pop up automatically closes."
+  const flash = (text: string) => {
+    setToast(text)
+    clearTimeout(toastTimer.current)
+    toastTimer.current = setTimeout(() => setToast(''), 1200)
+  }
   const sendToChart = useCallback((sym: string) => {
-    setSelectedSymbol(sym)
-    if (!ahkEnabled || !ahkUrl) return
-    fireAhk(sym, ahkUrl).then(ok => {
-      if (!ok) return
-      setToast(`Sent ${sym} to chart`)
-      clearTimeout(toastTimer.current)
-      toastTimer.current = setTimeout(() => setToast(''), 1200)
-    })
-  }, [ahkEnabled, ahkUrl, setSelectedSymbol])
+    if (!ahkEnabled || !ahkUrl) {
+      copyToClipboard(sym)
+      flash(`Copied ${sym}`)
+      return
+    }
+    // fireAhk copies the symbol itself when the bridge is down.
+    fireAhk(sym, ahkUrl).then(ok => flash(ok ? `Sent ${sym} to chart` : `Copied ${sym}`))
+  }, [ahkEnabled, ahkUrl])
 
   const asOfText = asOf ? new Date(asOf).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : ''
   const chip = pillColors(theme)
@@ -95,7 +101,7 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
     return (
       <tr key={m.symbol} className="border-b hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-glass)' }}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, symbol: m.symbol }) }}>
-        <td className="pl-3 pr-2 py-1 whitespace-nowrap">
+        <td className="w-px pl-3 pr-3 py-1 whitespace-nowrap">
           <span className="inline-flex items-center gap-1.5">
             <button type="button" title={`Add ${m.symbol} to watchlist`} aria-label={`Add ${m.symbol} to watchlist`}
               className="w-3 text-center font-bold leading-none" style={{ color: '#00e676', fontSize: 15 }}
@@ -143,7 +149,7 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 text-xs" style={{ background: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
                 <tr>
-                  <th className="pl-3 pr-2 py-1.5 text-left font-semibold">Symbol</th>
+                  <th className="w-px pl-3 pr-3 py-1.5 text-left font-semibold">Symbol</th>
                   <th className="px-2 py-1.5 text-left font-semibold">Company</th>
                   {PERF_COLUMNS.map(c => (
                     <th key={c.key} className="px-2 py-1.5 text-right font-semibold cursor-pointer select-none whitespace-nowrap"
@@ -157,7 +163,7 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
               <tbody>
                 {/* The theme itself — the row his report shows before expanding. */}
                 <tr className="border-b-2" style={{ borderColor: 'var(--border-glass)' }}>
-                  <td className="pl-3 pr-2 py-1.5 font-semibold" style={{ color: 'var(--text-primary)' }} colSpan={2}>Theme average</td>
+                  <td className="pl-3 pr-2 py-1.5 font-semibold" style={{ color: 'var(--text-primary)' }} colSpan={2}>Theme average <span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>(large caps)</span></td>
                   {PERF_COLUMNS.map(c => (
                     <td key={c.key} className="px-2 py-1.5 text-right font-mono text-xs font-semibold tabular-nums" style={pctCellStyle(detail[c.key])}>{fmtPct(detail[c.key])}</td>
                   ))}
@@ -180,7 +186,7 @@ export function ThemePopup({ theme, onClose }: { theme: string; onClose: () => v
         </div>
 
         <div className="px-4 py-1.5 text-[11px] border-t flex-shrink-0" style={{ borderColor: 'var(--border-glass)', color: 'var(--text-muted)' }}>
-          Equal-weight average of member moves, each capped at ±300%, base price under $0.50 excluded. Click a ticker to send it to your chart; right-click for watchlists.
+          Theme average = equal-weight average of the large caps' moves (each capped at ±300%, base price under $0.50 excluded). Rows show each stock's actual move. Click a ticker to send it to your chart; right-click for watchlists.
         </div>
       </div>
 
