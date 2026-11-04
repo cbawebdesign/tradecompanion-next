@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useStore } from '@/store/useStore'
+import { StarredThemes } from './StarredThemes'
 import { mapReportAlerts } from '@/lib/reportAlerts'
 import { buildRibbonAlerts, ribbonHistorySinceISO } from '@/lib/ribbonAlerts'
 import { formatClockWithDate } from '@/lib/formatTime'
@@ -353,6 +354,8 @@ export function AlertsPage({ isPopout = false }: AlertsPageProps) {
                 </span>
               )}
             </p>
+            {/* Starred themes. Renders nothing until one is starred. */}
+            <StarredThemes />
           </div>
           {/* Add Symbol, and the Pop Out button relocated from the row above,
               grouped so justify-between keeps them together on the right. */}
