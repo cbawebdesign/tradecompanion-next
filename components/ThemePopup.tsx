@@ -6,8 +6,10 @@ import { useStore } from '@/store/useStore'
 import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { SymbolContextMenu } from './SymbolContextMenu'
+import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
 import {
   PERF_COLUMNS, fetchThemeDetail, fmtPct, pctCellStyle, pillColors, sortMembers, splitByCap,
+  isThemeStarred, toggleThemeStar,
   type PerfKey, type ThemeDetail, type ThemeMember,
 } from '@/lib/themePerformance'
 
@@ -26,6 +28,22 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
   const ahkUrl = useStore(s => s.config.ahkUrl)
   const flaggedSymbols = useStore(s => s.flaggedSymbols)
   const toggleFlag = useStore(s => s.toggleFlag)
+  const starredThemes = useStore(s => s.config.starredThemes)
+  const updateConfig = useStore(s => s.updateConfig)
+
+  // Justin (11/4): "a user can 'Flag' (or star) themes of interest and then
+  // those themes would stay on the flagged list page until the user unstars
+  // ... when a user clicks on the pill and the report pops up maybe we put a
+  // Star to the left". Here and only here — he wants the ribbon and the
+  // Flagged list kept clean, so this popup is where a theme is starred AND
+  // where it is unstarred.
+  const starred = isThemeStarred(starredThemes, theme)
+  const toggleStar = () => {
+    updateConfig({ starredThemes: toggleThemeStar(starredThemes, theme) })
+    // Push now rather than on the debounce: a star set just before closing TC
+    // should not be lost. No-op in a pop-out, where the main window syncs it.
+    forceCosmosSyncNow()
+  }
 
   const [detail, setDetail] = useState<ThemeDetail | null>(null)
   const [asOf, setAsOf] = useState<string | undefined>()
@@ -140,7 +158,12 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
       onClick={() => { setCtxMenu(null); onClose() }}>
       <div className="glass-panel rounded-lg w-full max-w-4xl max-h-[85vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-2.5 border-b flex-shrink-0" style={{ borderColor: 'var(--border-glass)' }}>
-          <div className="flex items-baseline gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <button type="button" onClick={toggleStar} aria-pressed={starred}
+              aria-label={starred ? `Unstar ${theme}` : `Star ${theme}`}
+              title={starred ? 'Starred — showing on your Flagged list. Click to remove.' : 'Star this theme to keep it on your Flagged list'}
+              className="text-lg leading-none hover:scale-110 transition-transform"
+              style={{ color: starred ? '#facc15' : 'var(--text-muted)' }}>{starred ? '★' : '☆'}</button>
             <span className="px-2 py-0.5 rounded-full text-sm font-semibold" style={{ background: chip.background, color: chip.color, border: `1px solid ${chip.border}` }}>{theme}</span>
             {detail && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{detail.count} stocks · equal weight{asOfText ? ` · ${asOfText}` : ''}</span>}
           </div>

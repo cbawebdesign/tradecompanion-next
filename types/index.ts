@@ -154,6 +154,11 @@ export interface AppConfig {
   // Per-list sort persistence (Justin: sort survives navigation)
   watchlistSort?: { col: 'symbol' | 'change' | null; dir: 'asc' | 'desc' }
   flaggedSort?: { col: 'symbol' | 'last' | 'changePercent' | null; dir: 'asc' | 'desc' }
+  // Themes starred from the theme popup, shown as pills on the Flagged list.
+  // Kept in config on purpose: config rides the webConfig blob, so this
+  // persists, syncs to the server and follows him to another device with no
+  // extra plumbing — and crosses to pop-out windows with the rest of config.
+  starredThemes?: string[]
   // Per-list column width persistence (column key → px width)
   watchlistColumnWidths?: Record<string, number>
   flaggedColumnWidths?: Record<string, number>

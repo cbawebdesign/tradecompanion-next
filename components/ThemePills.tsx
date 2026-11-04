@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { useStore } from '@/store/useStore'
-import { fetchSymbolThemes, fmtPct, pillColors, type SymbolTheme } from '@/lib/themePerformance'
+import { fetchSymbolThemes, type SymbolTheme } from '@/lib/themePerformance'
 import { ThemePopup } from './ThemePopup'
+import { ThemePill } from './ThemePill'
 
 /**
  * The symbol's themes from Justin's Theme Tracker, as Airtable-style pills.
@@ -36,19 +37,9 @@ export function ThemePills({ symbol }: { symbol: string }) {
 
   return (
     <>
-      {themes.map(t => {
-        const c = pillColors(t.theme)
-        return (
-          <button key={t.theme} type="button"
-            onClick={(e) => { e.stopPropagation(); setOpen(t.theme) }}
-            className="inline-flex items-center gap-1 px-1.5 rounded-full text-[11px] font-medium leading-[18px] hover:brightness-125"
-            style={{ background: c.background, color: c.color, border: `1px solid ${c.border}` }}
-            title={`${t.theme}${t.count ? ` · ${t.count} stocks` : ''} — click for performance`}>
-            {t.theme}
-            {t.today != null && <span className="font-mono opacity-90">{fmtPct(t.today)}</span>}
-          </button>
-        )
-      })}
+      {themes.map(t => (
+        <ThemePill key={t.theme} theme={t.theme} today={t.today} count={t.count} onClick={() => setOpen(t.theme)} />
+      ))}
       {popup}
     </>
   )
