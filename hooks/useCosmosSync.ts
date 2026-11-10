@@ -1,48 +1,154 @@
 "use client"
 
-// Cosmos DB Watchlist Sync
-// Saves watchlists + config to Cosmos DB via Azure Function so data survives browser clear.
-// Uses the existing /api/user/{userKey} endpoints.
+// Live sync of one login's watchlists, flags, price alerts and settings across
+// every open copy of TC, through /api/user/{userKey}.
 //
-// Flow:
-//   - On load (if userKey set): pull from Cosmos, merge with localStorage
-//   - On watchlist change: debounced push to Cosmos
-//   - On config change: debounced push to Cosmos
+// Justin, 11/4: worked on his laptop for three hours, then went back to the
+// desktop that had been open the whole time and refreshed it. Four seconds
+// later the desktop saved its old copy over everything, and the laptop's work
+// was gone. The load let local watchlists win over the server's, and the next
+// save was last-write-wins on the whole document — so the computer that was
+// BEHIND won.
+//
+// Justin, 11/9: "if there was an easy way to allow changes to flagged lists and
+// watch lists to sync in close to real time, theoretically a user could have 2
+// or 3 logins open at once and everything would align ... It would just need to
+// follow the user ID."
+//
+// So, per open window:
+//
+//   LOAD    The server's copy wins. The one exception is edits this browser
+//           made that never reached the server while nobody else has saved
+//           since (tracked in localStorage as "the revision and fingerprint I
+//           last agreed with the server") — those are sent instead. A failed
+//           load does NOT unlock saving; it retries. Unlocking on failure is
+//           how a stale copy gets to overwrite.
+//
+//   SAVE    ~1s after the last change, with ?baseRevision=N. If anyone saved
+//           since N, the server refuses (409) and sends its copy, which this
+//           window takes. A computer that is behind can no longer win.
+//
+//   LIVE    Every save makes the server tell the login's OTHER open windows
+//           (SignalR "userStateChanged", via useSignalR). They pull the new
+//           copy within about a second.
+//
+//   CATCH-UP  A window that missed that message — asleep, offline, mid
+//           reconnect — checks on reconnect, on focus, and once a minute.
+//
+//   CLOSE   Pending changes are flushed when the window hides or closes, with
+//           fetch keepalive so the request survives the page going away.
+//
+//   NO ECHO After taking someone else's copy, the "last synced" fingerprint is
+//           rebuilt from THIS window's resulting state. So an update received
+//           from another window never looks like a local edit and is never
+//           saved back — otherwise three open copies would bounce saves off
+//           each other forever.
 
 import { useEffect, useRef, useCallback } from 'react'
-import { useStore, defaultConfig } from '@/store/useStore'
+import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
-import { flaggedSubscribedTypes } from '@/lib/alertFilter'
+import { buildSyncPayload, payloadHash } from '@/lib/syncPayload'
+import { applyServerStateToStore } from '@/lib/applyServerState'
 
-const DEBOUNCE_MS = 3000  // wait 3s after last change before syncing
+// Short, because other windows are waiting on it. Was 3s when the only reader
+// was this same browser after a reload.
+const DEBOUNCE_MS = 1000
+const RETRY_MS = 10_000
+const LOAD_RETRY_MS = 15_000
+const POLL_MS = 60_000
+const CATCHUP_MIN_GAP_MS = 10_000
+// fetch keepalive refuses bodies over 64 KB; leave headroom.
+const KEEPALIVE_MAX_BYTES = 60 * 1024
 
-// Module-level handle to the bypass-debounce sync function so any component
-// (e.g. SettingsPage's blur/save handlers) can force a flush without
-// threading a prop through providers.
+/** One id per open window, so a window can ignore the broadcast of its own save. */
+function getDeviceId(): string {
+  try {
+    let id = sessionStorage.getItem('tc_device_id')
+    if (!id) { id = crypto.randomUUID(); sessionStorage.setItem('tc_device_id', id) }
+    return id
+  } catch {
+    return 'no-session-' + Math.random().toString(36).slice(2)
+  }
+}
+
+// What this browser last agreed with the server, per login. Survives a reload,
+// which is what lets a reload tell "I have unsaved edits" from "I am stale".
+const META_KEY = 'tc_sync_meta'
+type Meta = { revision: number; hash: string }
+function readMeta(userKey: string): Meta | null {
+  try { return (JSON.parse(localStorage.getItem(META_KEY) || '{}') as Record<string, Meta>)[userKey] ?? null } catch { return null }
+}
+function writeMeta(userKey: string, meta: Meta) {
+  try {
+    const all = JSON.parse(localStorage.getItem(META_KEY) || '{}')
+    all[userKey] = meta
+    localStorage.setItem(META_KEY, JSON.stringify(all))
+  } catch { /* storage full or blocked — next load just takes the server's copy */ }
+}
+
+/**
+ * Before the server's copy replaces a local one that differed, keep the local
+ * one. Only reachable on the first load after this release, when a browser has
+ * no record of what it last agreed with the server and cannot know which side
+ * is newer. Server wins there (the safe direction), and this makes that
+ * recoverable by hand. Last three per login.
+ */
+function backupLocal(userKey: string, payload: unknown) {
+  try {
+    const key = `tc_sync_backup_${userKey}`
+    const list = JSON.parse(localStorage.getItem(key) || '[]') as unknown[]
+    list.unshift({ at: new Date().toISOString(), payload })
+    localStorage.setItem(key, JSON.stringify(list.slice(0, 3)))
+  } catch { /* best effort */ }
+}
+
+// Module-level handles so other code can reach the live instance without
+// threading props: Settings forces a flush; useSignalR forwards broadcasts
+// and reconnects.
 let _syncNowHandle: (() => Promise<void>) | null = null
 export function forceCosmosSyncNow(): Promise<void> {
   return _syncNowHandle ? _syncNowHandle() : Promise.resolve()
 }
+let _remoteHandle: ((d: { revision?: number; origin?: string }) => void) | null = null
+/** Called by useSignalR when the server says another window saved. */
+export function notifyRemoteUserState(d: { revision?: number; origin?: string }) {
+  _remoteHandle?.(d)
+}
+let _catchUpHandle: (() => void) | null = null
+/** Called by useSignalR after a reconnect: any broadcasts during the gap were missed. */
+export function requestUserStateCatchUp() {
+  _catchUpHandle?.()
+}
 
 export function useCosmosSync() {
-  const { config, watchlists, flaggedSymbols, alertSubscriptions, setWatchlists } = useStore()
+  const config = useStore((s) => s.config)
+  const watchlists = useStore((s) => s.watchlists)
+  const flaggedSymbols = useStore((s) => s.flaggedSymbols)
+  const alertSubscriptions = useStore((s) => s.alertSubscriptions)
+  const standaloneAlerts = useStore((s) => s.standaloneAlerts)
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastSyncHash = useRef<string>('')
+  const serverRevision = useRef<number>(0)
   const hasLoadedRef = useRef(false)
-  // Track which userKey the current local state belongs to. If the user
-  // switches keys (testing someone else's account), wipe user-scoped state
-  // before loading so our own settings don't leak up into their Cosmos doc.
-  const claimedKeyRef = useRef<string | null>(null)
-  // Block sync-up pushes until the first load completes. Prevents a race
-  // where the debounce fires with pre-load local state.
   const loadCompleteRef = useRef(false)
+  const inFlight = useRef(false)
+  const rerun = useRef(false)
+  const lastCatchUp = useRef(0)
+  // Which userKey the current local state belongs to. If the user switches
+  // keys (testing someone else's account), wipe user-scoped state before
+  // loading so our own settings don't leak up into their doc.
+  const claimedKeyRef = useRef<string | null>(null)
+  const deviceId = useRef<string>('')
+  if (!deviceId.current && typeof window !== 'undefined') deviceId.current = getDeviceId()
 
   const baseUrl = config.hubUrl?.replace(/\/api\/?$/, '').replace(/\/$/, '') || ''
   const userKey = config.userKey
 
-  // Detect userKey context-switch: if we had a previous key and it just
-  // changed, reset user-scoped fields so loadFromCosmos repopulates cleanly
-  // from the new user's cloud doc rather than leaking our own state up.
+  const userUrl = useCallback((query = '') =>
+    proxyUrl(`${baseUrl}/api/user/${encodeURIComponent(userKey)}${query}`), [baseUrl, userKey])
+
   useEffect(() => {
     if (!userKey) return
     if (claimedKeyRef.current !== null && claimedKeyRef.current !== userKey) {
@@ -52,6 +158,7 @@ export function useCosmosSync() {
         selectedWatchlistId: 'default',
         flaggedSymbols: new Set(),
         alertSubscriptions: [],
+        standaloneAlerts: {},
         config: {
           ...useStore.getState().config,
           excludeFilings: '',
@@ -63,388 +170,219 @@ export function useCosmosSync() {
       hasLoadedRef.current = false
       loadCompleteRef.current = false
       lastSyncHash.current = ''
+      serverRevision.current = 0
     }
     claimedKeyRef.current = userKey
   }, [userKey])
 
-  // Load from Cosmos on mount (if userKey is set and localStorage is empty/default)
-  useEffect(() => {
-    if (!userKey || !baseUrl || hasLoadedRef.current) return
-    hasLoadedRef.current = true
+  /** Take the server's copy as the truth. */
+  const adoptServer = useCallback((doc: any) => {
+    applyServerStateToStore(doc)
+    serverRevision.current = Number(doc?.revision) || 0
+    // Fingerprint of THIS window after taking it — see NO ECHO above.
+    lastSyncHash.current = payloadHash(buildSyncPayload(useStore.getState()))
+    writeMeta(userKey, { revision: serverRevision.current, hash: lastSyncHash.current })
+  }, [userKey])
 
-    async function loadFromCosmos() {
-      try {
-        const url = proxyUrl(`${baseUrl}/api/user/${encodeURIComponent(userKey)}`)
-        const response = await fetch(url)
-        if (!response.ok) {
-          console.log('CosmosSync: No cloud data found for user', userKey)
-          return
-        }
-
-        const data = await response.json()
-        console.log('CosmosSync: Loaded cloud data for user', userKey)
-
-        // Only restore watchlists if localStorage has the default single empty watchlist
-        if (data.watchlists && Array.isArray(data.watchlists) && data.watchlists.length > 0) {
-          const localWatchlists = useStore.getState().watchlists
-          const isDefault = localWatchlists.length === 1
-            && localWatchlists[0].name === 'Main'
-            && localWatchlists[0].symbols.length === 0
-
-          if (isDefault) {
-            console.log('CosmosSync: Restoring watchlists from cloud (local was default)')
-            setWatchlists(data.watchlists)
-          } else {
-            console.log('CosmosSync: Local watchlists exist, not overwriting from cloud')
-          }
-        }
-
-        // Restore flagged symbols + alert subscriptions from cloud if local is empty
-        // (handles the incognito/new-browser case). Stored inside `configs` as JSON
-        // strings because that's a free-form dict on the backend.
-        const cloudCfg = (data.configs ?? {}) as Record<string, string | undefined>
-        const localState = useStore.getState()
-
-        if (localState.flaggedSymbols.size === 0 && cloudCfg.flaggedSymbols) {
-          try {
-            const arr = JSON.parse(cloudCfg.flaggedSymbols)
-            if (Array.isArray(arr) && arr.length > 0) {
-              useStore.setState({ flaggedSymbols: new Set(arr) })
-              console.log(`CosmosSync: Restored ${arr.length} flagged symbols from cloud`)
-            }
-          } catch {/* ignore */}
-        }
-
-        if (localState.alertSubscriptions.length === 0 && cloudCfg.alertSubscriptions) {
-          try {
-            const arr = JSON.parse(cloudCfg.alertSubscriptions)
-            if (Array.isArray(arr) && arr.length > 0) {
-              useStore.setState({ alertSubscriptions: arr })
-              console.log(`CosmosSync: Restored ${arr.length} alert subscriptions from cloud`)
-            }
-          } catch {/* ignore */}
-        }
-
-        // Restore config scalars (ExcludeFilings, FilterNews*, TradingViewId, etc.)
-        // from cloud when local is empty/default. Previously only flagged / subs /
-        // watchlists came down — which meant incognito / new-browser / clear-cache
-        // sessions lost every other per-user setting until manually re-entered.
-        //
-        // Pull-rule per field: only overwrite local if local looks unset AND cloud
-        // has a meaningful value. Legacy PascalCase keys fall back to camelCase.
-        const cfgPatch: Partial<typeof localState.config> = {}
-        const pick = (...keys: string[]) => {
-          for (const k of keys) {
-            const v = cloudCfg[k]
-            if (typeof v === 'string' && v.length > 0) return v
-          }
-          return undefined
-        }
-        const ef = pick('excludeFilings', 'ExcludeFilings')
-        if (ef && !localState.config.excludeFilings) cfgPatch.excludeFilings = ef
-
-        const fpp = pick('filteredPrPositive', 'FilterNewsPositive')
-        if (fpp && !localState.config.filteredPrPositive) cfgPatch.filteredPrPositive = fpp
-
-        const fpn = pick('filteredPrNegative', 'FilterNewsNegative')
-        if (fpn && !localState.config.filteredPrNegative) cfgPatch.filteredPrNegative = fpn
-
-        const tvid = pick('tradingViewId', 'TradingViewId')
-        if (tvid && !localState.config.tradingViewId) cfgPatch.tradingViewId = tvid
-
-        const xshow = pick('xShowAllTweets', 'XshowAllTweets')
-        if (xshow && !localState.config.xShowAllTweets) cfgPatch.xShowAllTweets = xshow
-
-        // Watchlist dropdown order — restore by mapping server-side names back
-        // to local UUIDs. Has to come AFTER the watchlist restore above so the
-        // UUIDs we look up are the freshly-assigned ones. Only apply if local
-        // doesn't already have an order set (don't clobber a user who's
-        // already reordered on this device).
-        if (cloudCfg.watchlistOrder
-            && (!localState.config.watchlistOrder || localState.config.watchlistOrder.length === 0)) {
-          try {
-            const names = JSON.parse(cloudCfg.watchlistOrder)
-            if (Array.isArray(names) && names.length > 0) {
-              const wls = useStore.getState().watchlists
-              const ids = names
-                .map((n: string) => wls.find((w) => w.name === n)?.id)
-                .filter((id: string | undefined): id is string => !!id)
-              if (ids.length > 0) useStore.getState().reorderWatchlists(ids)
-              console.log(`CosmosSync: Restored watchlist order (${ids.length} of ${names.length} names matched)`)
-            }
-          } catch {/* ignore */}
-        }
-
-        // Flagged-list alert subscriptions — restore the per-type enabled +
-        // audio map. Only overwrite local when the user hasn't customized
-        // this device yet.
-        if (cloudCfg.flaggedAlertSubscriptions && !localState.config.flaggedAlertSubscriptions) {
-          try {
-            const parsed = JSON.parse(cloudCfg.flaggedAlertSubscriptions)
-            if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
-              cfgPatch.flaggedAlertSubscriptions = parsed
-            }
-          } catch {/* ignore */}
-        }
-
-        // Full settings blob — fill any field still at its default value
-        // (fresh browser / new device convenience). Only defaults are
-        // overwritten, so this never clobbers a device the user has already
-        // customized; the explicit Settings → "Pull from server" button does a
-        // full overwrite instead.
-        if (cloudCfg.webConfig) {
-          try {
-            const blob = JSON.parse(cloudCfg.webConfig)
-            if (blob && typeof blob === 'object') {
-              const curCfg = localState.config as unknown as Record<string, unknown>
-              const defCfg = defaultConfig as unknown as Record<string, unknown>
-              for (const [k, v] of Object.entries(blob)) {
-                const cur = curCfg[k]
-                const def = defCfg[k]
-                if (JSON.stringify(cur) === JSON.stringify(def) && JSON.stringify(v) !== JSON.stringify(cur)) {
-                  (cfgPatch as Record<string, unknown>)[k] = v
-                }
-              }
-            }
-          } catch {/* ignore */}
-        }
-
-        if (Object.keys(cfgPatch).length > 0) {
-          // Functional updater reads CURRENT config, not the stale snapshot
-          // captured above — otherwise this would clobber config changes made
-          // in between (e.g. watchlistOrder set by the order-restore block).
-          useStore.setState((s) => ({ config: { ...s.config, ...cfgPatch } }))
-          console.log(`CosmosSync: Restored ${Object.keys(cfgPatch).length} config scalars from cloud:`, Object.keys(cfgPatch))
-        }
-      } catch (err) {
-        console.log('CosmosSync: Failed to load cloud data', err)
-      } finally {
-        // Any debounced payload that the user-change reset scheduled was
-        // against pre-load state — seed the hash with the post-load payload
-        // so the first sync-up is a true no-op if nothing actually changed.
-        loadCompleteRef.current = true
-      }
-    }
-
-    loadFromCosmos()
-  }, [userKey, baseUrl, setWatchlists])
-
-  // Save to Cosmos on watchlist/config changes (debounced)
-  const syncToCosmos = useCallback(async () => {
+  const syncToCosmos = useCallback(async (opts?: { keepalive?: boolean }) => {
     if (!userKey || !baseUrl) return
-    // Block until loadFromCosmos has had a chance to populate local state
-    // from the new user's cloud doc. Otherwise the first debounce fires with
-    // whatever local leftovers we had and overwrites their record.
-    if (!loadCompleteRef.current) {
-      console.log('CosmosSync: Skipping sync — load not complete yet')
-      return
-    }
+    if (!loadCompleteRef.current) return
+    if (inFlight.current) { rerun.current = true; return }
 
-    const state = useStore.getState()
-
-    // SAFETY: never let a pristine/empty local state overwrite good server
-    // data. A forced re-login (sessionStorage session is cleared on browser
-    // restart) or a failed restore can briefly leave the store at defaults
-    // while a userKey is still set; pushing that would wipe the user's cloud
-    // doc (watchlists, subscriptions, and — since the webConfig blob — every
-    // setting). If nothing meaningful is populated, refuse to push. The user
-    // genuinely clearing everything is a rare edge we accept not syncing.
-    const isPristine =
-      state.watchlists.every((w) => w.symbols.length === 0)
-      && state.alertSubscriptions.length === 0
-      && state.flaggedSymbols.size === 0
-    if (isPristine) {
+    const payload = buildSyncPayload(useStore.getState())
+    if (!payload) {
       console.warn('CosmosSync: refusing to push — local state is pristine/empty (would overwrite server)')
       return
     }
-
-    // Convert Zustand watchlist format to backend format:
-    // Backend expects: { "WatchlistName": ["SYM1", "SYM2"] }
-    // Zustand has: [{ id, name, symbols: [{ symbol, upperAlert, ... }] }]
-    const watchlistsForBackend: Record<string, string[]> = {}
-    for (const wl of state.watchlists) {
-      watchlistsForBackend[wl.name] = wl.symbols.map(s => s.symbol)
-    }
-
-    // Flattened "symbol → subscribed alert types" map for server-side Phase 2
-    // filtering. Backend never sees client-side watchlist UUIDs, just the
-    // derived pass-list keyed by uppercased symbol.
-    const subscribedAlerts: Record<string, string[]> = {}
-    for (const sub of state.alertSubscriptions) {
-      const wl = state.watchlists.find(w => w.id === sub.watchlistId)
-      if (!wl) continue
-      for (const { symbol } of wl.symbols) {
-        const key = symbol.toUpperCase()
-        const set = subscribedAlerts[key] ?? (subscribedAlerts[key] = [])
-        if (!set.includes(sub.alertType)) set.push(sub.alertType)
-      }
-    }
-
-    // Flagged symbols: union the user's flagged-list subscription types onto
-    // each flagged symbol's pass-list. Justin's spec — flagging a symbol
-    // should ensure its alerts come through even when the symbol isn't on
-    // a subscribed watchlist. Subscriptions are additive: flagging never
-    // *removes* a type a watchlist already enabled.
-    const flaggedTypes = flaggedSubscribedTypes(state.config.flaggedAlertSubscriptions)
-    if (flaggedTypes.length > 0) {
-      Array.from(state.flaggedSymbols).forEach((sym) => {
-        const key = sym.toUpperCase()
-        const set = subscribedAlerts[key] ?? (subscribedAlerts[key] = [])
-        for (const t of flaggedTypes) {
-          if (!set.includes(t)) set.push(t)
-        }
-      })
-    }
-
-    // UUID-drift guard. If the user has watchlists with symbols AND
-    // alertSubscriptions records, the flat map should NOT be empty. Empty
-    // means every sub.watchlistId references a watchlist that no longer
-    // exists (UUIDs got regenerated at some point — Justin hit this and the
-    // server filter started dropping every alert). Refuse to push the bad
-    // empty map; either fall through to push the existing cloud value or
-    // rebuild from current watchlists with default all-on so filtering
-    // doesn't silently break.
-    const hasSymbols = state.watchlists.some(w => w.symbols.length > 0)
-    if (hasSymbols
-        && Object.keys(subscribedAlerts).length === 0
-        && state.alertSubscriptions.length > 0) {
-      console.warn('CosmosSync: alertSubscriptions UUIDs no longer match any watchlist — rebuilding subscribedAlerts from current watchlists (all-on default).')
-      const TYPES = ['Filings', 'PRs', 'TradeExchange', 'X']
-      for (const wl of state.watchlists) {
-        for (const { symbol } of wl.symbols) {
-          subscribedAlerts[symbol.toUpperCase()] = [...TYPES]
-        }
-      }
-    }
-
-    // Watchlist dropdown order — push as a list of NAMES, not UUIDs. UUIDs
-    // are regenerated per device on first pull, so syncing by UUID would
-    // never resolve on the other side. Names round-trip cleanly because the
-    // watchlists payload itself is keyed by name.
-    // Effective FULL dropdown order: configured order first (resolved to
-    // names), then any watchlists not yet in that list, in array order. We
-    // push the complete name list so order round-trips even when the user
-    // never explicitly reordered — the old code pushed only
-    // config.watchlistOrder, which was usually empty/partial, so order didn't
-    // sync (Justin: "watch lists are out of order after I pull").
-    const orderedIds = [
-      ...(state.config.watchlistOrder || []).filter((id) => state.watchlists.some((w) => w.id === id)),
-      ...state.watchlists.filter((w) => !(state.config.watchlistOrder || []).includes(w.id)).map((w) => w.id),
-    ]
-    const watchlistOrderNames = orderedIds
-      .map((id) => state.watchlists.find((w) => w.id === id)?.name)
-      .filter((n): n is string => typeof n === 'string')
-
-    // Full settings blob — every Settings-tab field syncs in one shot so a
-    // field can never be silently dropped again (Justin: "ALL settings should
-    // sync"). Excludes identity/infra keys and fields handled separately
-    // (watchlistOrder as names above; flaggedAlertSubscriptions below) plus
-    // device-local window layout (pane sizes differ per monitor).
-    const WEBCONFIG_DENYLIST = new Set([
-      'userKey', 'hubUrl', 'watchlistOrder', 'flaggedAlertSubscriptions',
-      'alertBarHeight', 'alertBarHeightPercent', 'watchlistSplitPercent', 'flaggedListSplitPercent',
-      // Secrets never ride the webConfig blob. These were being written to
-      // Cosmos in plaintext and pulled down by every device that logged in.
-      'grokApiKey', 'newsApiKey',
-    ])
-    const webConfig: Record<string, unknown> = {}
-    for (const [k, v] of Object.entries(state.config)) {
-      if (!WEBCONFIG_DENYLIST.has(k)) webConfig[k] = v
-    }
-
-    // Alert subscriptions keyed by watchlist NAME (not UUID). The raw
-    // alertSubscriptions array references device-local watchlist UUIDs, which
-    // are regenerated on every restore — so syncing it verbatim orphans every
-    // subscription on the receiving device (Justin: "opened it today and alerts
-    // were disabled across all watchlists"). Names round-trip cleanly because
-    // the watchlists payload itself is keyed by name; the restore side rebuilds
-    // alertSubscriptions against the freshly-minted UUIDs.
-    const subsByName: Record<string, { alertType: string; audioEnabled: boolean }[]> = {}
-    for (const sub of state.alertSubscriptions) {
-      const wl = state.watchlists.find((w) => w.id === sub.watchlistId)
-      if (!wl) continue
-      ;(subsByName[wl.name] ??= []).push({ alertType: sub.alertType, audioEnabled: sub.audioEnabled })
-    }
-
-    const payload = {
-      watchlists: watchlistsForBackend,
-      configs: {
-        tradingViewId: state.config.tradingViewId,
-        audioEnabled: String(state.config.audioEnabled),
-        ttsEnabled: String(state.config.ttsEnabled),
-        theme: state.config.theme,
-        excludeFilings: state.config.excludeFilings || '',
-        filteredPrPositive: state.config.filteredPrPositive || '',
-        filteredPrNegative: state.config.filteredPrNegative || '',
-        showAllTradeExchange: String(state.config.showAllTradeExchange),
-        xShowAllTweets: state.config.xShowAllTweets || '',
-        hubUrl: state.config.hubUrl,
-        marketCapMin: String(state.config.marketCapMin),
-        marketCapMax: String(state.config.marketCapMax),
-        flaggedSymbols: JSON.stringify(Array.from(state.flaggedSymbols)),
-        alertSubscriptions: JSON.stringify(state.alertSubscriptions),
-        alertSubscriptionsByName: JSON.stringify(subsByName),
-        subscribedAlerts: JSON.stringify(subscribedAlerts),
-        watchlistOrder: JSON.stringify(watchlistOrderNames),
-        flaggedAlertSubscriptions: JSON.stringify(state.config.flaggedAlertSubscriptions || {}),
-        webConfig: JSON.stringify(webConfig),
-      },
-    }
-
-    // Skip if nothing changed
-    const hash = JSON.stringify(payload)
+    const hash = payloadHash(payload)
     if (hash === lastSyncHash.current) return
-    lastSyncHash.current = hash
 
+    inFlight.current = true
+    let retry = false
     try {
-      const url = proxyUrl(`${baseUrl}/api/user/${encodeURIComponent(userKey)}`)
-      await fetch(url, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      })
-      console.log('CosmosSync: Saved to cloud')
+      const body = JSON.stringify(payload)
+      const r = await fetch(
+        userUrl(`?baseRevision=${serverRevision.current}&deviceId=${encodeURIComponent(deviceId.current)}`),
+        {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          // Only while closing, and only when it fits — over the cap the
+          // browser rejects the request outright, so a plain fetch is the
+          // better bet.
+          keepalive: !!opts?.keepalive && body.length < KEEPALIVE_MAX_BYTES,
+        },
+      )
+      if (r.ok) {
+        const doc = await r.json().catch(() => null)
+        serverRevision.current = Number(doc?.revision) || serverRevision.current + 1
+        // Only now. The old code marked the payload synced BEFORE sending, so
+        // a save that failed was never retried — it just silently never synced.
+        lastSyncHash.current = hash
+        writeMeta(userKey, { revision: serverRevision.current, hash })
+      } else if (r.status === 409) {
+        console.warn('CosmosSync: another window saved first — taking its copy')
+        adoptServer(await r.json())
+      } else {
+        retry = true
+      }
     } catch (err) {
-      console.log('CosmosSync: Failed to save to cloud', err)
+      console.log('CosmosSync: save failed, will retry', err)
+      retry = true
+    } finally {
+      inFlight.current = false
+      if (retry) {
+        if (retryRef.current) clearTimeout(retryRef.current)
+        retryRef.current = setTimeout(() => syncToCosmos(), RETRY_MS)
+      }
+      if (rerun.current) {
+        rerun.current = false
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        debounceRef.current = setTimeout(() => syncToCosmos(), DEBOUNCE_MS)
+      }
     }
-  }, [userKey, baseUrl])
+  }, [userKey, baseUrl, userUrl, adoptServer])
 
-  // Watch for changes and debounce sync
+  // Load.
+  useEffect(() => {
+    if (!userKey || !baseUrl || hasLoadedRef.current) return
+    hasLoadedRef.current = true
+    const forKey = userKey
+
+    const load = async () => {
+      if (claimedKeyRef.current !== forKey) return
+      try {
+        const r = await fetch(userUrl())
+        if (r.status === 404) {
+          // No doc yet: this window's state becomes the first one.
+          serverRevision.current = 0
+          loadCompleteRef.current = true
+          syncToCosmos()
+          return
+        }
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        const doc = await r.json()
+        const rev = Number(doc?.revision) || 0
+        const meta = readMeta(forKey)
+        const localPayload = buildSyncPayload(useStore.getState())
+        const localHash = payloadHash(localPayload)
+
+        if (meta && meta.revision === rev && localHash !== '' && localHash !== meta.hash) {
+          // Edits made here that never reached the server, and nobody has
+          // saved since. Keep them and send them.
+          console.log('CosmosSync: local has unsaved changes and the server has not moved — sending them')
+          serverRevision.current = rev
+          lastSyncHash.current = meta.hash
+          loadCompleteRef.current = true
+          syncToCosmos()
+          return
+        }
+
+        adoptServer(doc)
+        // First load since live sync: there is no record of what this browser
+        // last agreed with the server, so it can't tell which side is newer.
+        // The server wins — but if that changed anything, keep what was here.
+        // Only worth keeping if it held symbols or flags — a brand-new window's
+        // defaults are not anyone's work.
+        const worthKeeping = !!localPayload && (
+          Object.values(localPayload.watchlists).some((syms) => syms.length > 0)
+          || (JSON.parse(localPayload.configs.flaggedSymbols || '[]') as unknown[]).length > 0)
+        if (!meta && worthKeeping && lastSyncHash.current !== localHash) {
+          backupLocal(forKey, localPayload)
+          console.warn('CosmosSync: first live-sync load replaced a local copy that differed — kept a backup in tc_sync_backup_' + forKey)
+        }
+        loadCompleteRef.current = true
+        console.log(`CosmosSync: loaded server copy for ${forKey} (rev ${rev})`)
+      } catch (err) {
+        // Do NOT unlock saving on a failed load — that is how a stale copy gets
+        // to overwrite the server. Try again shortly.
+        console.log('CosmosSync: load failed, retrying', err)
+        setTimeout(load, LOAD_RETRY_MS)
+      }
+    }
+    load()
+  }, [userKey, baseUrl, userUrl, adoptServer, syncToCosmos])
+
+  /** Fetch the server copy and take it if it is newer than what this window holds. */
+  const pullIfNewer = useCallback(async () => {
+    if (!userKey || !baseUrl || !loadCompleteRef.current) return
+    lastCatchUp.current = Date.now()
+    try {
+      const r = await fetch(userUrl())
+      if (!r.ok) return
+      const doc = await r.json()
+      if ((Number(doc?.revision) || 0) > serverRevision.current) {
+        console.log(`CosmosSync: newer copy on server (rev ${doc.revision}, had ${serverRevision.current}) — taking it`)
+        adoptServer(doc)
+      }
+    } catch { /* next trigger will try again */ }
+  }, [userKey, baseUrl, userUrl, adoptServer])
+
+  // Live: another window of this login saved.
+  useEffect(() => {
+    _remoteHandle = (d) => {
+      if (d?.origin && d.origin === deviceId.current) return   // our own save
+      if (typeof d?.revision === 'number' && d.revision <= serverRevision.current) return
+      pullIfNewer()
+    }
+    _catchUpHandle = () => pullIfNewer()
+    return () => { _remoteHandle = null; _catchUpHandle = null }
+  }, [pullIfNewer])
+
+  // Catch-up for a window that missed a broadcast: on focus, on becoming
+  // visible, and once a minute regardless (a desktop left open on a second
+  // monitor is visible but never focused).
   useEffect(() => {
     if (!userKey) return
-
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(syncToCosmos, DEBOUNCE_MS)
-
+    const maybe = () => {
+      if (Date.now() - lastCatchUp.current >= CATCHUP_MIN_GAP_MS) pullIfNewer()
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') maybe() }
+    window.addEventListener('focus', maybe)
+    document.addEventListener('visibilitychange', onVisible)
+    const poll = setInterval(() => pullIfNewer(), POLL_MS)
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current)
+      window.removeEventListener('focus', maybe)
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(poll)
     }
-    // Depend on the whole config object so ANY settings change triggers a
-    // sync — listing individual fields meant new settings silently never
-    // synced. The payload-hash check below makes redundant pushes a no-op.
-  }, [watchlists, flaggedSymbols, alertSubscriptions, config, syncToCosmos, userKey])
+  }, [userKey, pullIfNewer])
 
-  // Best-effort flush when the tab is hidden or closed, so a change made
-  // inside the 3s debounce window isn't lost (Justin: subscription toggles
-  // weren't saving when he closed the tab right after). visibilitychange fires
-  // reliably on tab-switch / close, unlike beforeunload.
+  // Debounced save on any synced change. Whole config on purpose — listing
+  // individual fields meant new settings silently never synced. standaloneAlerts
+  // is here because flagged-only price alerts live outside the watchlists.
   useEffect(() => {
     if (!userKey) return
-    const onHide = () => { if (document.visibilityState === 'hidden') syncToCosmos() }
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => syncToCosmos(), DEBOUNCE_MS)
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
+  }, [watchlists, flaggedSymbols, alertSubscriptions, standaloneAlerts, config, syncToCosmos, userKey])
+
+  // Flush on hide/close. Justin: "if you hit the X button to close TC, and when
+  // the pop up box is confirmed to close, it auto syncs everything". pagehide
+  // fires once the close is confirmed; visibilitychange covers tab switches.
+  useEffect(() => {
+    if (!userKey) return
+    const flush = () => {
+      if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
+      syncToCosmos({ keepalive: true })
+    }
+    const onHide = () => { if (document.visibilityState === 'hidden') flush() }
     document.addEventListener('visibilitychange', onHide)
-    return () => document.removeEventListener('visibilitychange', onHide)
+    window.addEventListener('pagehide', flush)
+    return () => {
+      document.removeEventListener('visibilitychange', onHide)
+      window.removeEventListener('pagehide', flush)
+    }
   }, [userKey, syncToCosmos])
 
-  // Expose a bypass-debounce sync so Settings can flush on textarea blur /
-  // explicit save. Also resets the dedup hash so a force-sync always goes
-  // out even if the computed payload happens to match the last one.
+  // Bypass-debounce save for Settings (textarea blur / explicit save).
   const syncNow = useCallback(async () => {
     if (debounceRef.current) { clearTimeout(debounceRef.current); debounceRef.current = null }
     lastSyncHash.current = ''
     await syncToCosmos()
   }, [syncToCosmos])
 
-  // Publish to the module-level handle so SettingsPage etc. can call it.
   useEffect(() => {
     _syncNowHandle = syncNow
     return () => { if (_syncNowHandle === syncNow) _syncNowHandle = null }

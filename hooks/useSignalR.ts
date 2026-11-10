@@ -13,6 +13,7 @@ import type { Alert, Quote } from '@/types'
 import { alertTypeColorHex } from '@/lib/alertTypeColor'
 import { parseTvPayload, isTvSymbol } from '@/lib/tvPayload'
 import { tvBackfillIdentities } from '@/lib/tvBackfillIdentities'
+import { notifyRemoteUserState, requestUserStateCatchUp } from '@/hooks/useCosmosSync'
 
 interface NegotiateResult {
   url: string
@@ -307,6 +308,9 @@ export function useSignalR() {
           // 24/7 user this is the only time the TV backfill ever runs again
           // after the tab was first opened.
           tvBackfillRef.current?.('reconnect')
+          // Same for live sync: a save made on another computer while this
+          // socket was down sent its "userStateChanged" into the gap.
+          requestUserStateCatchUp()
         })
 
         connection.onclose(() => {
@@ -682,6 +686,14 @@ export function useSignalR() {
           }
           addAlert(alert)
           handleAlertAudio('scanner', alert.message, configRef.current)
+        })
+
+        // Another open copy of this login saved its watchlists / flags / price
+        // alerts / settings. The server sends this to Clients.User(login), so it
+        // reaches every window signed in as the same user and nobody else.
+        // useCosmosSync pulls the new copy; a window ignores its own save.
+        connection.on('userStateChanged', (data: any) => {
+          notifyRemoteUserState({ revision: Number(data?.revision), origin: data?.origin })
         })
 
         connection.on('tradingViewAlertRaw', (data: any) => {

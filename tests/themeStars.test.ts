@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
 import { pctChangeClass, isThemeStarred, toggleThemeStar } from '../lib/themePerformance'
+import { WEBCONFIG_DENYLIST } from '../lib/syncPayload'
 
 const read = (...p: string[]) => readFileSync(join(__dirname, '..', ...p), 'utf8')
 
@@ -74,10 +75,8 @@ describe('starring themes', () => {
     // A setting left off the sync path is lost on the next forced re-login,
     // which is the "all my settings are gone" bug. starredThemes rides the
     // webConfig blob, so it must never be added to the denylist.
-    const sync = read('hooks', 'useCosmosSync.ts')
-    const deny = sync.slice(sync.indexOf('WEBCONFIG_DENYLIST = new Set(['), sync.indexOf('])', sync.indexOf('WEBCONFIG_DENYLIST')))
-    expect(deny.length).toBeGreaterThan(0)
-    expect(deny).not.toContain('starredThemes')
+    expect(WEBCONFIG_DENYLIST.size).toBeGreaterThan(0)
+    expect(WEBCONFIG_DENYLIST.has('starredThemes')).toBe(false)
   })
 })
 
