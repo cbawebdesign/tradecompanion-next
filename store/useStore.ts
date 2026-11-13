@@ -5,6 +5,7 @@ import { logAlert } from '@/lib/alertLogger'
 import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { isSymbolBlocked } from '@/lib/symbolBlocklist'
+import { foldStandaloneIntoWatchlists, staleTriggeredKeys } from '@/lib/priceAlertHome'
 import { normalizeAlertMessage, alertMatchKey } from '@/lib/alertDedup'
 import { createDedupedStorage } from '@/lib/dedupedStorage'
 
@@ -586,13 +587,25 @@ export const useStore = create<AppState>()(
       // One atomic update rather than a loop of updateSymbolInWatchlist, so this
       // is a single render and a single sync push. Lists without the symbol are
       // returned untouched so their object identity is preserved.
-      setPriceAlertEverywhere: (symbol, field, value) => set((state) => ({
-        watchlists: state.watchlists.map(w =>
+      //
+      // EVERYWHERE includes the standalone copy. It used to touch watchlists
+      // only, so a symbol holding a standalone alert as well (ARAI, 11/13) could
+      // never have that level cleared — not by the 5s auto-clear, not by the
+      // box — and it re-fired on every print. See lib/priceAlertHome.
+      setPriceAlertEverywhere: (symbol, field, value) => set((state) => {
+        const watchlists = state.watchlists.map(w =>
           w.symbols.some(s => s.symbol === symbol)
             ? { ...w, symbols: w.symbols.map(s => s.symbol === symbol ? { ...s, [field]: value } : s) }
             : w
         )
-      })),
+        const sa = state.standaloneAlerts[symbol]
+        if (!sa) return { watchlists }
+        const nextSa = { ...sa, [field]: value }
+        const standaloneAlerts = { ...state.standaloneAlerts }
+        if (nextSa.upperAlert == null && nextSa.lowerAlert == null) delete standaloneAlerts[symbol]
+        else standaloneAlerts[symbol] = nextSa
+        return { watchlists, standaloneAlerts }
+      }),
       // Justin (9/23) wants the upper/lower boxes on EVERY timeline alert with a
       // symbol, not just price alerts — "increase the usage of TC based price
       // alerts and increase efficiency when things are moving fast".
@@ -852,6 +865,29 @@ export const useStore = create<AppState>()(
     }
   )
 )
+
+// One home per price alert, and an immediate reset when a level goes away.
+// Runs on every change to watchlists or standalone alerts, from whatever
+// source — a local edit, a symbol added to a list, an update from another
+// window or another computer. See lib/priceAlertHome. Each pass leaves nothing
+// for the next to do, so it settles in one step.
+function normalizePriceAlerts() {
+  const st = useStore.getState()
+  const folded = foldStandaloneIntoWatchlists(st.watchlists, st.standaloneAlerts)
+  if (folded) useStore.setState(folded)
+  const after = useStore.getState()
+  const stale = staleTriggeredKeys(after.triggeredPriceAlerts, after.watchlists, after.standaloneAlerts)
+  if (stale.length > 0) {
+    const next = new Set(after.triggeredPriceAlerts)
+    for (const k of stale) next.delete(k)
+    useStore.setState({ triggeredPriceAlerts: next })
+  }
+}
+useStore.subscribe((state, prev) => {
+  if (state.watchlists !== prev.watchlists || state.standaloneAlerts !== prev.standaloneAlerts) normalizePriceAlerts()
+})
+// Once for what was already saved in this browser (his had AIMD and HUBC).
+normalizePriceAlerts()
 
 // Stamp every local change to the price-alert state. A change that already
 // carries a new stamp came from another window via useCrossWindowSync and keeps
