@@ -128,19 +128,36 @@ function toWire(a: Alert): WireAlert {
   }
 }
 
+const ALERT_TYPES = new Set<Alert['type']>(['price', 'filing', 'news', 'catalyst', 'trade_exchange', 'scanner', 'tweet', 'tradingview', 'rss', 'mail'])
+
+/**
+ * A snapshot comes off the relay, which — like every SignalR route in TC —
+ * trusts the login name. So hold its alerts to the same rules as the
+ * TradingView webhook path (lib/tvPayload): a link is http(s) or one of TC's
+ * own relative /api paths, never javascript:/data:, since Alert.url ends up in a
+ * bare <a href>. Colours are plain hex because they go into a style.
+ */
+export function safeAlertUrl(u: unknown): string | undefined {
+  if (typeof u !== 'string') return undefined
+  if (/^https?:\/\//i.test(u)) return u
+  if (u.startsWith('/') && !u.startsWith('//')) return u
+  return undefined
+}
+
 function fromWire(w: WireAlert): Alert | null {
-  if (!w || typeof w.id !== 'string' || typeof w.message !== 'string' || typeof w.type !== 'string') return null
+  if (!w || typeof w.id !== 'string' || typeof w.message !== 'string' || !ALERT_TYPES.has(w.type)) return null
   const ts = new Date(w.timestamp)
   if (isNaN(ts.getTime())) return null
+  const url = safeAlertUrl(w.url)
   return {
     id: w.id,
     symbol: typeof w.symbol === 'string' ? w.symbol : '',
     message: w.message,
     type: w.type,
-    color: w.color,
+    color: typeof w.color === 'string' && /^#[0-9a-f]{3,8}$/i.test(w.color) ? w.color : '#9ca3af',
     timestamp: ts,
     read: !!w.read,
-    ...(w.url ? { url: w.url } : {}),
+    ...(url ? { url } : {}),
     ...(w.dedupKey ? { dedupKey: w.dedupKey } : {}),
     ...(w.source ? { source: w.source } : {}),
   }

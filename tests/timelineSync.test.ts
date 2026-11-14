@@ -273,3 +273,26 @@ describe('limits', () => {
     }
   })
 })
+
+describe('a snapshot is held to the same rules as a webhook', () => {
+  it('drops unsafe links, unknown types and odd colours', () => {
+    const at = min(1).toISOString()
+    const merged = applyRemoteMessage(empty(), {
+      v: 1, kind: 'snapshot', from: 'x', to: 'me', removedKeys: [], clearedSince: null,
+      alerts: [
+        { id: '1', symbol: 'A', message: 'js', type: 'catalyst', color: '#fff', timestamp: at, read: false, url: 'javascript:alert(1)' },
+        { id: '2', symbol: 'B', message: 'proto-relative', type: 'catalyst', color: '#fff', timestamp: at, read: false, url: '//evil.example/x' },
+        { id: '3', symbol: 'C', message: 'ok', type: 'catalyst', color: 'red;background:url(x)', timestamp: at, read: false, url: '/api/pr?id=1' },
+        { id: '4', symbol: 'D', message: 'ok2', type: 'tradingview', color: '#22c55e', timestamp: at, read: false, url: 'https://x.com/a' },
+        { id: '5', symbol: 'E', message: 'bad type', type: 'nope' as any, color: '#fff', timestamp: at, read: false },
+      ],
+    }) as TimelineState
+    const by = Object.fromEntries(merged.alerts.map((a) => [a.id, a]))
+    expect(Object.keys(by).sort()).toEqual(['1', '2', '3', '4'])
+    expect(by['1'].url).toBeUndefined()
+    expect(by['2'].url).toBeUndefined()
+    expect(by['3'].url).toBe('/api/pr?id=1')
+    expect(by['3'].color).toBe('#9ca3af')
+    expect(by['4'].url).toBe('https://x.com/a')
+  })
+})
