@@ -14,6 +14,7 @@ import { alertTypeColorHex } from '@/lib/alertTypeColor'
 import { parseTvPayload, isTvSymbol } from '@/lib/tvPayload'
 import { tvBackfillIdentities } from '@/lib/tvBackfillIdentities'
 import { notifyRemoteUserState, requestUserStateCatchUp } from '@/hooks/useCosmosSync'
+import { timelineSyncConnected, handleTimelineSyncMessage } from '@/lib/timelineSyncClient'
 
 interface NegotiateResult {
   url: string
@@ -308,6 +309,9 @@ export function useSignalR() {
           // 24/7 user this is the only time the TV backfill ever runs again
           // after the tab was first opened.
           tvBackfillRef.current?.('reconnect')
+          // And the timeline: deletes / clears made on another open copy while
+          // this one slept went into the gap. Any running copy answers.
+          timelineSyncConnected('reconnect')
           // Same for live sync: a save made on another computer while this
           // socket was down sent its "userStateChanged" into the gap.
           requestUserStateCatchUp()
@@ -696,6 +700,12 @@ export function useSignalR() {
           notifyRemoteUserState({ revision: Number(data?.revision), origin: data?.origin })
         })
 
+        // Timeline sync between the open copies of this login — see
+        // lib/timelineSyncClient. The worker relays the body as a string.
+        connection.on('timelineSync', (data: any) => {
+          handleTimelineSyncMessage(data)
+        })
+
         connection.on('tradingViewAlertRaw', (data: any) => {
           // console.log('tradingViewAlertRaw received:', data)
 
@@ -734,6 +744,10 @@ export function useSignalR() {
         await connection.start()
         console.log('SignalR: Connected!')
         setConnectionState('connected')
+        // Ask any copy of this login that is already running for its timeline
+        // (Justin, 11/11). Any copy that answers is merged in; with nobody else
+        // open this is a no-op and the backfills below do what they always did.
+        timelineSyncConnected('connect')
 
         // Register catalyst confirmer callbacks once connected so it can
         // subscribe to 1s bars and emit confirmed alerts.

@@ -6,25 +6,12 @@ import { shouldShowAlert, GATED_SUBSCRIPTION_KEYS } from '@/lib/alertFilter'
 import { shouldBlacklistAlert } from '@/lib/excludePrPatterns'
 import { isSymbolBlocked } from '@/lib/symbolBlocklist'
 import { foldStandaloneIntoWatchlists, staleTriggeredKeys } from '@/lib/priceAlertHome'
-import { normalizeAlertMessage, alertMatchKey } from '@/lib/alertDedup'
+import { normalizeAlertMessage } from '@/lib/alertDedup'
 import { createDedupedStorage } from '@/lib/dedupedStorage'
-
-// Keep the alert timeline in strict chronological order (newest first).
-// Backfill races (catalysts poll at 5s, filings at a different cadence, etc.)
-// used to land grouped by alert type — users want everything interleaved.
-// Alerts without a valid timestamp sort to the bottom.
-function sortAlertsByTimestampDesc(alerts: Alert[]): Alert[] {
-  return alerts.slice().sort((a, b) => {
-    const ta = a.timestamp instanceof Date ? a.timestamp.getTime() : new Date(a.timestamp).getTime()
-    const tb = b.timestamp instanceof Date ? b.timestamp.getTime() : new Date(b.timestamp).getTime()
-    const aValid = !isNaN(ta)
-    const bValid = !isNaN(tb)
-    if (!aValid && !bValid) return 0
-    if (!aValid) return 1
-    if (!bValid) return -1
-    return tb - ta
-  })
-}
+import {
+  sortAlertsByTimestampDesc, deletionKeys, isDeletedAlert, addRemovedKeys, emitTimelineAction,
+  applyRemoteMessage, type TimelineMessage,
+} from '@/lib/timelineSync'
 
 // Pane identifiers for focus management
 export type PaneId = 'watchlist' | 'alertbar' | 'alerts' | 'scanner' | null
@@ -71,13 +58,15 @@ interface AppState {
   // gone for the rest of the day.
   clearedSince: number | null
   hiddenAlertIds: Set<string>
-  // Keys (symbol|type|first-40-chars) of alerts the user DELETED this session, so
-  // the alert-auditor's poll doesn't re-inject them (Justin: deleted TX/filings
-  // sometimes reappear). Session-only — not persisted, to avoid suppressing a
-  // genuinely new alert that happens to share the key on a later day.
+  // Keys of alerts the user DELETED (see deletionKeys in lib/timelineSync), so
+  // nothing — auditor, backfill, poll, another open copy — re-adds them.
+  // Persisted, and capped at the newest 2000.
   removedAlertKeys: Set<string>
   hideAlert: (id: string) => void
   removeAlert: (id: string) => void
+  // Another open copy of this login: its timeline on boot, or a delete / hide /
+  // clear made there. Never re-announced (lib/timelineSyncClient).
+  applyRemoteTimeline: (msg: TimelineMessage) => void
 
   // Quotes (real-time)
   quotes: Record<string, Quote>
@@ -335,6 +324,16 @@ export const useStore = create<AppState>()(
           const idx = sorted.findIndex(a => a.id === alert.id)
           console.log('[TVDIAG] ADDED', { symbol: alert.symbol, sortIndex: idx, total: sorted.length, visibleInTop100: idx >= 0 && idx < 100, ts: alert.timestamp })
         }
+        // Deleted — here or on another open copy of this login — so it loads
+        // HIDDEN: still in the symbol's data ribbon, never back on the timeline.
+        // Only the auditor used to check deletes, so the TradingView and startup
+        // backfills put deleted alerts straight back after a reload.
+        if (isDeletedAlert(alert, state.removedAlertKeys)) {
+          if (tvDiag) console.warn('[TVDIAG] HIDDEN: deleted earlier', { symbol: alert.symbol })
+          const hiddenAlertIds = new Set(state.hiddenAlertIds)
+          hiddenAlertIds.add(alert.id)
+          return { alerts: sorted.slice(0, 500), hiddenAlertIds }
+        }
         return { alerts: sorted.slice(0, 500) }
       }),
       addAlerts: (newAlerts) => set((state) => {
@@ -382,20 +381,34 @@ export const useStore = create<AppState>()(
           return !existingMsgKeys.has(`${a.symbol}|${normalizeAlertMessage(a.message)}|${a.type}`)
         })
         if (unique.length === 0) return state
-        return { alerts: sortAlertsByTimestampDesc([...unique, ...state.alerts]).slice(0, 500) }
+        const alerts = sortAlertsByTimestampDesc([...unique, ...state.alerts]).slice(0, 500)
+        // Deleted earlier: kept for the ribbon, hidden from the timeline (see addAlert).
+        const deleted = unique.filter(a => isDeletedAlert(a, state.removedAlertKeys))
+        if (deleted.length === 0) return { alerts }
+        const hiddenAlertIds = new Set(state.hiddenAlertIds)
+        for (const a of deleted) hiddenAlertIds.add(a.id)
+        return { alerts, hiddenAlertIds }
       }),
       markAlertRead: (id) => set((state) => ({
         alerts: state.alerts.map(a => a.id === id ? { ...a, read: true } : a)
       })),
-      clearAlerts: () => set({ alerts: [], hiddenAlertIds: new Set(), removedAlertKeys: new Set(), clearedSince: Date.now() }),
+      clearAlerts: () => {
+        const at = Date.now()
+        set({ alerts: [], hiddenAlertIds: new Set(), removedAlertKeys: new Set(), clearedSince: at })
+        emitTimelineAction({ kind: 'clear', at })
+      },
       removedAlertKeys: new Set(),
       clearedSince: null,
       hiddenAlertIds: new Set(),
-      hideAlert: (id) => set((state) => {
-        const newHidden = new Set(state.hiddenAlertIds)
-        newHidden.add(id)
-        return { hiddenAlertIds: newHidden }
-      }),
+      hideAlert: (id) => {
+        const alert = get().alerts.find(a => a.id === id)
+        set((state) => {
+          const newHidden = new Set(state.hiddenAlertIds)
+          newHidden.add(id)
+          return { hiddenAlertIds: newHidden }
+        })
+        if (alert) emitTimelineAction({ kind: 'hide', keys: deletionKeys(alert) })
+      },
       // Deleting in the TIMELINE is scoped to the timeline. It used to splice the
       // alert out of state.alerts — the same array the per-symbol data ribbon
       // reads from — so clearing your working queue also erased the symbol's
@@ -407,26 +420,27 @@ export const useStore = create<AppState>()(
       // queue you work down; the ribbon is the record for a symbol. So hide it
       // from the timeline (hiddenAlertIds, which AlertBar already filters on and
       // which persists) and leave the alert in place for the ribbon.
-      removeAlert: (id) => set((state) => {
-        const alert = state.alerts.find(a => a.id === id)
-        if (!alert) return {}
+      removeAlert: (id) => {
+        const alert = get().alerts.find(a => a.id === id)
+        if (!alert) return
 
-        const hiddenAlertIds = new Set(state.hiddenAlertIds)
-        hiddenAlertIds.add(id)
+        // Record the deleted alert's keys — its dedupKey, and for everything but
+        // TradingView the NORMALIZED symbol|type|message key (strips the
+        // [Source]/form prefix so it matches the auditor's key computed from the
+        // un-prefixed REST feed; a raw substring key silently missed TX +
+        // filings). Persisted, so a reload does not forget. Justin: "every now
+        // and then a Trade Exchange message or SEC filing will re-appear in the
+        // timeline after I already deleted it."
+        const keys = deletionKeys(alert)
+        set((state) => {
+          const hiddenAlertIds = new Set(state.hiddenAlertIds)
+          hiddenAlertIds.add(id)
+          return { hiddenAlertIds, removedAlertKeys: addRemovedKeys(state.removedAlertKeys, keys) }
+        })
+        emitTimelineAction({ kind: 'remove', keys })
+      },
 
-        // Record the deleted alert's NORMALIZED key (shared alertMatchKey — strips
-        // the [Source]/form prefix so it matches the auditor's key computed from the
-        // un-prefixed REST feed; a raw substring key silently missed TX + filings).
-        // This set is now persisted: it was not, so it emptied on every reload and
-        // the auditor re-injected alerts the user had already deleted. Justin:
-        // "every now and then a Trade Exchange message or SEC filing will re-appear
-        // in the timeline after I already deleted it."
-        const key = alertMatchKey(alert.symbol, alert.type, alert.message)
-        const removedAlertKeys = new Set(state.removedAlertKeys)
-        removedAlertKeys.add(key)
-
-        return { hiddenAlertIds, removedAlertKeys }
-      }),
+      applyRemoteTimeline: (msg) => set((state) => applyRemoteMessage(state, msg)),
 
       // Quotes
       quotes: {},
