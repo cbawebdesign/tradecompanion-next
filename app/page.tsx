@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from 'react'
 import { useStore } from '@/store/useStore'
 import { AlertBar } from '@/components/AlertBar'
 import { Watchlist } from '@/components/Watchlist'
@@ -10,6 +11,7 @@ import { ConnectionStatus } from '@/components/ConnectionStatus'
 import { ChartPanel } from '@/components/ChartPanel'
 import { AlertMascot } from '@/components/AlertMascot'
 import { LinkViewer } from '@/components/ReportPopup'
+import { ThemesReport } from '@/components/ThemesReport'
 import { clsx } from 'clsx'
 
 // Justin ("UI", 10/30): drop Scanner (3) and Themes (4) — not in use, may come
@@ -33,6 +35,10 @@ const UTILITY_TABS = [
 
 export default function Home() {
   const { activeTab, setActiveTab, setActivePane, toggleChartMode, selectedSymbol } = useStore()
+  // Justin's Themes report (build criteria 11/17): "Generated on demand when the
+  // 'Themes' button is pressed." A button, not a tab — it opens over whatever
+  // tab is showing, like the theme pill popup it is modelled on.
+  const [themesOpen, setThemesOpen] = useState(false)
 
   // Clear pane focus when clicking on header/tabs
   const handleHeaderClick = () => {
@@ -61,6 +67,10 @@ export default function Home() {
               {tab.label}
             </button>
           ))}
+          <button onClick={() => setThemesOpen(true)} className="tab tab-compact" title="Theme Performance report">
+            <span className="mr-1">📊</span>
+            Themes
+          </button>
         </nav>
 
         <nav className="flex h-full ml-auto">
@@ -95,6 +105,8 @@ export default function Home() {
       {/* In-app link viewer. One per window; every URL click in TC routes
           here instead of opening a browser tab. */}
       <LinkViewer />
+
+      {themesOpen && <ThemesReport onClose={() => setThemesOpen(false)} />}
 
       {/* Floating Alert Mascot */}
       <AlertMascot />

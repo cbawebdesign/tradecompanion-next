@@ -1,14 +1,14 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useStore } from '@/store/useStore'
-import { fireAhk } from '@/lib/ahk'
 import { copyToClipboard } from '@/lib/clipboard'
 import { SymbolContextMenu } from './SymbolContextMenu'
+import { ChartToast, ThemeSymbolCell, useSendToChart } from './ThemeSymbolCell'
 import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
 import {
-  PERF_COLUMNS, fetchThemeDetail, fmtPct, pctCellStyle, pillColors, sortMembers, splitByCap,
+  COLUMN_SCALE, PERF_COLUMNS, fetchThemeDetail, fmtPct, pctCellStyle, pillColors, sortMembers, splitByCap,
   isThemeStarred, toggleThemeStar,
   type PerfKey, type ThemeDetail, type ThemeMember,
 } from '@/lib/themePerformance'
@@ -24,10 +24,6 @@ import {
  */
 export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; focusSymbol?: string; onClose: () => void }) {
   const hubUrl = useStore(s => s.config.hubUrl)
-  const ahkEnabled = useStore(s => s.config.ahkEnabled)
-  const ahkUrl = useStore(s => s.config.ahkUrl)
-  const flaggedSymbols = useStore(s => s.flaggedSymbols)
-  const toggleFlag = useStore(s => s.toggleFlag)
   const starredThemes = useStore(s => s.config.starredThemes)
   const updateConfig = useStore(s => s.updateConfig)
 
@@ -53,8 +49,6 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
   const [sortDesc, setSortDesc] = useState(true)
   const [smallOpen, setSmallOpen] = useState(false)
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; symbol: string } | null>(null)
-  const [toast, setToast] = useState('')
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>()
   const focusRow = useRef<HTMLTableRowElement>(null)
 
   useEffect(() => {
@@ -85,8 +79,6 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
     return () => window.removeEventListener('keydown', onKey)
   }, [ctxMenu, onClose])
 
-  useEffect(() => () => clearTimeout(toastTimer.current), [])
-
   // Bring the focused stock into view once its section is rendered.
   useEffect(() => {
     focusRow.current?.scrollIntoView({ block: 'center' })
@@ -106,52 +98,26 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
   // symbol too, which swapped the ribbon behind the popup — and the pills that
   // own this popup reload with the ribbon, so it closed. Justin (11/1): "When I
   // click the symbol to activate AHK, the pop up automatically closes."
-  const flash = (text: string) => {
-    setToast(text)
-    clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(''), 1200)
-  }
-  const sendToChart = useCallback((sym: string) => {
-    if (!ahkEnabled || !ahkUrl) {
-      copyToClipboard(sym)
-      flash(`Copied ${sym}`)
-      return
-    }
-    // fireAhk copies the symbol itself when the bridge is down.
-    fireAhk(sym, ahkUrl).then(ok => flash(ok ? `Sent ${sym} to chart` : `Copied ${sym}`))
-  }, [ahkEnabled, ahkUrl])
+  const { sendToChart, toast } = useSendToChart()
 
   const asOfText = asOf ? new Date(asOf).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: 'America/New_York' }) + ' ET' : ''
   const chip = pillColors(theme)
 
-  const row = (m: ThemeMember) => {
-    const flagged = flaggedSymbols.has(m.symbol)
-    return (
-      <tr key={m.symbol} ref={m.symbol === focusSymbol?.toUpperCase() ? focusRow : undefined}
-        className="border-b hover:bg-white/[0.03]"
-        style={{ borderColor: 'var(--border-glass)', ...(m.symbol === focusSymbol?.toUpperCase() ? { background: 'var(--accent-glow)' } : {}) }}
-        onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, symbol: m.symbol }) }}>
-        <td className="w-px pl-3 pr-3 py-1 whitespace-nowrap">
-          <span className="inline-flex items-center gap-1.5">
-            <button type="button" title={`Add ${m.symbol} to watchlist`} aria-label={`Add ${m.symbol} to watchlist`}
-              className="w-3 text-center font-bold leading-none" style={{ color: '#00e676', fontSize: 15 }}
-              onClick={(e) => { e.stopPropagation(); const r = (e.currentTarget as HTMLElement).getBoundingClientRect(); setCtxMenu({ x: r.left, y: r.bottom + 4, symbol: m.symbol }) }}>+</button>
-            <button type="button" title={flagged ? `Unflag ${m.symbol}` : `Flag ${m.symbol}`} aria-label={flagged ? `Unflag ${m.symbol}` : `Flag ${m.symbol}`}
-              aria-pressed={flagged} className="w-3 leading-none" style={{ color: flagged ? '#facc15' : 'var(--text-muted)' }}
-              onClick={(e) => { e.stopPropagation(); toggleFlag(m.symbol) }}>{flagged ? '⚑' : '⚐'}</button>
-            <span role="button" tabIndex={0} title={`Send ${m.symbol} to chart`}
-              className="font-mono font-bold cursor-pointer hover:underline" style={{ color: '#f0a500' }}
-              onClick={() => sendToChart(m.symbol)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); sendToChart(m.symbol) } }}>{m.symbol}</span>
-          </span>
-        </td>
-        <td className="px-2 py-1 truncate max-w-[220px]" style={{ color: 'var(--text-muted)' }} title={m.company}>{m.company}</td>
-        {PERF_COLUMNS.map(c => (
-          <td key={c.key} className="px-2 py-1 text-right font-mono text-xs tabular-nums" style={pctCellStyle(m[c.key])}>{fmtPct(m[c.key])}</td>
-        ))}
-      </tr>
-    )
-  }
+  const row = (m: ThemeMember) => (
+    <tr key={m.symbol} ref={m.symbol === focusSymbol?.toUpperCase() ? focusRow : undefined}
+      className="border-b hover:bg-white/[0.03]"
+      style={{ borderColor: 'var(--border-glass)', ...(m.symbol === focusSymbol?.toUpperCase() ? { background: 'var(--accent-glow)' } : {}) }}
+      onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, symbol: m.symbol }) }}>
+      <td className="w-px pl-3 pr-3 py-1 whitespace-nowrap">
+        <ThemeSymbolCell symbol={m.symbol} onChart={sendToChart}
+          onAdd={(r) => setCtxMenu({ x: r.left, y: r.bottom + 4, symbol: m.symbol })} />
+      </td>
+      <td className="px-2 py-1 truncate max-w-[220px]" style={{ color: 'var(--text-muted)' }} title={m.company}>{m.company}</td>
+      {PERF_COLUMNS.map(c => (
+        <td key={c.key} className="px-2 py-1 text-right font-mono text-xs tabular-nums" style={pctCellStyle(m[c.key], COLUMN_SCALE[c.key])}>{fmtPct(m[c.key])}</td>
+      ))}
+    </tr>
+  )
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.65)' }}
@@ -165,7 +131,7 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
               className="text-lg leading-none hover:scale-110 transition-transform"
               style={{ color: starred ? '#facc15' : 'var(--text-muted)' }}>{starred ? '★' : '☆'}</button>
             <span className="px-2 py-0.5 rounded-full text-sm font-semibold" style={{ background: chip.background, color: chip.color, border: `1px solid ${chip.border}` }}>{theme}</span>
-            {detail && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{detail.count} stocks · equal weight{asOfText ? ` · ${asOfText}` : ''}</span>}
+            {detail && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{detail.count} stocks · {detail.weighting === 'equal' ? 'equal weight' : 'Cap-weighted'}{asOfText ? ` · ${asOfText}` : ''}</span>}
           </div>
           <div className="flex items-center gap-3">
             {detail && (
@@ -198,9 +164,9 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
               <tbody>
                 {/* The theme itself — the row his report shows before expanding. */}
                 <tr className="border-b-2" style={{ borderColor: 'var(--border-glass)' }}>
-                  <td className="pl-3 pr-2 py-1.5 font-semibold" style={{ color: 'var(--text-primary)' }} colSpan={2}>Theme average <span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>(large caps)</span></td>
+                  <td className="pl-3 pr-2 py-1.5 font-semibold" style={{ color: 'var(--text-primary)' }} colSpan={2}>Theme <span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>(large caps)</span></td>
                   {PERF_COLUMNS.map(c => (
-                    <td key={c.key} className="px-2 py-1.5 text-right font-mono text-xs font-semibold tabular-nums" style={pctCellStyle(detail[c.key])}>{fmtPct(detail[c.key])}</td>
+                    <td key={c.key} className="px-2 py-1.5 text-right font-mono text-xs font-semibold tabular-nums" style={pctCellStyle(detail[c.key], COLUMN_SCALE[c.key])}>{fmtPct(detail[c.key])}</td>
                   ))}
                 </tr>
                 {large.length > 0 && (
@@ -221,14 +187,11 @@ export function ThemePopup({ theme, focusSymbol, onClose }: { theme: string; foc
         </div>
 
         <div className="px-4 py-1.5 text-[11px] border-t flex-shrink-0" style={{ borderColor: 'var(--border-glass)', color: 'var(--text-muted)' }}>
-          Theme average = equal-weight average of the large caps' moves (each capped at ±300%, base price under $0.50 excluded). Rows show each stock's actual move. Click a ticker to send it to your chart; right-click for watchlists.
+          Theme = the large caps weighted by Cap (Float × Price), no stock above 25%; ETF is equal weight. Base price under $0.50 is left out. Rows show each stock&apos;s actual move. Click a ticker to send it to your chart; right-click for watchlists.
         </div>
       </div>
 
-      {toast && (
-        <div className="fixed left-1/2 bottom-6 -translate-x-1/2 px-3.5 py-2 rounded-lg text-sm pointer-events-none"
-          style={{ background: 'var(--bg-tertiary)', color: 'var(--text-primary)', border: '1px solid #f0a500' }} role="status">{toast}</div>
-      )}
+      <ChartToast text={toast} />
 
       {ctxMenu && (
         <div onClick={(e) => e.stopPropagation()}>
