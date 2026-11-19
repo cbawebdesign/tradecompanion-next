@@ -34,6 +34,11 @@ import {
 export const ESTABLISHED_AFTER_MS = 15_000
 /** How long after a hello a snapshot is still taken. */
 export const SNAPSHOT_WINDOW_MS = 15_000
+/**
+ * A hello can reach a copy twice — over the worker relay and over the local
+ * channel between windows of one browser. Answer it once.
+ */
+export const HELLO_REPEAT_MS = 5_000
 
 export interface TimelineSyncDeps {
   instanceId: string
@@ -48,6 +53,7 @@ export function createTimelineSyncClient(deps: TimelineSyncDeps) {
   const bootAt = deps.now()
   let adopted = false
   let acceptUntil = 0
+  const answered = new Map<string, number>()
   const log = deps.log ?? (() => {})
 
   const established = () => adopted || deps.now() - bootAt >= ESTABLISHED_AFTER_MS
@@ -72,11 +78,15 @@ export function createTimelineSyncClient(deps: TimelineSyncDeps) {
       if (!msg || msg.from === deps.instanceId) return
 
       switch (msg.kind) {
-        case 'hello':
+        case 'hello': {
           if (!established()) return
+          const last = answered.get(msg.from)
+          if (last !== undefined && deps.now() - last < HELLO_REPEAT_MS) return
+          answered.set(msg.from, deps.now())
           deps.send(buildSnapshot(deps.getState(), deps.instanceId, msg.from))
           log('TimelineSync: sent timeline to a copy that just opened')
           return
+        }
         case 'snapshot':
           if (msg.to !== deps.instanceId || deps.now() > acceptUntil) return
           deps.apply(msg)
@@ -113,18 +123,43 @@ function postToRelay(msg: TimelineMessage) {
     .catch(() => { /* a missed sync message is caught up by the next hello */ })
 }
 
+// Windows of one browser — the main window and a popped-out timeline — also
+// talk directly. The relay needs the account key from Settings and a round trip
+// through the worker; without the key a delete in the pop-out never reached the
+// main window, and Clear All in the main window left the pop-out full. Every
+// message is safe to apply twice, so getting one over both paths is harmless.
+// The channel is per login so two people in one browser never mix timelines.
+function openLocalChannel(onMessage: (data: unknown) => void): BroadcastChannel | null {
+  if (typeof BroadcastChannel === 'undefined') return null
+  try {
+    // LoginGate's session (tc_session); a pop-out inherits it from its opener.
+    let login = ''
+    try { login = String(JSON.parse(sessionStorage.getItem('tc_session') || '{}').username || '').trim().toLowerCase() } catch { /* anonymous */ }
+    const ch = new BroadcastChannel(`tc-timeline-sync:${login}`)
+    ch.onmessage = (e) => onMessage(e.data)
+    return ch
+  } catch {
+    return null
+  }
+}
+
 let client: ReturnType<typeof createTimelineSyncClient> | null = null
+let localChannel: BroadcastChannel | null = null
 
 function getClient() {
   if (!client) {
     client = createTimelineSyncClient({
       instanceId: newInstanceId(),
       now: () => Date.now(),
-      send: postToRelay,
+      send: (msg) => {
+        postToRelay(msg)
+        try { localChannel?.postMessage(msg) } catch { /* relay still carries it */ }
+      },
       getState: () => useStore.getState(),
       apply: (msg) => useStore.getState().applyRemoteTimeline(msg),
       log: (m) => console.log(m),
     })
+    localChannel = openLocalChannel((data) => client?.onMessage(data))
     setTimelineActionListener((a) => client?.onLocalAction(a))
   }
   return client

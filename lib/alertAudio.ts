@@ -1,6 +1,8 @@
 // Centralized alert audio system — per-type sounds + TTS
 // Replaces the scattered playAlertSound() calls with a single entry point
 
+import { isPopoutWindow } from '@/lib/popout'
+
 let audioCtx: AudioContext | null = null
 
 function getAudioContext(): AudioContext {
@@ -93,6 +95,10 @@ export function handleAlertAudio(
   }
 ) {
   if (!config.audioEnabled) return
+  // A popped-out timeline receives the same alerts as the main window. Both
+  // playing meant every alert sounded and was read out twice, slightly out of
+  // step. The main window is always open behind a pop-out, so it speaks.
+  if (isPopoutWindow()) return
 
   // Play per-type tone
   playAlertSoundForType(alertType, config.alertSounds)

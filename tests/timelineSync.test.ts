@@ -5,7 +5,7 @@ import {
   applyRemoteMessage, buildSnapshot, deletionKeys, addRemovedKeys, setTimelineActionListener,
   REMOVED_KEYS_CAP, type TimelineMessage, type TimelineState, type LocalTimelineAction,
 } from '../lib/timelineSync'
-import { createTimelineSyncClient, ESTABLISHED_AFTER_MS, SNAPSHOT_WINDOW_MS } from '../lib/timelineSyncClient'
+import { createTimelineSyncClient, ESTABLISHED_AFTER_MS, SNAPSHOT_WINDOW_MS, HELLO_REPEAT_MS } from '../lib/timelineSyncClient'
 
 // ── fixtures ────────────────────────────────────────────────────────────────
 const T0 = new Date('2026-11-13T14:00:00Z').getTime()
@@ -202,6 +202,69 @@ describe('deletes, hides and Clear All follow every open copy', () => {
     // The relay echoed the clear to "a" too; the store already cleared itself,
     // the client must not apply it a second time.
     expect(view(a.state)).toEqual(['ARAI|tradingview|x'])
+  })
+})
+
+// A popped-out timeline and the main window hear each other twice: over the
+// worker relay and over the BroadcastChannel between windows of one browser.
+describe('a message that arrives over both paths', () => {
+  function doubled() {
+    let now = T0
+    const copies: Array<{ client: ReturnType<typeof createTimelineSyncClient>; state: TimelineState }> = []
+    const sent: TimelineMessage[] = []
+    const both = (msg: TimelineMessage) => {
+      sent.push(msg)
+      const wire = JSON.stringify(msg)
+      for (const c of copies) { c.client.onMessage(wire); c.client.onMessage(msg) }
+    }
+    const open = (name: string, initial: TimelineState = empty()) => {
+      const copy = { state: initial } as (typeof copies)[number]
+      copy.client = createTimelineSyncClient({
+        instanceId: name, now: () => now, send: both, getState: () => copy.state,
+        apply: (msg) => { copy.state = { ...copy.state, ...applyRemoteMessage(copy.state, msg) } },
+      })
+      copies.push(copy)
+      return copy
+    }
+    return { open, sent, advance: (ms: number) => { now += ms } }
+  }
+
+  it('the main window answers a pop-out\'s hello once, and the pop-out matches it', () => {
+    const h = doubled()
+    const deleted = tx('HUBC', 'HUBC partnership', 20)
+    const main = h.open('main', {
+      alerts: [tv(1, 'ARAI crossed VWAP', 30), deleted, cat('r1', 'AIMD', 'AIMD wins FDA nod', 25)],
+      hiddenAlertIds: new Set([deleted.id]), removedAlertKeys: new Set(deletionKeys(deleted)), clearedSince: null,
+    })
+    h.advance(ESTABLISHED_AFTER_MS)
+    const pop = h.open('pop', { ...empty(), alerts: [tx('HUBC', 'HUBC partnership', 20)] })
+    pop.client.onConnected('connect')
+    expect(h.sent.filter((m) => m.kind === 'snapshot')).toHaveLength(1)
+    expect(view(pop.state).sort()).toEqual(view(main.state).sort())
+  })
+
+  it('a hello from the same window after a real reconnect is answered again', () => {
+    const h = doubled()
+    h.open('main', { ...empty(), alerts: [tv(1, 'x', 1)] })
+    h.advance(ESTABLISHED_AFTER_MS)
+    const pop = h.open('pop')
+    pop.client.onConnected('connect')
+    h.advance(HELLO_REPEAT_MS + 1)
+    pop.client.onConnected('reconnect')
+    expect(h.sent.filter((m) => m.kind === 'snapshot')).toHaveLength(2)
+  })
+
+  it('delete and Clear All land the same as they would once', () => {
+    const h = doubled()
+    const shared = () => [tv(1, 'ARAI crossed VWAP', 30), tx('HUBC', 'HUBC partnership', 20), cat('r1', 'AIMD', 'AIMD wins FDA nod', 25)]
+    const main = h.open('main', { ...empty(), alerts: shared() })
+    const pop = h.open('pop', { ...empty(), alerts: shared() })
+    pop.client.onLocalAction({ kind: 'remove', keys: deletionKeys(pop.state.alerts[1]) })
+    expect(view(main.state)).toEqual(['ARAI|tradingview|ARAI crossed VWAP', 'AIMD|catalyst|AIMD wins FDA nod'])
+    const at = min(35).getTime()
+    main.client.onLocalAction({ kind: 'clear', at })
+    expect(view(pop.state)).toEqual([])
+    expect(pop.state.clearedSince).toBe(at)
   })
 })
 
