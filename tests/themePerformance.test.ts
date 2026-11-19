@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { fmtPct, sortMembers, splitByCap, pctCellStyle, pillColors, type ThemeMember } from '@/lib/themePerformance'
 
 /** Theme pills + popup (meeting 10/31), formatted like Justin's Theme Performance report. */
@@ -55,5 +55,64 @@ describe('report colours', () => {
   it('a theme keeps the same pill colour everywhere', () => {
     expect(pillColors('Datacenters')).toEqual(pillColors('Datacenters'))
     expect(pillColors('Datacenters').color).not.toBe(pillColors('Neocloud').color)
+  })
+})
+
+// ── Themes report (Justin's build criteria, 11/17) ──────────────────────────
+
+import { fetchThemeReport, sortMembersBy, sortThemeRows, type ThemeRow } from '@/lib/themePerformance'
+
+const rows: ThemeRow[] = [
+  { theme: 'Railroads', count: 8, large: 8, today: 0.1, topSymbol: 'UNP', topToday: 0.9 },
+  { theme: 'Adtech', count: 29, large: 29, today: 0.4, topSymbol: 'TTD', topToday: -3.1 },
+  { theme: 'Healthcare', count: 8, large: 8, today: 1.9, topSymbol: 'UNH', topToday: 2.2 },
+  { theme: 'Blank', count: 3, large: 3, today: null, topSymbol: null, topToday: null },
+]
+const names = (r: ThemeRow[]) => r.map(t => t.theme)
+
+describe('Themes report sort', () => {
+  it('defaults to Today, biggest first, blanks last', () => {
+    expect(names(sortThemeRows(rows, 'today', true))).toEqual(['Healthcare', 'Adtech', 'Railroads', 'Blank'])
+  })
+  it('keeps blanks last when the column is flipped', () => {
+    expect(names(sortThemeRows(rows, 'today', false))).toEqual(['Railroads', 'Adtech', 'Healthcare', 'Blank'])
+  })
+  it('sorts Theme A–Z, then Z–A', () => {
+    expect(names(sortThemeRows(rows, 'theme', false))).toEqual(['Adtech', 'Blank', 'Healthcare', 'Railroads'])
+    expect(names(sortThemeRows(rows, 'theme', true))).toEqual(['Railroads', 'Healthcare', 'Blank', 'Adtech'])
+  })
+  it('sorts Top Mover by its move', () => {
+    expect(names(sortThemeRows(rows, 'top', true))).toEqual(['Healthcare', 'Railroads', 'Adtech', 'Blank'])
+  })
+})
+
+describe('Themes report member sort', () => {
+  const ms = [
+    { symbol: 'B', company: '', cap: 'large', today: 1, w1: null },
+    { symbol: 'A', company: '', cap: 'large', today: 3, w1: 2 },
+    { symbol: 'C', company: '', cap: 'large', today: -2, w1: 5 },
+  ] as ThemeMember[]
+  it('follows the theme table column and direction, missing last', () => {
+    expect(sortMembersBy(ms, 'w1', true).map(m => m.symbol)).toEqual(['C', 'A', 'B'])
+    expect(sortMembersBy(ms, 'w1', false).map(m => m.symbol)).toEqual(['A', 'C', 'B'])
+  })
+  it('Theme sorts members by symbol; Top Mover by Today', () => {
+    expect(sortMembersBy(ms, 'theme', false).map(m => m.symbol)).toEqual(['A', 'B', 'C'])
+    expect(sortMembersBy(ms, 'top', true).map(m => m.symbol)).toEqual(['A', 'B', 'C'])
+  })
+})
+
+describe('fetchThemeReport', () => {
+  it('asks for fresh prices and hides themes with no TC Large Caps member', async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({
+      asOfUtc: '2026-11-16T23:38:00Z', session: 'closed', sessionDate: '2026-11-16',
+      themes: [{ theme: 'A', count: 3, large: 2 }, { theme: 'SmallOnly', count: 4, large: 0 }],
+    })))
+    vi.stubGlobal('fetch', fetchMock)
+    const r = await fetchThemeReport('https://worker.example/api')
+    expect(String((fetchMock.mock.calls[0] as unknown[])[0])).toContain('ThemePerformance?fresh=1')
+    expect(r.themes.map(t => t.theme)).toEqual(['A'])
+    expect(r.session).toBe('closed')
+    vi.unstubAllGlobals()
   })
 })

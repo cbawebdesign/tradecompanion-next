@@ -28,10 +28,29 @@ export interface ThemeMember extends Perf {
   last?: number | null
 }
 
-export interface ThemeDetail extends Perf {
+/** One theme's row: every member counted in `count`, the TC Large Caps in `large`. */
+export interface ThemeRow extends Perf {
   theme: string
   count: number
+  large?: number
+  /** "cap" = weighted by the Airtable Cap column; "equal" = the ETF theme, or no Caps. */
+  weighting?: 'cap' | 'equal'
+  /** Biggest absolute Today move among the large caps. */
+  topSymbol?: string | null
+  topToday?: number | null
+}
+
+export interface ThemeDetail extends ThemeRow {
   members: ThemeMember[]
+}
+
+export type MarketSession = 'pre' | 'open' | 'closed'
+
+export interface ThemeReport {
+  asOfUtc?: string
+  session?: MarketSession
+  sessionDate?: string
+  themes: ThemeRow[]
 }
 
 export interface SymbolTheme {
@@ -66,6 +85,49 @@ export async function fetchThemeDetail(hubUrl: string, theme: string, signal?: A
   if (!r.ok) throw new Error(`HTTP ${r.status}`)
   const data = await r.json()
   return { asOfUtc: data?.asOfUtc, theme: data?.theme ?? null }
+}
+
+/**
+ * The Themes report — every theme with at least one stock in the TC Large Caps
+ * view (Justin's build criteria: "Themes with no members are hidden"). `fresh`
+ * asks the worker for current prices rather than its last minute-old build:
+ * "Latest prices are always fetched fresh on every press."
+ */
+export async function fetchThemeReport(hubUrl: string, signal?: AbortSignal): Promise<ThemeReport> {
+  const r = await fetch(proxyUrl(`${apiBase(hubUrl)}/ThemePerformance?fresh=1`), { signal })
+  if (!r.ok) throw new Error(`HTTP ${r.status}`)
+  const data = await r.json()
+  const themes: ThemeRow[] = (Array.isArray(data?.themes) ? data.themes : [])
+    .filter((t: ThemeRow) => t?.theme && (t.large ?? t.count) > 0)
+  return { asOfUtc: data?.asOfUtc, session: data?.session, sessionDate: data?.sessionDate, themes }
+}
+
+export const SESSION_LABEL: Record<MarketSession, string> = { pre: 'Pre-market', open: 'Open', closed: 'Close' }
+
+export type ThemeSortKey = PerfKey | 'theme' | 'top'
+
+/** Missing values last whichever way, then by name. */
+function byValue<T>(a: T, b: T, av: number | null | undefined, bv: number | null | undefined, desc: boolean, name: (x: T) => string): number {
+  if (av == null && bv == null) return name(a).localeCompare(name(b))
+  if (av == null) return 1
+  if (bv == null) return -1
+  return desc ? bv - av : av - bv
+}
+
+/** The report's sort: Theme A–Z / Z–A, a % column or Top Mover high-to-low / low-to-high, blanks last. */
+export function sortThemeRows(rows: ThemeRow[], key: ThemeSortKey, desc: boolean): ThemeRow[] {
+  const name = (t: ThemeRow) => t.theme
+  return [...rows].sort((a, b) => {
+    if (key === 'theme') return desc ? b.theme.localeCompare(a.theme) : a.theme.localeCompare(b.theme)
+    if (key === 'top') return byValue(a, b, a.topToday, b.topToday, desc, name)
+    return byValue(a, b, a[key], b[key], desc, name)
+  })
+}
+
+/** Members follow the theme table's sort: Theme sorts them by symbol, Top Mover by Today. */
+export function sortMembersBy(members: ThemeMember[], key: ThemeSortKey, desc: boolean): ThemeMember[] {
+  if (key === 'theme') return [...members].sort((a, b) => desc ? b.symbol.localeCompare(a.symbol) : a.symbol.localeCompare(b.symbol))
+  return sortMembers(members, key === 'top' ? 'today' : key, desc)
 }
 
 function apiBase(hubUrl: string): string {
@@ -163,6 +225,13 @@ export function splitByCap(members: ThemeMember[]): { large: ThemeMember[]; smal
     small: members.filter(m => m.cap === 'small'),
   }
 }
+
+/**
+ * Where each column's colour is at full strength. A 2% day is a big day and a
+ * 2% year is nothing, so one scale for all six left Today almost uncoloured
+ * next to a saturated YTD — Justin's report shades each column on its own range.
+ */
+export const COLUMN_SCALE: Record<PerfKey, number> = { today: 4, w1: 10, m1: 20, m3: 30, m6: 45, ytd: 60 }
 
 /**
  * Cell background on the report's scale: green up, red down, stronger with size.
