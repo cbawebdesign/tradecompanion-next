@@ -12,6 +12,7 @@ import { ChartPanel } from '@/components/ChartPanel'
 import { AlertMascot } from '@/components/AlertMascot'
 import { LinkViewer } from '@/components/ReportPopup'
 import { ThemesReport } from '@/components/ThemesReport'
+import { LibraryPage } from '@/components/LibraryPage'
 import { clsx } from 'clsx'
 
 // Justin ("UI", 10/30): drop Scanner (3) and Themes (4) — not in use, may come
@@ -71,6 +72,12 @@ export default function Home() {
             <span className="mr-1">📊</span>
             Themes
           </button>
+          {/* Library (Justin's spec 11/19): curated videos and articles. Tab 7
+              — ids 3 and 4 are the retired Scanner and Themes tabs. */}
+          <button onClick={() => setActiveTab(7)} className={clsx('tab tab-compact', activeTab === 7 && 'active')}>
+            <span className="mr-1">📚</span>
+            Library
+          </button>
         </nav>
 
         <nav className="flex h-full ml-auto">
@@ -92,6 +99,7 @@ export default function Home() {
       <main className="flex-1 overflow-hidden">
         {activeTab === 1 && <AlertsPage />}
         {activeTab === 2 && <Watchlist />}
+        {activeTab === 7 && <LibraryPage />}
         {activeTab === 5 && <SettingsPage />}
         {activeTab === 6 && <AdminPage showRollback={false} />}
       </main>

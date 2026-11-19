@@ -159,6 +159,11 @@ export interface AppConfig {
   // persists, syncs to the server and follows him to another device with no
   // extra plumbing — and crosses to pop-out windows with the rest of config.
   starredThemes?: string[]
+  // Library tab (lib/library.ts): saved items, what's been cleared, and the
+  // toolbar tags. In config for the same reason as starredThemes — it rides
+  // the webConfig blob, so it follows the login and syncs live to every open
+  // session and pop-out.
+  library?: import('@/lib/library').LibraryState
   // Per-list column width persistence (column key → px width)
   watchlistColumnWidths?: Record<string, number>
   flaggedColumnWidths?: Record<string, number>
