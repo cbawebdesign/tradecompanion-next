@@ -312,6 +312,11 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
     }
   }
 
+  // Docked, the bar takes the share of the main window set in Settings. Popped
+  // out it is the whole window; the 25% default left a 400px pop-out showing a
+  // row and a half with the rest blank.
+  const barHeight = isPopout ? '100%' : `${config.alertBarHeightPercent ?? 25}%`
+
   // During the first ~8 sec after app start, suppress the timeline render
   // so the user doesn't watch the SignalR + Airtable + TX backfill flood
   // scroll past. Justin: "instead of showing a million messages scrolling
@@ -324,7 +329,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
           'glass-panel rounded-lg px-4 py-2 text-sm flex items-center justify-center transition-all duration-200',
           isActive ? 'pane-active' : 'pane-inactive'
         )}
-        style={{ height: `${config.alertBarHeightPercent ?? 25}%`, flexShrink: 0, color: 'var(--text-muted)' }}
+        style={{ height: barHeight, flexShrink: 0, color: 'var(--text-muted)' }}
       >
         <span className="italic">Loading alerts…</span>
       </div>
@@ -339,7 +344,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
           'glass-panel rounded-lg px-4 py-2 text-sm transition-all duration-200',
           isActive ? 'pane-active' : 'pane-inactive'
         )}
-        style={{ height: `${config.alertBarHeightPercent ?? 25}%`, flexShrink: 0, color: 'var(--text-muted)' }}
+        style={{ height: barHeight, flexShrink: 0, color: 'var(--text-muted)' }}
       >
         No alerts yet. Alerts will appear here in real-time.
       </div>
@@ -353,7 +358,7 @@ export function AlertBar({ isPopout = false }: AlertBarProps) {
         'glass-panel rounded-lg flex flex-col transition-all duration-200',
         isActive ? 'pane-active' : 'pane-inactive'
       )}
-      style={{ height: `${config.alertBarHeightPercent ?? 25}%`, flexShrink: 0 }}
+      style={{ height: barHeight, flexShrink: 0 }}
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-1 glass-header rounded-t-lg flex-shrink-0">

@@ -24,6 +24,7 @@ import { useRemoteSymbolBlocklist } from '@/hooks/useRemoteSymbolBlocklist'
 import { useStore } from '@/store/useStore'
 import { LoginGate } from '@/components/LoginGate'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { isPopoutWindow } from '@/lib/popout'
 
 // Apply theme on mount and when it changes
 function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -42,6 +43,9 @@ function ThemeProvider({ children }: { children: React.ReactNode }) {
 // closes, which is what Justin asked for.
 function CloseConfirmation() {
   useEffect(() => {
+    // Only the main window. Closing a pop-out loses nothing, and the prompt
+    // there just got in the way.
+    if (isPopoutWindow()) return
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault()
       e.returnValue = 'Heading out? Everything is saved — see you next time.'
