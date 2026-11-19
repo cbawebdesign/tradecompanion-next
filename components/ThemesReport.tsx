@@ -5,9 +5,10 @@ import { createPortal } from 'react-dom'
 import { useStore } from '@/store/useStore'
 import { SymbolContextMenu } from './SymbolContextMenu'
 import { ChartToast, ThemeSymbolCell, useSendToChart } from './ThemeSymbolCell'
+import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
 import {
   COLUMN_SCALE, PERF_COLUMNS, SESSION_LABEL, fetchThemeDetail, fetchThemeReport, fmtPct, pctCellStyle,
-  pctChangeClass, sortMembersBy, sortThemeRows,
+  pctChangeClass, sortMembersBy, sortThemeRows, isThemeStarred, toggleThemeStar,
   type ThemeMember, type ThemeReport, type ThemeSortKey,
 } from '@/lib/themePerformance'
 
@@ -27,6 +28,18 @@ const COMPANY_GREY = '#8a8f98'
 
 export function ThemesReport({ onClose }: { onClose: () => void }) {
   const hubUrl = useStore(s => s.config.hubUrl)
+  const starredThemes = useStore(s => s.config.starredThemes)
+  const updateConfig = useStore(s => s.updateConfig)
+
+  // Justin (11/18): "when you expand a theme, maybe add a star to the left hand
+  // side of the theme to add that theme to the flagged list." Same star as the
+  // pill popup — same list, so starring here shows it on the Flagged list and
+  // in the popup, and unstarring either place clears both.
+  const toggleStar = (theme: string) => {
+    updateConfig({ starredThemes: toggleThemeStar(starredThemes, theme) })
+    // Push now rather than on the debounce, as the popup does.
+    forceCosmosSyncNow()
+  }
   const { sendToChart, toast } = useSendToChart()
 
   const [report, setReport] = useState<ThemeReport | null>(null)
@@ -152,12 +165,26 @@ export function ThemesReport({ onClose }: { onClose: () => void }) {
               <tbody>
                 {rows.map(t => {
                   const isOpen = open.has(t.theme)
+                  const starred = isThemeStarred(starredThemes, t.theme)
                   const ms = members.get(t.theme)
                   return (
                     <Fragment key={t.theme}>
                       <tr className="border-b cursor-pointer hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-glass)' }}
                         onClick={() => toggle(t.theme)} aria-expanded={isOpen}>
                         <td className="pl-3 pr-2 py-1 whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                          {/* The star shows on an open theme, and on a starred one even when
+                              closed so he can see which are on his Flagged list. The slot is
+                              always there so names don't shift as themes open. */}
+                          <span className="inline-block w-5">
+                            {(isOpen || starred) && (
+                              <button type="button" aria-pressed={starred}
+                                aria-label={starred ? `Unstar ${t.theme}` : `Star ${t.theme}`}
+                                title={starred ? 'Starred — showing on your Flagged list. Click to remove.' : 'Star this theme to keep it on your Flagged list'}
+                                className="leading-none hover:scale-110 transition-transform"
+                                style={{ color: starred ? '#facc15' : 'var(--text-muted)' }}
+                                onClick={(e) => { e.stopPropagation(); toggleStar(t.theme) }}>{starred ? '★' : '☆'}</button>
+                            )}
+                          </span>
                           <span className="inline-block w-4 text-xs" style={{ color: 'var(--text-muted)' }}>{isOpen ? '▾' : '▸'}</span>
                           {t.theme}
                           <span className="ml-1.5 text-[11px]" style={{ color: 'var(--text-muted)' }}>{t.large ?? t.count}</span>
@@ -187,7 +214,7 @@ export function ThemesReport({ onClose }: { onClose: () => void }) {
                         <tr key={m.symbol} className="border-b hover:bg-white/[0.03]"
                           style={{ borderColor: 'var(--border-glass)', background: 'rgba(255,255,255,0.015)' }}
                           onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, symbol: m.symbol }) }}>
-                          <td className="pl-7 pr-2 py-1 max-w-[340px]">
+                          <td className="pl-12 pr-2 py-1 max-w-[360px]">
                             <span className="flex items-center gap-2 min-w-0">
                               <ThemeSymbolCell symbol={m.symbol} onChart={sendToChart}
                                 onAdd={(r) => setCtxMenu({ x: r.left, y: r.bottom + 4, symbol: m.symbol })} />
