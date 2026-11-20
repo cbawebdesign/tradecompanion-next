@@ -12,6 +12,7 @@ import { ChartPanel } from '@/components/ChartPanel'
 import { AlertMascot } from '@/components/AlertMascot'
 import { LinkViewer } from '@/components/ReportPopup'
 import { ThemesReport } from '@/components/ThemesReport'
+import { LibraryPage } from '@/components/LibraryPage'
 import { clsx } from 'clsx'
 
 // Justin ("UI", 10/30): drop Scanner (3) and Themes (4) — not in use, may come
@@ -71,6 +72,12 @@ export default function Home() {
             <span className="mr-1">📊</span>
             Themes
           </button>
+          {/* Library (Justin's spec 11/19): curated videos and articles. Tab 7
+              — ids 3 and 4 are the retired Scanner and Themes tabs. */}
+          <button onClick={() => setActiveTab(7)} className={clsx('tab tab-compact', activeTab === 7 && 'active')}>
+            <span className="mr-1">📚</span>
+            Library
+          </button>
         </nav>
 
         <nav className="flex h-full ml-auto">
@@ -92,12 +99,18 @@ export default function Home() {
       <main className="flex-1 overflow-hidden">
         {activeTab === 1 && <AlertsPage />}
         {activeTab === 2 && <Watchlist />}
+        {activeTab === 7 && <LibraryPage />}
         {activeTab === 5 && <SettingsPage />}
         {activeTab === 6 && <AdminPage showRollback={false} />}
       </main>
 
-      {/* Alert Bar - at bottom */}
-      <AlertBar />
+      {/* Alert Bar - at bottom. Not on the Library tab — Justin (11/19): "hide
+          the time line on the library side", as in his mockup, so a video gets
+          the room. Alerts keep arriving in the background (they live in the
+          store, fed by the providers) and are all there on the way back.
+          Unmounted rather than hidden so its keyboard shortcuts — Delete
+          removes the selected alert — can't act on a timeline nobody can see. */}
+      {activeTab !== 7 && <AlertBar />}
 
       {/* Floating Chart Panel */}
       <ChartPanel />
@@ -111,8 +124,9 @@ export default function Home() {
       {/* Floating Alert Mascot */}
       <AlertMascot />
 
-      {/* Floating Chart Button (FAB) */}
-      <button
+      {/* Floating Chart Button (FAB). Not on the Library tab: nothing there has a
+          symbol to chart, and with the timeline gone it sat on the Saved ★s. */}
+      {activeTab !== 7 && <button
         onClick={toggleChartMode}
         className="fixed bottom-20 right-4 z-40 flex items-center gap-2 px-4 py-3 rounded-full shadow-lg transition-all hover:scale-105"
         style={{
@@ -128,7 +142,7 @@ export default function Home() {
         <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
           {selectedSymbol || 'Chart'}
         </span>
-      </button>
+      </button>}
 
       {/* Keyboard shortcuts hint */}
       <footer
