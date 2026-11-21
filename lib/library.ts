@@ -286,3 +286,17 @@ export function plainSummary(md: string | null | undefined): string {
     .replace(/\n{3,}/g, '\n\n')
     .trim()
 }
+
+/**
+ * Library pane sizes (Justin, 11/21: "let the user resize these areas"):
+ * top = the preview's share of the height, feed = the feed's share of the
+ * bottom row's width. Kept per computer, since screens differ.
+ */
+export interface LibraryLayout { top: number; feed: number }
+export const DEFAULT_LIBRARY_LAYOUT: LibraryLayout = { top: 0.55, feed: 0.66 }
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v))
+export function clampLayout(l: Partial<LibraryLayout> | null | undefined): LibraryLayout {
+  const top = typeof l?.top === 'number' && isFinite(l.top) ? l.top : DEFAULT_LIBRARY_LAYOUT.top
+  const feed = typeof l?.feed === 'number' && isFinite(l.feed) ? l.feed : DEFAULT_LIBRARY_LAYOUT.feed
+  return { top: clamp(top, 0.2, 0.8), feed: clamp(feed, 0.3, 0.85) }
+}

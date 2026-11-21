@@ -3,12 +3,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useLibraryData, useLibraryState } from '@/hooks/useLibrary'
 import {
-  UNDO_MS, byKind, clearAll, dismiss, embedUrl, feedItems, formatLibraryDate, formatLibraryTime,
+  DEFAULT_LIBRARY_LAYOUT, UNDO_MS, byKind, clampLayout, clearAll, dismiss, embedUrl, feedItems, formatLibraryDate, formatLibraryTime,
   isSaved, plainSummary, restoreFeed, results, savedItems, setHiddenSources, sourceList, toggleSave, undismiss, visibleToolbar,
-  type KindFilter, type LibraryItem, type LibraryState,
+  type KindFilter, type LibraryItem, type LibraryLayout, type LibraryState,
 } from '@/lib/library'
 import { PopOutButton } from './PopOutButton'
-import { KIND_OPTIONS, KindToggle, LibraryAvatar, StarButton, TagChip, TitleLink } from './LibraryParts'
+import { KIND_OPTIONS, KindToggle, LibraryAvatar, Splitter, StarButton, TagChip, TitleLink } from './LibraryParts'
 import { LibraryTagPopup } from './LibraryTagPopup'
 import { LibraryCustomize } from './LibraryCustomize'
 import { LibrarySources } from './LibrarySources'
@@ -44,6 +44,21 @@ function useRemoved() {
 
 type Toast = { id: number; text: string; undo: () => void }
 
+// Pane sizes are kept per computer (screens differ), not synced to the login.
+const LAYOUT_KEY = 'tc-library-layout'
+function useLibraryLayout(): [LibraryLayout, (l: LibraryLayout) => void] {
+  const [layout, setLayout] = useState<LibraryLayout>(DEFAULT_LIBRARY_LAYOUT)
+  useEffect(() => {
+    try { const raw = localStorage.getItem(LAYOUT_KEY); if (raw) setLayout(clampLayout(JSON.parse(raw))) } catch { /* private window etc. */ }
+  }, [])
+  const set = useCallback((l: LibraryLayout) => {
+    const next = clampLayout(l)
+    setLayout(next)
+    try { localStorage.setItem(LAYOUT_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+  }, [])
+  return [layout, set]
+}
+
 export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
   const { data, error, loading } = useLibraryData()
   const [lib, update] = useLibraryState()
@@ -61,6 +76,17 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
   const [showRemoved, setShowRemoved] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
   const toastTimer = useRef<ReturnType<typeof setTimeout>>()
+  const [layout, setLayout] = useLibraryLayout()
+  const splitRef = useRef<HTMLDivElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
+  const dragTop = (y: number) => {
+    const r = splitRef.current?.getBoundingClientRect()
+    if (r && r.height > 0) setLayout({ ...layout, top: (y - r.top) / r.height })
+  }
+  const dragFeed = (x: number) => {
+    const r = rowRef.current?.getBoundingClientRect()
+    if (r && r.width > 0) setLayout({ ...layout, feed: (x - r.left) / r.width })
+  }
 
   const feed = useMemo(() => feedItems(items, lib), [items, lib])
   const archiveMode = query.trim() !== '' || tag != null
@@ -161,14 +187,16 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           style={{ color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)' }}>⚙ Customize</button>
       </div>
 
+      <div ref={splitRef} className="flex-1 min-h-0 flex flex-col">
       {/* Top: preview */}
-      <div className="lib-preview border-b" style={{ flex: '0 0 50%', borderColor: 'var(--border-glass)' }}>
+      <div className="lib-preview min-h-0" style={{ flex: `0 0 ${layout.top * 100}%` }}>
         <Preview item={selected} saved={selected ? isSaved(lib, selected.id) : false} onStar={() => selected && onStar(selected)} />
       </div>
+      <Splitter dir="row" label="Resize the preview" onDrag={dragTop} onReset={() => setLayout({ ...layout, top: DEFAULT_LIBRARY_LAYOUT.top })} />
 
-      <div className="flex-1 flex min-h-0">
+      <div ref={rowRef} className="flex-1 flex min-h-0">
         {/* Bottom left: News feed */}
-        <section className="flex flex-col min-w-0 border-r" style={{ flex: '2 1 0', borderColor: 'var(--border-glass)' }}>
+        <section className="flex flex-col min-w-0" style={{ flex: `0 0 ${layout.feed * 100}%` }}>
           <div className="flex items-center justify-between px-3 py-1.5 text-sm flex-shrink-0 border-b" style={{ borderColor: 'var(--border-glass)', color: 'var(--text-secondary)' }}>
             {archiveMode ? (
               <>
@@ -233,8 +261,10 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           </div>
         </section>
 
+        <Splitter dir="col" label="Resize the feed and Saved" onDrag={dragFeed} onReset={() => setLayout({ ...layout, feed: DEFAULT_LIBRARY_LAYOUT.feed })} />
+
         {/* Bottom right: Saved */}
-        <aside className="flex flex-col min-w-0" style={{ flex: '1 1 0' }}>
+        <aside className="flex flex-col min-w-0 flex-1">
           <div className="flex-1 min-h-0 flex flex-col">
             <div className="px-3 pt-2 text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Saved</div>
             <div className="flex gap-4 px-3 text-sm border-b flex-shrink-0" style={{ borderColor: 'var(--border-glass)' }}>
@@ -287,6 +317,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           </div>
         </aside>
       </div>
+      </div>
 
       {toast && (
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full text-base glass-panel"
@@ -333,6 +364,9 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
  */
 function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boolean; onStar: () => void }) {
   const [playing, setPlaying] = useState<string | null>(null)
+  // Thumbnail that failed to load (an expired Airtable link): a video falls
+  // back to YouTube's own thumbnail, which doesn't expire.
+  const [failedThumb, setFailedThumb] = useState<string | null>(null)
   if (!item) {
     return <div className="h-full flex items-center justify-center p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Pick a video or article to preview it here.</div>
   }
@@ -340,11 +374,14 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
   const isPlaying = isVideo && playing === item.id && item.youtubeId
   const openSource = () => { if (item.link) window.open(item.link, '_blank', 'noopener,noreferrer') }
   const summary = !isVideo ? plainSummary(item.summary) : ''
+  const ytThumb = item.youtubeId ? `https://i.ytimg.com/vi/${item.youtubeId}/hqdefault.jpg` : null
+  const thumb = item.thumbnail && failedThumb !== item.thumbnail ? item.thumbnail : isVideo ? ytThumb : null
 
   return (
-    <div className="lib-preview-body">
+    <div className={`lib-preview-body ${isVideo ? 'is-video' : 'is-article'}`}>
+      <div className={isVideo ? 'lib-preview-stage' : 'contents'}>
       {/* An article with no image skips the frame, so its summary sits right under the title. */}
-      {(isVideo || item.thumbnail) && (
+      {(isVideo || thumb) && (
       <div className="lib-preview-media relative rounded-md overflow-hidden" style={{ aspectRatio: '16 / 9', background: '#000' }}>
         {isPlaying ? (
           <iframe key={item.id} src={embedUrl(item.youtubeId!)} title={item.title}
@@ -355,9 +392,10 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
           <button type="button" className="absolute inset-0 w-full h-full group"
             onClick={() => (isVideo && item.youtubeId ? setPlaying(item.id) : openSource())}
             aria-label={isVideo ? 'Play video' : 'Open article'}>
-            {item.thumbnail
+            {thumb
               // eslint-disable-next-line @next/next/no-img-element
-              ? <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
+              ? <img src={thumb} alt="" className="w-full h-full object-cover"
+                  onError={() => { if (thumb === item.thumbnail) setFailedThumb(item.thumbnail) }} />
               : <span className="w-full h-full flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>{isVideo ? 'No thumbnail' : 'No image'}</span>}
             {isVideo && item.youtubeId && (
               <span className="absolute inset-0 flex items-center justify-center">
@@ -370,11 +408,11 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
         )}
       </div>
       )}
-      <div className="lib-preview-details">
+      <div className={`lib-preview-details ${isVideo ? 'mt-2' : ''}`}>
       <div className="flex items-start gap-2">
         <a href={item.link ?? undefined} target="_blank" rel="noopener noreferrer"
-          className="flex-1 text-base font-semibold underline underline-offset-2 hover:brightness-125"
-          style={{ color: 'var(--library-link, #34d399)' }}>{item.title}</a>
+          className={`flex-1 ${isVideo ? 'text-lg' : 'text-base'} font-semibold line-clamp-2 break-words underline underline-offset-2 hover:brightness-125`}
+          style={{ color: 'var(--library-link, #34d399)' }} title={item.title}>{item.title}</a>
         <StarButton saved={saved} onClick={onStar} />
       </div>
       <div className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
@@ -384,6 +422,7 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
         <div className="text-[13px] mt-1 font-mono" style={{ color: 'var(--text-secondary)' }}>{item.tickers.map(t => `$${t}`).join(' ')}</div>
       )}
       {summary && <p className="text-sm mt-2 whitespace-pre-line leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{summary}</p>}
+      </div>
       </div>
     </div>
   )
