@@ -20,7 +20,7 @@ const THEMES: { value: AppTheme; label: string; description: string }[] = [
   { value: 'nebula', label: 'Nebula', description: 'Deep purple and blue cosmic vibes' },
 ]
 
-const APP_VERSION = '2.8.79'
+const APP_VERSION = '2.8.80'
 
 export function SettingsPage() {
   const { config, updateConfig, connectionState, watchlists, setWatchlists, flaggedSymbols, alertSubscriptions, reorderWatchlists } = useStore()
