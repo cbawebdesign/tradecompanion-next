@@ -13,7 +13,7 @@ export function LibraryAvatar({ item, size = 28 }: { item: LibraryItem; size?: n
         <img src={item.avatar} alt="" width={size} height={size} loading="lazy"
           className="rounded-full object-cover" style={{ width: size, height: size, background: 'var(--bg-glass-light)' }} />
       ) : (
-        <span className="rounded-full flex items-center justify-center text-[11px] font-semibold"
+        <span className="rounded-full flex items-center justify-center text-[13px] font-semibold"
           style={{ width: size, height: size, background: 'var(--bg-glass-light)', color: 'var(--text-secondary)' }}>
           {(item.name || '?').slice(0, 1).toUpperCase()}
         </span>
@@ -35,15 +35,15 @@ export function LibraryAvatar({ item, size = 28 }: { item: LibraryItem; size?: n
 export function TagChip({ tag, onClick, title }: { tag: string; onClick?: (tag: string) => void; title?: string }) {
   const c = pillColors(tag)
   const style = { background: c.background, color: c.color, border: `1px solid ${c.border}` }
-  if (!onClick) return <span className="px-1.5 rounded-full text-[10px] leading-4 whitespace-nowrap" style={style}>{tag}</span>
+  if (!onClick) return <span className="px-1.5 rounded-full text-[12px] leading-4 whitespace-nowrap" style={style}>{tag}</span>
   return (
-    <button type="button" className="px-1.5 rounded-full text-[10px] leading-4 whitespace-nowrap hover:brightness-125"
+    <button type="button" className="px-1.5 rounded-full text-[12px] leading-4 whitespace-nowrap hover:brightness-125"
       style={style} title={title ?? `Everything tagged ${tag}`}
       onClick={(e) => { e.stopPropagation(); onClick(tag) }}>{tag}</button>
   )
 }
 
-export function StarButton({ saved, onClick, size = 'text-base' }: { saved: boolean; onClick: () => void; size?: string }) {
+export function StarButton({ saved, onClick, size = 'text-lg' }: { saved: boolean; onClick: () => void; size?: string }) {
   return (
     <button type="button" aria-pressed={saved} aria-label={saved ? 'Remove from Saved' : 'Save'}
       title={saved ? 'Saved — click to remove' : 'Save'}
@@ -58,7 +58,7 @@ export function KindToggle<T extends string>({ value, onChange, options }: { val
     <div className="inline-flex rounded-md p-0.5 flex-shrink-0" style={{ background: 'var(--bg-glass-light)', border: '1px solid var(--border-glass)' }}>
       {options.map(o => (
         <button key={o.value} type="button" onClick={() => onChange(o.value)}
-          className="px-2.5 py-0.5 text-xs rounded"
+          className="px-2.5 py-0.5 text-sm rounded"
           style={value === o.value ? { background: 'var(--accent-primary)', color: '#fff' } : { color: 'var(--text-secondary)' }}>
           {o.label}
         </button>

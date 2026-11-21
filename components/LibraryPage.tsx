@@ -129,7 +129,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           <input value={query} onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Escape') setQuery('') }}
             placeholder="Search videos & articles… (title, creator, summary, $TICKER)"
-            className="glass-input text-[color:var(--text-primary)] w-full pl-6 pr-2 py-1 text-xs rounded-md" aria-label="Search the Library" />
+            className="glass-input text-[color:var(--text-primary)] w-full pl-6 pr-2 py-1 text-sm rounded-md" aria-label="Search the Library" />
         </div>
         <KindToggle value={kind} onChange={setKind} options={KIND_OPTIONS} />
         {!isPopout && <PopOutButton route="/pop/library" title="Library" width={1100} height={800} />}
@@ -139,7 +139,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
       <div className="flex items-center gap-1.5 px-2 py-1.5 flex-shrink-0 overflow-x-auto border-b" style={{ borderColor: 'var(--border-glass)' }}>
         {toolbar.map(t => (
           <button key={t} type="button" onClick={() => setTag(cur => (cur === t ? null : t))}
-            className="px-2 py-0.5 rounded-full text-[11px] whitespace-nowrap"
+            className="px-2 py-0.5 rounded-full text-[13px] whitespace-nowrap"
             style={tag === t
               ? { background: 'var(--accent-primary)', color: '#fff', border: '1px solid var(--accent-primary)' }
               : { background: 'var(--bg-glass-light)', color: 'var(--text-secondary)', border: '1px solid var(--border-glass)' }}>
@@ -147,14 +147,14 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           </button>
         ))}
         <button type="button" onClick={() => setCustomizing(true)}
-          className="px-2 py-0.5 rounded-full text-[11px] whitespace-nowrap"
+          className="px-2 py-0.5 rounded-full text-[13px] whitespace-nowrap"
           style={{ color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)' }}>⚙ Customize</button>
       </div>
 
       <div className="flex-1 flex min-h-0">
         {/* Left: News feed */}
         <section className="flex flex-col min-w-0 border-r" style={{ flex: '1 1 55%', borderColor: 'var(--border-glass)' }}>
-          <div className="flex items-center justify-between px-3 py-1.5 text-xs flex-shrink-0 border-b" style={{ borderColor: 'var(--border-glass)', color: 'var(--text-secondary)' }}>
+          <div className="flex items-center justify-between px-3 py-1.5 text-sm flex-shrink-0 border-b" style={{ borderColor: 'var(--border-glass)', color: 'var(--text-secondary)' }}>
             {archiveMode ? (
               <>
                 <span className="truncate">{list.length} result{list.length === 1 ? '' : 's'}{tag ? ` · ${tag}` : ''}{query.trim() ? ` · “${query.trim()}”` : ''}</span>
@@ -178,7 +178,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
                 }}>
                 <LibraryAvatar item={item} />
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 text-[11px] min-w-0" style={{ color: 'var(--text-muted)' }}>
+                  <div className="flex items-center gap-1.5 text-[13px] min-w-0" style={{ color: 'var(--text-muted)' }}>
                     <span className="truncate max-w-[40%]">{item.name}</span>
                     <span>·</span>
                     <span className="whitespace-nowrap tabular-nums">{formatLibraryTime(item.date ?? item.added)}</span>
@@ -187,11 +187,11 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
                       {item.tags.length > 2 && <span title={item.tags.slice(2).join(', ')}>+{item.tags.length - 2}</span>}
                     </span>
                   </div>
-                  <TitleLink item={item} onSelect={() => setSelectedId(item.id)} className="text-[13px]" />
+                  <TitleLink item={item} onSelect={() => setSelectedId(item.id)} className="text-[15px]" />
                 </div>
                 {!archiveMode && (
                   <button type="button" aria-label="Remove from feed" title="Remove from feed"
-                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/[0.06] text-sm"
+                    className="w-6 h-6 flex items-center justify-center rounded hover:bg-white/[0.06] text-base"
                     style={{ color: '#f87171' }}
                     onClick={(e) => { e.stopPropagation(); onDismiss(item) }}>✕</button>
                 )}
@@ -199,7 +199,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
               </div>
             ))}
             {list.length === 0 && (
-              <div className="p-6 text-center text-xs" style={{ color: 'var(--text-muted)' }}>
+              <div className="p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                 {loading ? 'Loading the Library…'
                   : error && items.length === 0 ? error
                   : archiveMode ? 'Nothing matches.'
@@ -215,8 +215,8 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           <Preview item={selected} saved={selected ? isSaved(lib, selected.id) : false} onStar={() => selected && onStar(selected)} />
 
           <div className="flex-1 min-h-0 flex flex-col border-t" style={{ borderColor: 'var(--border-glass)' }}>
-            <div className="px-3 pt-2 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>Saved</div>
-            <div className="flex gap-4 px-3 text-xs border-b flex-shrink-0" style={{ borderColor: 'var(--border-glass)' }}>
+            <div className="px-3 pt-2 text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Saved</div>
+            <div className="flex gap-4 px-3 text-sm border-b flex-shrink-0" style={{ borderColor: 'var(--border-glass)' }}>
               {([['video', `Videos (${savedVideos.length})`], ['article', `Articles (${savedArticles.length})`]] as const).map(([k, label]) => (
                 <button key={k} type="button" onClick={() => setSavedTab(k)} className="py-1.5 -mb-px"
                   style={savedTab === k
@@ -230,33 +230,33 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
                   className="flex items-center gap-2 px-3 py-1 cursor-pointer hover:bg-white/[0.03]">
                   <LibraryAvatar item={item} size={24} />
                   <div className="flex-1 min-w-0">
-                    <TitleLink item={item} onSelect={() => setSelectedId(item.id)} className="text-xs" />
-                    <div className="flex items-center gap-1.5 text-[11px] min-w-0" style={{ color: 'var(--text-muted)' }}>
+                    <TitleLink item={item} onSelect={() => setSelectedId(item.id)} className="text-sm" />
+                    <div className="flex items-center gap-1.5 text-[13px] min-w-0" style={{ color: 'var(--text-muted)' }}>
                       <span className="truncate">{item.name}</span>
                       {item.tags[0] && <TagChip tag={item.tags[0]} onClick={setPopupTag} />}
                     </div>
                   </div>
-                  <StarButton saved onClick={() => onStar(item)} size="text-sm" />
+                  <StarButton saved onClick={() => onStar(item)} size="text-base" />
                 </div>
               ))}
               {(savedTab === 'video' ? savedVideos : savedArticles).length === 0 && (
-                <div className="px-3 py-4 text-xs" style={{ color: 'var(--text-muted)' }}>
+                <div className="px-3 py-4 text-sm" style={{ color: 'var(--text-muted)' }}>
                   Nothing saved yet. ☆ a {savedTab === 'video' ? 'video' : 'article'} to keep it here.
                 </div>
               )}
             </div>
             <div className="px-3 py-1.5 flex-shrink-0 relative">
               <button type="button" onClick={() => setShowRemoved(v => !v)} disabled={removed.length === 0}
-                className="text-[11px] underline disabled:no-underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
+                className="text-[13px] underline disabled:no-underline disabled:opacity-40" style={{ color: 'var(--text-muted)' }}>
                 Recently removed{removed.length ? ` (${removed.length})` : ''}
               </button>
               {showRemoved && removed.length > 0 && (
                 <div className="absolute bottom-full left-2 right-2 mb-1 glass-panel rounded-md max-h-64 overflow-y-auto z-20">
                   {removed.map(r => (
-                    <div key={r.item.id} className="flex items-center gap-2 px-2 py-1 text-xs border-b" style={{ borderColor: 'var(--border-glass)' }}>
+                    <div key={r.item.id} className="flex items-center gap-2 px-2 py-1 text-sm border-b" style={{ borderColor: 'var(--border-glass)' }}>
                       <LibraryAvatar item={r.item} size={20} />
                       <span className="flex-1 truncate" title={r.item.title}>{r.item.title}</span>
-                      <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>{r.how === 'unsaved' ? 'from Saved' : 'from feed'}</span>
+                      <span className="text-[12px]" style={{ color: 'var(--text-muted)' }}>{r.how === 'unsaved' ? 'from Saved' : 'from feed'}</span>
                       <button type="button" onClick={() => restore(r)} className="hover:underline" style={{ color: 'var(--accent-primary)' }}>Restore</button>
                     </div>
                   ))}
@@ -268,7 +268,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
       </div>
 
       {toast && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full text-sm glass-panel"
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-4 py-2 rounded-full text-base glass-panel"
           style={{ border: '1px solid var(--accent-primary)', boxShadow: '0 0 20px var(--accent-glow)' }} role="status">
           <span style={{ color: 'var(--text-primary)' }}>{toast.text}</span>
           <span style={{ color: 'var(--text-muted)' }}>·</span>
@@ -308,7 +308,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
 function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boolean; onStar: () => void }) {
   const [playing, setPlaying] = useState<string | null>(null)
   if (!item) {
-    return <div className="p-6 text-center text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>Pick a video or article to preview it here.</div>
+    return <div className="p-6 text-center text-sm flex-shrink-0" style={{ color: 'var(--text-muted)' }}>Pick a video or article to preview it here.</div>
   }
   const isVideo = item.kind === 'video'
   const isPlaying = isVideo && playing === item.id && item.youtubeId
@@ -332,7 +332,7 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
             {item.thumbnail
               // eslint-disable-next-line @next/next/no-img-element
               ? <img src={item.thumbnail} alt="" className="w-full h-full object-cover" />
-              : <span className="w-full h-full flex items-center justify-center text-xs" style={{ color: 'var(--text-muted)' }}>{isVideo ? 'No thumbnail' : 'No image'}</span>}
+              : <span className="w-full h-full flex items-center justify-center text-sm" style={{ color: 'var(--text-muted)' }}>{isVideo ? 'No thumbnail' : 'No image'}</span>}
             {isVideo && item.youtubeId && (
               <span className="absolute inset-0 flex items-center justify-center">
                 <span className="w-12 h-12 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform" style={{ background: 'rgba(0,0,0,0.6)' }}>
@@ -346,17 +346,17 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
       )}
       <div className="flex items-start gap-2 mt-2">
         <a href={item.link ?? undefined} target="_blank" rel="noopener noreferrer"
-          className="flex-1 text-sm font-semibold underline underline-offset-2 hover:brightness-125"
+          className="flex-1 text-base font-semibold underline underline-offset-2 hover:brightness-125"
           style={{ color: 'var(--library-link, #34d399)' }}>{item.title}</a>
         <StarButton saved={saved} onClick={onStar} />
       </div>
-      <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+      <div className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
         {[item.name, isVideo ? 'YouTube' : 'Substack', formatLibraryDate(item.date ?? item.added)].filter(Boolean).join(' · ')}
       </div>
       {item.tickers.length > 0 && (
-        <div className="text-[11px] mt-1 font-mono" style={{ color: 'var(--text-secondary)' }}>{item.tickers.map(t => `$${t}`).join(' ')}</div>
+        <div className="text-[13px] mt-1 font-mono" style={{ color: 'var(--text-secondary)' }}>{item.tickers.map(t => `$${t}`).join(' ')}</div>
       )}
-      {summary && <p className="text-xs mt-2 whitespace-pre-line leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{summary}</p>}
+      {summary && <p className="text-sm mt-2 whitespace-pre-line leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{summary}</p>}
     </div>
   )
 }
