@@ -74,11 +74,12 @@ export const KIND_OPTIONS = [
 ]
 
 /** Title link. A plain click previews it in TC; Ctrl/⌘/middle-click opens the
- *  source in a new tab, as any link would. */
+ *  source in a new tab, as any link would. A long title wraps to a second
+ *  line before it's cut off with "…" (Library updates 11/21, item 3). */
 export function TitleLink({ item, onSelect, className = '' }: { item: LibraryItem; onSelect: () => void; className?: string }) {
   return (
     <a href={item.link ?? undefined} target="_blank" rel="noopener noreferrer"
-      className={`block truncate underline underline-offset-2 hover:brightness-125 ${className}`}
+      className={`line-clamp-2 break-words underline underline-offset-2 hover:brightness-125 ${className}`}
       style={{ color: 'var(--library-link, #34d399)' }} title={item.title}
       onClick={(e) => {
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) { e.stopPropagation(); return }

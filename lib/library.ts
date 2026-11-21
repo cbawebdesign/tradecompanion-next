@@ -51,6 +51,10 @@ export interface LibraryState {
   saved?: string[]
   /** Toolbar tags in order. Unset means the default: the top 6 in-use tags. */
   toolbarTags?: string[]
+  /** Creators turned off in Sources, as sourceKey()s. Stored as the ones
+   *  turned OFF so a creator new to either base is on by default (Library
+   *  updates 11/21, item 2). */
+  hiddenSources?: string[]
 }
 
 export const FEED_DAYS = 7
@@ -79,13 +83,52 @@ export function feedItems(items: LibraryItem[], state: LibraryState | undefined)
   const start = ms(state?.feedStart)
   const cleared = ms(state?.clearedAt)
   const dismissed = new Set(state?.dismissed ?? [])
+  const hidden = new Set(state?.hiddenSources ?? [])
   return items.filter(i => {
     if (dismissed.has(i.id)) return false
+    if (hidden.size && hidden.has(sourceKey(i.kind, i.name))) return false
     const d = ms(i.date ?? i.added)
     if (!isNaN(start) && !(d >= start)) return false
     if (!isNaN(cleared) && ms(i.added) <= cleared) return false
     return true
   })
+}
+
+/**
+ * Sources: a creator is identified by kind and name, so a creator with both a
+ * YouTube channel and a Substack can be turned off in one list and kept in
+ * the other. Case and spacing don't matter.
+ */
+export function sourceKey(kind: LibraryKind, name: string | null | undefined): string {
+  return `${kind}:${(name ?? '').trim().replace(/\s+/g, ' ').toLowerCase()}`
+}
+
+export interface SourceEntry { key: string; name: string; count: number }
+
+/** Every creator with at least one record, split into Videos and Articles,
+ *  A to Z. */
+export function sourceList(items: LibraryItem[]): Record<LibraryKind, SourceEntry[]> {
+  const maps: Record<LibraryKind, Map<string, SourceEntry>> = { video: new Map(), article: new Map() }
+  for (const i of items) {
+    const key = sourceKey(i.kind, i.name)
+    const e = maps[i.kind].get(key)
+    if (e) e.count++
+    else maps[i.kind].set(key, { key, name: (i.name ?? '').trim() || '(no creator)', count: 1 })
+  }
+  const sorted = (m: Map<string, SourceEntry>) =>
+    Array.from(m.values()).sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  return { video: sorted(maps.video), article: sorted(maps.article) }
+}
+
+/** Save the Sources choices. A creator turned off but with no records right
+ *  now stays off, so it doesn't come back on by itself when it posts again. */
+export function setHiddenSources(state: LibraryState | undefined, hidden: string[], items: LibraryItem[]): LibraryState {
+  const s = state ?? {}
+  const present = new Set(items.map(i => sourceKey(i.kind, i.name)))
+  const keep = (s.hiddenSources ?? []).filter(k => !present.has(k))
+  const next = Array.from(new Set([...hidden, ...keep]))
+  if (next.length === 0) { const { hiddenSources: _drop, ...rest } = s; return rest }
+  return { ...s, hiddenSources: next }
 }
 
 export function dismiss(state: LibraryState | undefined, id: string): LibraryState {

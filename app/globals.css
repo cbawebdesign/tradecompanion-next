@@ -691,3 +691,17 @@ input[type="text"].price-alert-input:focus {
 .floating-particle {
   animation: float-particle 15s ease-in-out infinite;
 }
+
+/* Library preview pane (top of the Library tab). The player is as large as
+   the pane's height allows. Narrow: title and details sit under the player,
+   as in Justin's mockup. Wide: they sit beside it, so the space isn't empty. */
+.lib-preview { container-type: size; }
+.lib-preview-body { display: flex; flex-direction: column; gap: 8px; height: 100%; padding: 12px; overflow-y: auto; }
+.lib-preview-media { flex-shrink: 0; width: min(100%, max(240px, calc((100cqh - 100px) * 16 / 9))); }
+.lib-preview-details { min-width: 0; }
+@container (min-width: 760px) {
+  .lib-preview-body { flex-direction: row; align-items: flex-start; gap: 16px; overflow: hidden; }
+  .lib-preview-details { align-self: stretch; }
+  .lib-preview-media { width: min(62%, calc((100cqh - 24px) * 16 / 9)); }
+  .lib-preview-details { flex: 1 1 0; overflow-y: auto; max-height: 100%; }
+}
