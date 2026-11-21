@@ -1,16 +1,20 @@
 "use client"
 
+import { useState } from 'react'
 import { pillColors } from '@/lib/themePerformance'
 import type { LibraryItem } from '@/lib/library'
 
 /** Creator avatar with a small YouTube / Substack badge, as in the mockup. */
 export function LibraryAvatar({ item, size = 28 }: { item: LibraryItem; size?: number }) {
   const badge = Math.round(size * 0.45)
+  // An avatar that fails to load (an expired Airtable link) falls back to the
+  // creator's initial instead of a broken-image icon.
+  const [failed, setFailed] = useState<string | null>(null)
   return (
     <span className="relative flex-shrink-0" style={{ width: size, height: size }}>
-      {item.avatar ? (
+      {item.avatar && failed !== item.avatar ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={item.avatar} alt="" width={size} height={size} loading="lazy"
+        <img src={item.avatar} alt="" width={size} height={size} loading="lazy" onError={() => setFailed(item.avatar)}
           className="rounded-full object-cover" style={{ width: size, height: size, background: 'var(--bg-glass-light)' }} />
       ) : (
         <span className="rounded-full flex items-center justify-center text-[13px] font-semibold"
@@ -85,5 +89,38 @@ export function TitleLink({ item, onSelect, className = '' }: { item: LibraryIte
         if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) { e.stopPropagation(); return }
         e.preventDefault(); e.stopPropagation(); onSelect()
       }}>{item.title}</a>
+  )
+}
+
+/**
+ * A drag handle between two panes. Drag to resize; double-click to put the
+ * default back. Pointer capture keeps the drag going over the YouTube player.
+ */
+export function Splitter({ dir, onDrag, onReset, label }: {
+  dir: 'row' | 'col'                 // 'row' = horizontal bar between top and bottom
+  onDrag: (clientPos: number) => void
+  onReset: () => void
+  label: string
+}) {
+  const [active, setActive] = useState(false)
+  const horizontal = dir === 'row'
+  return (
+    <div role="separator" aria-orientation={horizontal ? 'horizontal' : 'vertical'} aria-label={label}
+      title="Drag to resize · double-click to reset"
+      className="group relative flex-shrink-0 flex items-center justify-center select-none touch-none"
+      style={horizontal ? { height: 7, cursor: 'row-resize' } : { width: 7, cursor: 'col-resize' }}
+      onPointerDown={(e) => { e.preventDefault(); e.currentTarget.setPointerCapture(e.pointerId); setActive(true) }}
+      onPointerMove={(e) => { if (active) onDrag(horizontal ? e.clientY : e.clientX) }}
+      onPointerUp={(e) => { setActive(false); e.currentTarget.releasePointerCapture(e.pointerId) }}
+      onPointerCancel={() => setActive(false)}
+      onDoubleClick={onReset}>
+      <span className={`absolute transition-colors ${active ? '' : 'group-hover:!bg-[var(--accent-primary)]'}`}
+        style={{
+          ...(horizontal ? { left: 0, right: 0, height: active ? 2 : 1 } : { top: 0, bottom: 0, width: active ? 2 : 1 }),
+          background: active ? 'var(--accent-primary)' : 'var(--border-glass)',
+        }} />
+      <span className="relative rounded-full opacity-60 group-hover:opacity-100"
+        style={{ ...(horizontal ? { width: 28, height: 3 } : { width: 3, height: 28 }), background: 'var(--text-muted)' }} />
+    </div>
   )
 }

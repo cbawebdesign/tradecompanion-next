@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   clearAll, dismiss, ensureFeedStart, feedItems, formatLibraryTime, plainSummary, restoreFeed,
-  results, savedItems, search, setHiddenSources, sourceKey, sourceList, toggleSave, undismiss, visibleToolbar, embedUrl,
+  clampLayout, results, savedItems, search, setHiddenSources, sourceKey, sourceList, toggleSave, undismiss, visibleToolbar, embedUrl,
   type LibraryItem, type LibraryState,
 } from '@/lib/library'
 
@@ -173,5 +173,14 @@ describe('formatting', () => {
 
   it('strips Markdown from a rich-text summary', () => {
     expect(plainSummary('## Key points\n- **Size** down\n- see [the post](https://x.com)')).toBe('Key points\n• Size down\n• see the post')
+  })
+})
+
+describe('pane sizes', () => {
+  it('keeps sizes in a usable range and falls back to the default on junk', () => {
+    expect(clampLayout({ top: 0.05, feed: 0.99 })).toEqual({ top: 0.2, feed: 0.85 })
+    expect(clampLayout({ top: 0.4, feed: 0.5 })).toEqual({ top: 0.4, feed: 0.5 })
+    expect(clampLayout(null)).toEqual({ top: 0.55, feed: 0.66 })
+    expect(clampLayout({ top: NaN, feed: 'x' as unknown as number })).toEqual({ top: 0.55, feed: 0.66 })
   })
 })

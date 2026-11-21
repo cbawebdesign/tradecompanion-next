@@ -692,16 +692,20 @@ input[type="text"].price-alert-input:focus {
   animation: float-particle 15s ease-in-out infinite;
 }
 
-/* Library preview pane (top of the Library tab). The player is as large as
-   the pane's height allows. Narrow: title and details sit under the player,
-   as in Justin's mockup. Wide: they sit beside it, so the space isn't empty. */
+/* Library preview pane (top of the Library tab).
+   Video: the player fills as much of the pane as it can, centred, with the
+   title underneath (Justin, 11/21: "feature the video here").
+   Article: image and summary; side by side once the pane is wide, so the
+   summary isn't pushed out of sight. */
 .lib-preview { container-type: size; }
-.lib-preview-body { display: flex; flex-direction: column; gap: 8px; height: 100%; padding: 12px; overflow-y: auto; }
-.lib-preview-media { flex-shrink: 0; width: min(100%, max(240px, calc((100cqh - 100px) * 16 / 9))); }
+.lib-preview-body { display: flex; flex-direction: column; gap: 8px; height: 100%; padding: 10px 12px; overflow-y: auto; }
+.lib-preview-body.is-video { align-items: center; }
+.lib-preview-stage { width: min(100%, max(240px, calc((100cqh - 112px) * 16 / 9))); }
+.lib-preview-media { flex-shrink: 0; width: 100%; }
+.is-article .lib-preview-media { width: min(100%, max(240px, calc((100cqh - 100px) * 16 / 9))); }
 .lib-preview-details { min-width: 0; }
 @container (min-width: 760px) {
-  .lib-preview-body { flex-direction: row; align-items: flex-start; gap: 16px; overflow: hidden; }
-  .lib-preview-details { align-self: stretch; }
-  .lib-preview-media { width: min(62%, calc((100cqh - 24px) * 16 / 9)); }
-  .lib-preview-details { flex: 1 1 0; overflow-y: auto; max-height: 100%; }
+  .lib-preview-body.is-article { flex-direction: row; align-items: flex-start; gap: 16px; overflow: hidden; }
+  .is-article .lib-preview-media { width: min(55%, calc((100cqh - 24px) * 16 / 9)); }
+  .is-article .lib-preview-details { flex: 1 1 0; align-self: stretch; overflow-y: auto; max-height: 100%; }
 }
