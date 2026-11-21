@@ -5,6 +5,8 @@ import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import type { Alert } from '@/types'
 import { alertTypeColorHex } from '@/lib/alertTypeColor'
+import { prevMarketCloseISO } from '@/lib/marketCalendar'
+import { isStaleTweet } from '@/lib/tweetAge'
 
 // Matches cosmos_tweet from Azure backend.
 // id_long is serialized as a string (not number) because Twitter IDs are
@@ -93,9 +95,12 @@ export function useTweetsPolling() {
 
         // Build batch of new alerts
         const batch: Alert[] = []
+        const cutoff = prevMarketCloseISO()
         for (const tweet of tweetsToProcess) {
           if (seenTweetIdsRef.current.has(tweet.id_long)) continue
           seenTweetIdsRef.current.add(tweet.id_long)
+          // Months-old tweets surfacing when a symbol is flagged — see lib/tweetAge.
+          if (isStaleTweet(tweet.created_at, cutoff)) continue
 
           const symbols = extractSymbols(tweet.text)
           // Always build URL if we have username + any ID
