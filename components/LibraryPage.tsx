@@ -4,19 +4,22 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { useLibraryData, useLibraryState } from '@/hooks/useLibrary'
 import {
   UNDO_MS, byKind, clearAll, dismiss, embedUrl, feedItems, formatLibraryDate, formatLibraryTime,
-  isSaved, plainSummary, restoreFeed, results, savedItems, toggleSave, undismiss, visibleToolbar,
+  isSaved, plainSummary, restoreFeed, results, savedItems, setHiddenSources, sourceList, toggleSave, undismiss, visibleToolbar,
   type KindFilter, type LibraryItem, type LibraryState,
 } from '@/lib/library'
 import { PopOutButton } from './PopOutButton'
 import { KIND_OPTIONS, KindToggle, LibraryAvatar, StarButton, TagChip, TitleLink } from './LibraryParts'
 import { LibraryTagPopup } from './LibraryTagPopup'
 import { LibraryCustomize } from './LibraryCustomize'
+import { LibrarySources } from './LibrarySources'
 
 /**
- * The Library tab — Justin's spec (11/19) and mockups. Left: the News feed,
- * which works like the Alerts timeline. Right: a preview (the YouTube player
- * plays in place) over the Saved list. Search and toolbar tags turn the feed
- * into results across the whole archive.
+ * The Library tab — Justin's spec (11/19) and mockups, re-laid out per his
+ * Library updates (11/21): the preview (the YouTube player plays in place)
+ * across the top; under it the News feed, which works like the Alerts
+ * timeline, on the left two-thirds and Saved on the right third. Search and
+ * toolbar tags turn the feed into results across the whole archive. Sources
+ * picks whose items reach the feed.
  */
 
 // "Recently removed" restores anything removed this session (spec section 4):
@@ -53,6 +56,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [popupTag, setPopupTag] = useState<string | null>(null)
   const [customizing, setCustomizing] = useState(false)
+  const [sourcesOpen, setSourcesOpen] = useState(false)
   const [savedTab, setSavedTab] = useState<'video' | 'article'>('video')
   const [showRemoved, setShowRemoved] = useState(false)
   const [toast, setToast] = useState<Toast | null>(null)
@@ -69,6 +73,12 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
   const savedArticles = saved.filter(i => i.kind === 'article')
   const toolbar = useMemo(() => visibleToolbar(lib, tags), [lib, tags])
   const removed = useRemoved()
+  const sources = useMemo(() => sourceList(items), [items])
+  // Only creators that have records count as "off" in the button label.
+  const hiddenCount = useMemo(() => {
+    const present = new Set([...sources.video, ...sources.article].map(e => e.key))
+    return (lib.hiddenSources ?? []).filter(k => present.has(k)).length
+  }, [sources, lib.hiddenSources])
 
   const selected = useMemo(
     () => items.find(i => i.id === selectedId) ?? list[0] ?? saved[0] ?? null,
@@ -151,9 +161,14 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           style={{ color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)' }}>⚙ Customize</button>
       </div>
 
+      {/* Top: preview */}
+      <div className="lib-preview border-b" style={{ flex: '0 0 50%', borderColor: 'var(--border-glass)' }}>
+        <Preview item={selected} saved={selected ? isSaved(lib, selected.id) : false} onStar={() => selected && onStar(selected)} />
+      </div>
+
       <div className="flex-1 flex min-h-0">
-        {/* Left: News feed */}
-        <section className="flex flex-col min-w-0 border-r" style={{ flex: '1 1 55%', borderColor: 'var(--border-glass)' }}>
+        {/* Bottom left: News feed */}
+        <section className="flex flex-col min-w-0 border-r" style={{ flex: '2 1 0', borderColor: 'var(--border-glass)' }}>
           <div className="flex items-center justify-between px-3 py-1.5 text-sm flex-shrink-0 border-b" style={{ borderColor: 'var(--border-glass)', color: 'var(--text-secondary)' }}>
             {archiveMode ? (
               <>
@@ -162,7 +177,15 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
               </>
             ) : (
               <>
-                <span>{feed.length} new</span>
+                <span className="flex items-center gap-3 min-w-0">
+                  <span className="whitespace-nowrap">{feed.length} new</span>
+                  <button type="button" onClick={() => setSourcesOpen(true)}
+                    className="px-2 py-0.5 rounded-full text-[13px] whitespace-nowrap"
+                    title="Pick whose videos and articles show up in your feed"
+                    style={{ color: 'var(--accent-primary)', border: '1px solid var(--accent-primary)' }}>
+                    Sources{hiddenCount > 0 ? ` · ${hiddenCount} off` : ''}
+                  </button>
+                </span>
                 <button type="button" onClick={onClearAll} disabled={feed.length === 0} className="hover:underline disabled:opacity-40 disabled:no-underline">Clear all</button>
               </>
             )}
@@ -210,11 +233,9 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           </div>
         </section>
 
-        {/* Right: Preview over Saved */}
-        <aside className="flex flex-col min-w-0" style={{ flex: '1 1 45%' }}>
-          <Preview item={selected} saved={selected ? isSaved(lib, selected.id) : false} onStar={() => selected && onStar(selected)} />
-
-          <div className="flex-1 min-h-0 flex flex-col border-t" style={{ borderColor: 'var(--border-glass)' }}>
+        {/* Bottom right: Saved */}
+        <aside className="flex flex-col min-w-0" style={{ flex: '1 1 0' }}>
+          <div className="flex-1 min-h-0 flex flex-col">
             <div className="px-3 pt-2 text-base font-semibold" style={{ color: 'var(--text-primary)' }}>Saved</div>
             <div className="flex gap-4 px-3 text-sm border-b flex-shrink-0" style={{ borderColor: 'var(--border-glass)' }}>
               {([['video', `Videos (${savedVideos.length})`], ['article', `Articles (${savedArticles.length})`]] as const).map(([k, label]) => (
@@ -283,6 +304,11 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           onSelect={(id) => { setSelectedId(id); setPopupTag(null) }}
           onClose={() => setPopupTag(null)} />
       )}
+      {sourcesOpen && (
+        <LibrarySources sources={sources} hidden={lib.hiddenSources ?? []}
+          onSave={(hidden) => { update(s => setHiddenSources(s, hidden, items)); setSourcesOpen(false) }}
+          onClose={() => setSourcesOpen(false)} />
+      )}
       {customizing && (
         <LibraryCustomize tags={tags} lib={lib}
           onSave={(toolbarTags) => {
@@ -300,7 +326,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
 }
 
 /**
- * Right pane, top. Videos: the thumbnail until clicked, then the official
+ * Top pane. Videos: the thumbnail until clicked, then the official
  * YouTube player in place (it never leaves TC). Articles: the image and the
  * summary; the image opens the article. The title opens the source in a new
  * window either way. There is no Open button (spec section 3).
@@ -308,7 +334,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
 function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boolean; onStar: () => void }) {
   const [playing, setPlaying] = useState<string | null>(null)
   if (!item) {
-    return <div className="p-6 text-center text-sm flex-shrink-0" style={{ color: 'var(--text-muted)' }}>Pick a video or article to preview it here.</div>
+    return <div className="h-full flex items-center justify-center p-6 text-sm" style={{ color: 'var(--text-muted)' }}>Pick a video or article to preview it here.</div>
   }
   const isVideo = item.kind === 'video'
   const isPlaying = isVideo && playing === item.id && item.youtubeId
@@ -316,10 +342,10 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
   const summary = !isVideo ? plainSummary(item.summary) : ''
 
   return (
-    <div className="p-3 flex-shrink-0 overflow-y-auto" style={{ maxHeight: '60%' }}>
+    <div className="lib-preview-body">
       {/* An article with no image skips the frame, so its summary sits right under the title. */}
       {(isVideo || item.thumbnail) && (
-      <div className="relative w-full rounded-md overflow-hidden" style={{ aspectRatio: '16 / 9', background: '#000' }}>
+      <div className="lib-preview-media relative rounded-md overflow-hidden" style={{ aspectRatio: '16 / 9', background: '#000' }}>
         {isPlaying ? (
           <iframe key={item.id} src={embedUrl(item.youtubeId!)} title={item.title}
             className="absolute inset-0 w-full h-full" frameBorder={0}
@@ -344,7 +370,8 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
         )}
       </div>
       )}
-      <div className="flex items-start gap-2 mt-2">
+      <div className="lib-preview-details">
+      <div className="flex items-start gap-2">
         <a href={item.link ?? undefined} target="_blank" rel="noopener noreferrer"
           className="flex-1 text-base font-semibold underline underline-offset-2 hover:brightness-125"
           style={{ color: 'var(--library-link, #34d399)' }}>{item.title}</a>
@@ -357,6 +384,7 @@ function Preview({ item, saved, onStar }: { item: LibraryItem | null; saved: boo
         <div className="text-[13px] mt-1 font-mono" style={{ color: 'var(--text-secondary)' }}>{item.tickers.map(t => `$${t}`).join(' ')}</div>
       )}
       {summary && <p className="text-sm mt-2 whitespace-pre-line leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{summary}</p>}
+      </div>
     </div>
   )
 }

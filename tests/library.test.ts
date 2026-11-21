@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   clearAll, dismiss, ensureFeedStart, feedItems, formatLibraryTime, plainSummary, restoreFeed,
-  results, savedItems, search, toggleSave, undismiss, visibleToolbar, embedUrl,
+  results, savedItems, search, setHiddenSources, sourceKey, sourceList, toggleSave, undismiss, visibleToolbar, embedUrl,
   type LibraryItem, type LibraryState,
 } from '@/lib/library'
 
@@ -63,6 +63,45 @@ describe('Library feed', () => {
   it('Clear all does not depend on this computer\'s clock', () => {
     const items = [item('v:1', { added: '2026-11-18T13:05:00Z' })]
     expect(clearAll(start, items).clearedAt).toBe('2026-11-18T13:05:00.000Z')
+  })
+})
+
+describe('Sources', () => {
+  const start = ensureFeedStart(undefined, NOW)
+  const items = [
+    item('v:1', { name: 'TheOneLanceB' }),
+    item('v:2', { name: 'theonelanceb ' }),
+    item('v:3', { name: 'Adam Grimes' }),
+    item('a:1', { name: 'TheOneLanceB' }),
+    item('a:2', { name: 'brian shannon' }),
+  ]
+
+  it('lists every creator A to Z, split into Videos and Articles, with counts', () => {
+    const s = sourceList(items)
+    expect(s.video.map(e => [e.name, e.count])).toEqual([['Adam Grimes', 1], ['TheOneLanceB', 2]])
+    expect(s.article.map(e => e.name)).toEqual(['brian shannon', 'TheOneLanceB'])
+  })
+
+  it('a creator turned off leaves the feed, in that list only', () => {
+    const s = setHiddenSources(start, [sourceKey('video', 'TheOneLanceB')], items)
+    expect(feedItems(items, s).map(i => i.id)).toEqual(['v:3', 'a:1', 'a:2'])
+  })
+
+  it('a creator new to either base is on by default', () => {
+    const s = setHiddenSources(start, [sourceKey('video', 'Adam Grimes')], items)
+    const newcomer = item('v:9', { name: 'New Channel' })
+    expect(feedItems([...items, newcomer], s).map(i => i.id)).toContain('v:9')
+  })
+
+  it('a creator turned off stays off while it has no records, and turning all back on clears the setting', () => {
+    const gone = sourceKey('article', 'Old Letter')
+    const s = setHiddenSources({ ...start, hiddenSources: [gone] }, [], items)
+    expect(s.hiddenSources).toEqual([gone])
+    expect(setHiddenSources(start, [], items).hiddenSources).toBeUndefined()
+  })
+
+  it('search still finds a creator that is turned off', () => {
+    expect(search(items, 'grimes').map(i => i.id)).toEqual(['v:3'])
   })
 })
 
