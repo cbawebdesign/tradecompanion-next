@@ -1,7 +1,8 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { useLibraryData, useLibraryState } from '@/hooks/useLibrary'
+import { useIncrementalList } from '@/hooks/useIncrementalList'
 import {
   DEFAULT_LIBRARY_LAYOUT, UNDO_MS, byKind, clampLayout, clearAll, dismiss, embedUrl, feedItems, formatLibraryDate, formatLibraryTime,
   isSaved, plainSummary, restoreFeed, results, savedItems, setHiddenSources, sourceList, toggleSave, undismiss, visibleToolbar,
@@ -89,11 +90,15 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
   }
 
   const feed = useMemo(() => feedItems(items, lib), [items, lib])
-  const archiveMode = query.trim() !== '' || tag != null
+  // The box updates on every keystroke; the results follow a beat behind, so
+  // typing never waits on a search of ~36k records.
+  const deferredQuery = useDeferredValue(query)
+  const archiveMode = deferredQuery.trim() !== '' || tag != null
   const list = useMemo(
-    () => archiveMode ? results(items, { query, tag, kind }) : byKind(feed, kind),
-    [archiveMode, items, query, tag, kind, feed],
+    () => archiveMode ? results(items, { query: deferredQuery, tag, kind }) : byKind(feed, kind),
+    [archiveMode, items, deferredQuery, tag, kind, feed],
   )
+  const { visible: shownRows, sentinel, remaining } = useIncrementalList(list)
   const saved = useMemo(() => savedItems(items, lib), [items, lib])
   const savedVideos = saved.filter(i => i.kind === 'video')
   const savedArticles = saved.filter(i => i.kind === 'article')
@@ -200,7 +205,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
           <div className="flex items-center justify-between px-3 py-1.5 text-sm flex-shrink-0 border-b" style={{ borderColor: 'var(--border-glass)', color: 'var(--text-secondary)' }}>
             {archiveMode ? (
               <>
-                <span className="truncate">{list.length} result{list.length === 1 ? '' : 's'}{tag ? ` · ${tag}` : ''}{query.trim() ? ` · “${query.trim()}”` : ''}</span>
+                <span className="truncate">{list.length} result{list.length === 1 ? '' : 's'}{tag ? ` · ${tag}` : ''}{deferredQuery.trim() ? ` · “${deferredQuery.trim()}”` : ''}</span>
                 <button type="button" onClick={backToLatest} className="hover:underline flex-shrink-0" style={{ color: 'var(--accent-primary)' }}>Back to latest</button>
               </>
             ) : (
@@ -219,7 +224,7 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
             )}
           </div>
           <div className="flex-1 overflow-y-auto">
-            {list.map(item => (
+            {shownRows.map(item => (
               <div key={item.id} onClick={() => setSelectedId(item.id)}
                 className="flex items-center gap-2 px-2 py-1.5 border-b cursor-pointer hover:bg-white/[0.03]"
                 style={{
@@ -249,6 +254,9 @@ export function LibraryPage({ isPopout = false }: { isPopout?: boolean }) {
                 <StarButton saved={isSaved(lib, item.id)} onClick={() => onStar(item)} />
               </div>
             ))}
+            {remaining > 0 && (
+              <div ref={sentinel} className="py-3 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>Loading more…</div>
+            )}
             {list.length === 0 && (
               <div className="p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
                 {loading ? 'Loading the Library…'

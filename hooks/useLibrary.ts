@@ -4,7 +4,7 @@ import { useCallback, useEffect, useSyncExternalStore } from 'react'
 import { useStore } from '@/store/useStore'
 import { proxyUrl } from '@/lib/proxyUrl'
 import { forceCosmosSyncNow } from '@/hooks/useCosmosSync'
-import { ensureFeedStart, type LibraryData, type LibraryItem, type LibraryState } from '@/lib/library'
+import { ensureFeedStart, normalizeItems, type LibraryData, type LibraryItem, type LibraryState } from '@/lib/library'
 
 // New items arrive within this long while the Library is open. The worker
 // answers 304 while nothing has changed (the browser revalidates its cached
@@ -42,7 +42,10 @@ async function load(hubUrl: string) {
         set({ error: body?.reason || `Library unavailable (HTTP ${r.status})`, loading: false })
         return
       }
-      const data: LibraryData = { asOfUtc: body.asOfUtc, items: body.items ?? [], tags: body.tags ?? [] }
+      // Images are fetched from the worker directly (not through the proxy):
+      // /api/LibraryImage answers with a redirect to Airtable.
+      const items = normalizeItems(body.items ?? [], body.avatars, apiBase(hubUrl))
+      const data: LibraryData = { asOfUtc: body.asOfUtc, items, tags: body.tags ?? [] }
       set({ data, error: null, loading: false })
       lastFetch = Date.now()
     } catch {

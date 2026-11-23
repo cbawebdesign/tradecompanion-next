@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   clearAll, dismiss, ensureFeedStart, feedItems, formatLibraryTime, plainSummary, restoreFeed,
-  clampLayout, results, savedItems, search, setHiddenSources, sourceKey, sourceList, toggleSave, undismiss, visibleToolbar, embedUrl,
+  clampLayout, normalizeItems, results, savedItems, search, setHiddenSources, sourceKey, sourceList, toggleSave, undismiss, visibleToolbar, embedUrl,
   type LibraryItem, type LibraryState,
 } from '@/lib/library'
 
@@ -182,5 +182,37 @@ describe('pane sizes', () => {
     expect(clampLayout({ top: 0.4, feed: 0.5 })).toEqual({ top: 0.4, feed: 0.5 })
     expect(clampLayout(null)).toEqual({ top: 0.55, feed: 0.66 })
     expect(clampLayout({ top: NaN, feed: 'x' as unknown as number })).toEqual({ top: 0.55, feed: 0.66 })
+  })
+})
+
+describe('worker list formats', () => {
+  const base = 'https://w.example/api'
+
+  it('the slim format (no image links) gets image URLs from the worker and YouTube', () => {
+    const items = normalizeItems([
+      { id: 'v:1', kind: 'video', title: 'A', name: 'TheOneLanceB', youtubeId: 'dQw4w9WgXcQ', added: '2026-11-23T00:00:00Z' },
+      { id: 'v:2', kind: 'video', title: 'B', name: 'theonelanceb', youtubeId: 'abcdefghijk', hasThumb: true, added: '2026-11-23T00:00:00Z' },
+      { id: 'a:1', kind: 'article', title: 'C', name: 'No Avatar', added: '2026-11-23T00:00:00Z' },
+    ], { 'video:theonelanceb': 'v:9' }, base)
+    expect(items[0].thumbnail).toBe('https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg')
+    expect(items[1].thumbnail).toBe('https://w.example/api/LibraryImage?id=v%3A2&f=thumb')
+    expect(items[0].avatar).toBe('https://w.example/api/LibraryImage?id=v%3A9&f=avatar')
+    expect(items[1].avatar).toBe(items[0].avatar)
+    expect(items[2].avatar).toBeNull()
+    expect(items[2].thumbnail).toBeNull()
+    expect(items[2].tags).toEqual([])
+    expect(items[2].summary).toBeNull()
+  })
+
+  it('the older format with links is used as sent', () => {
+    const [i] = normalizeItems([{ id: 'v:1', kind: 'video', title: 'A', thumbnail: 'https://t', avatar: 'https://a', tags: ['AI'] }], undefined, base)
+    expect([i.thumbnail, i.avatar, i.tags]).toEqual(['https://t', 'https://a', ['AI']])
+  })
+
+  it('search still matches after the text is cached', () => {
+    const list = [item('v:1', { title: 'Position Sizing' })]
+    expect(search(list, 'sizing').length).toBe(1)
+    expect(search(list, 'SIZ').length).toBe(1)
+    expect(search(list, 'nope').length).toBe(0)
   })
 })

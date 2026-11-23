@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { byKind, formatLibraryTime, hasTag, isSaved, type KindFilter, type LibraryItem, type LibraryState } from '@/lib/library'
 import { KIND_OPTIONS, KindToggle, LibraryAvatar, StarButton, TitleLink } from './LibraryParts'
+import { useIncrementalList } from '@/hooks/useIncrementalList'
 
 /**
  * Click a tag chip → everything in the Library with that tag (spec section 6).
@@ -21,6 +22,7 @@ export function LibraryTagPopup({ tag, items, lib, onStar, onSelect, onClose }: 
   const [kind, setKind] = useState<KindFilter>('all')
   const tagged = useMemo(() => items.filter(i => hasTag(i, tag)), [items, tag])
   const shown = useMemo(() => byKind(tagged, kind), [tagged, kind])
+  const { visible, sentinel, remaining } = useIncrementalList(shown)
   const videos = tagged.filter(i => i.kind === 'video').length
   const articles = tagged.length - videos
 
@@ -47,7 +49,7 @@ export function LibraryTagPopup({ tag, items, lib, onStar, onSelect, onClose }: 
           <KindToggle value={kind} onChange={setKind} options={KIND_OPTIONS} />
         </div>
         <div className="flex-1 overflow-y-auto">
-          {shown.map(item => (
+          {visible.map(item => (
             <div key={item.id} onClick={() => onSelect(item.id)}
               className="flex items-center gap-3 px-4 py-2 border-b cursor-pointer hover:bg-white/[0.03]" style={{ borderColor: 'var(--border-glass)' }}>
               <LibraryAvatar item={item} />
@@ -60,6 +62,7 @@ export function LibraryTagPopup({ tag, items, lib, onStar, onSelect, onClose }: 
               <StarButton saved={isSaved(lib, item.id)} onClick={() => onStar(item)} />
             </div>
           ))}
+          {remaining > 0 && <div ref={sentinel} className="py-3 text-center text-[13px]" style={{ color: 'var(--text-muted)' }}>Loading more…</div>}
           {shown.length === 0 && (
             <div className="p-6 text-center text-sm" style={{ color: 'var(--text-muted)' }}>No {kind === 'all' ? 'items' : `${kind}s`} with this tag.</div>
           )}
