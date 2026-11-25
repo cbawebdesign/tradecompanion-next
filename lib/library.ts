@@ -37,6 +37,45 @@ export interface LibraryData {
   tags: TagCount[]
 }
 
+/**
+ * The worker's list as sent. Since 11/23 it carries no image links (they
+ * expire, and at ~36k records they were most of the download): `hasThumb`
+ * says a record has a Thumbnail, and `avatars` maps each creator to a record
+ * holding their avatar; both are fetched from /api/LibraryImage. An older
+ * worker sent `thumbnail` / `avatar` links directly; both shapes are read.
+ */
+export type WireItem = Partial<LibraryItem> & Pick<LibraryItem, 'id' | 'kind' | 'title'> & { hasThumb?: boolean }
+
+export function normalizeItems(wire: WireItem[], avatars: Record<string, string> | undefined, apiBase: string): LibraryItem[] {
+  const img = (id: string, f: 'thumb' | 'avatar') => `${apiBase}/LibraryImage?id=${encodeURIComponent(id)}&f=${f}`
+  const avatarByCreator = new Map<string, string>()
+  return wire.map(w => {
+    const name = w.name ?? ''
+    let avatar = w.avatar ?? null
+    if (avatar == null && avatars) {
+      const key = sourceKey(w.kind, name)
+      const rec = avatars[key]
+      if (rec) {
+        avatar = avatarByCreator.get(key) ?? img(rec, 'avatar')
+        avatarByCreator.set(key, avatar)
+      }
+    }
+    const youtubeId = w.youtubeId ?? null
+    const thumbnail = w.thumbnail
+      ?? (w.hasThumb ? img(w.id, 'thumb') : w.kind === 'video' && youtubeId ? youtubeThumb(youtubeId) : null)
+    return {
+      id: w.id, kind: w.kind, name, title: w.title ?? w.link ?? '',
+      date: w.date ?? null, added: w.added ?? w.date ?? '', link: w.link ?? null, youtubeId,
+      tags: w.tags ?? [], tickers: w.tickers ?? [], summary: w.summary ?? null,
+      thumbnail, avatar,
+    }
+  })
+}
+
+export function youtubeThumb(youtubeId: string): string {
+  return `https://i.ytimg.com/vi/${youtubeId}/hqdefault.jpg`
+}
+
 export interface LibraryState {
   /** Feed begins here: the first open minus 7 days (spec: "the first time a user
    *  opens TC, the News feed loads every new item from the past 7 days"). */
@@ -217,18 +256,25 @@ export function byKind(items: LibraryItem[], kind: KindFilter): LibraryItem[] {
  * word must match somewhere. A symbol ("NVDA" or "$NVDA") matches the Tickers
  * field exactly; tickers are never parsed out of titles or summaries.
  */
+// Lower-cased search text, built once per item (the archive is ~36k items, and
+// rebuilding it on every keystroke was most of the search's cost).
+const haystacks = new WeakMap<LibraryItem, string>()
+function haystack(i: LibraryItem): string {
+  let h = haystacks.get(i)
+  if (h === undefined) { h = `${i.title}\n${i.name}\n${i.summary ?? ''}`.toLowerCase(); haystacks.set(i, h) }
+  return h
+}
+
 export function search(items: LibraryItem[], query: string): LibraryItem[] {
-  const words = query.trim().split(/\s+/).filter(Boolean)
+  const words = query.trim().split(/\s+/).filter(Boolean).map(w => ({
+    word: w.toLowerCase(), sym: w.replace(/^\$/, '').toUpperCase(), tickerOnly: w.startsWith('$'),
+  }))
   if (words.length === 0) return items
-  return items.filter(i => {
-    const hay = `${i.title}\n${i.name}\n${i.summary ?? ''}`.toLowerCase()
-    return words.every(w => {
-      const sym = w.replace(/^\$/, '').toUpperCase()
-      if (sym && i.tickers.includes(sym)) return true
-      if (w.startsWith('$')) return false   // "$NVDA" means the ticker, not the word
-      return hay.includes(w.toLowerCase())
-    })
-  })
+  return items.filter(i => words.every(w => {
+    if (w.sym && i.tickers.includes(w.sym)) return true
+    if (w.tickerOnly) return false   // "$NVDA" means the ticker, not the word
+    return haystack(i).includes(w.word)
+  }))
 }
 
 /** Results for an active search and/or tag, newest first, across the archive. */
@@ -300,3 +346,6 @@ export function clampLayout(l: Partial<LibraryLayout> | null | undefined): Libra
   const feed = typeof l?.feed === 'number' && isFinite(l.feed) ? l.feed : DEFAULT_LIBRARY_LAYOUT.feed
   return { top: clamp(top, 0.2, 0.8), feed: clamp(feed, 0.3, 0.85) }
 }
+
+/** Long lists are drawn this many rows at a time; more as you scroll. */
+export const LIST_PAGE = 100
